@@ -1,0 +1,45 @@
+{
+  "EXAMPLE": {
+    "it": {
+      "download_loc": "TextCreator/produced/downloads",
+      "html_dir": "TextCreator/produced/downloads",
+      "items_out_dir": "TextCreator/produced/items",
+      "text_out_dir": "TextCreator/produced/text",
+      "prompt_template_path": "TextCreator/PromptTemplates/Template.txt",
+      "prompts_out_dir": "TextCreator/produced/prompts",
+      "prompt_injection_keys": ["field_a", "field_b", "field_c", "url"],
+      "basename_keys": ["field_a", "field_b"],
+      "extract_rules": {
+        "field_a": { "css": "h1" },
+        "field_b": { "css": ".some-selector" },
+        "field_c": { "css": ".content", "sep": "\n" }
+      },
+      "download_urls": ["https://example.com/search?q=something"],
+      "link_selector": "a[href*='/item/']",
+      "links_per_search": 10,
+      "download_delay": 3.0,
+      "filename_from_url_regex": "/item/(\\d+)",
+      "title_selectors": ["h1", "title"]
+    }
+  },
+  "DESCRIPTION": {
+    "<GROUP>": "A named config group. Each group is a runnable configuration profile.",
+    "<GROUP>.download_loc": "Directory where downloaded HTML pages will be saved.",
+    "<GROUP>.html_dir": "Directory containing HTML pages to extract fields from (often the same as download_loc).",
+    "<GROUP>.items_out_dir": "Directory where extracted items are saved as JSON files.",
+    "<GROUP>.text_out_dir": "Directory where generated text outputs are saved.",
+    "<GROUP>.prompt_template_path": "Path to the base prompt template file used to generate per-item prompts.",
+    "<GROUP>.prompts_out_dir": "Directory where per-item prompt text files are written.",
+    "<GROUP>.prompt_injection_keys": "List of extracted item keys to inject into the prompt template (e.g. 'field_a', 'field_b', 'url').",
+    "<GROUP>.basename_keys": "Item keys used to build output filenames (e.g. ['field_a','field_b']).",
+    "<GROUP>.extract_rules": "Rules describing how to extract fields from HTML (CSS selectors, optional separators).",
+    "<GROUP>.extract_rules.<field>.css": "CSS selector used to extract a field from the HTML page.",
+    "<GROUP>.extract_rules.<field>.sep": "Optional separator used when joining multiple extracted text nodes (commonly '\\n').",
+    "<GROUP>.download_urls": "List of listing/search URLs to scrape links from.",
+    "<GROUP>.link_selector": "CSS selector used to find target page links on a listing/search page.",
+    "<GROUP>.links_per_search": "Maximum number of links to collect per listing/search URL.",
+    "<GROUP>.download_delay": "Delay (seconds) between loading listing/search pages.",
+    "<GROUP>.filename_from_url_regex": "Regex used to derive a stable filename from a downloaded page URL (optional but recommended).",
+    "<GROUP>.title_selectors": "Fallback CSS selectors used to locate a page title within a downloaded HTML page."
+  }
+}

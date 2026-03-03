@@ -1,0 +1,37 @@
+Write a formal letter using a standard New Zealand business layout.
+
+FORMAT (follow exactly)
+
+{{sender_name}}
+{{sender_address}}
+{{sender_phone}}
+{{sender_email}}
+
+{{date}}
+If {{date}} is blank, use today’s date in NZ format (e.g. 2 December 2025).
+
+{{recipient_name}}
+{{recipient_organisation}}
+{{recipient_address}}
+
+Dear {{salutation}},
+
+Write 2–4 short, clear paragraphs based on the information provided below. Keep the tone practical, direct, and professional.
+
+CONTEXT:
+{{context}}
+
+BACKGROUND:
+{{background}}
+
+CONSTRAINTS:
+- Do not invent facts.
+- Do not exaggerate.
+- Keep the writing concise and grounded.
+- Use plain New Zealand English.
+- If the context is vague, keep the letter general and indicate openness to further discussion.
+
+End the letter with:
+
+Yours sincerely,
+{{sender_name}}
