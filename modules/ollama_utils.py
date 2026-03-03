@@ -13,7 +13,7 @@ import requests
 
 def send_prompt_text_to_ollama_and_save(
   prompt_path: str,
-  letters_out_dir: str,
+  text_out_dir: str,
   base_url: str,
   model: str,
   temperature: float,
@@ -68,13 +68,13 @@ def send_prompt_text_to_ollama_and_save(
     print(f"[ERROR] Ollama request failed for {prompt_path} -> {e!r}")
     return None
   try:
-    os.makedirs(letters_out_dir, exist_ok=True)
+    os.makedirs(text_out_dir, exist_ok=True)
     base = os.path.basename(prompt_path)
     if base.endswith(".prompt.txt"):
       base = base[: -len(".prompt.txt")]
     else:
       base = os.path.splitext(base)[0]
-    out_path = os.path.join(letters_out_dir, f"{base}{output_suffix}")
+    out_path = os.path.join(text_out_dir, f"{base}{output_suffix}")
     if (not overwrite) and os.path.exists(out_path):
       print(f"[INFO] Letter exists, skipping: {out_path}")
       return out_path
@@ -89,7 +89,7 @@ def send_prompt_text_to_ollama_and_save(
 
 def generate_text_from_prompts_dir(
   prompts_out_dir: str,
-  letters_out_dir: str,
+  text_out_dir: str,
   base_url: str,
   model: str,
   temperature: float,
@@ -105,30 +105,35 @@ def generate_text_from_prompts_dir(
   prompt_paths = sorted(glob(os.path.join(prompts_out_dir, prompt_glob)))
   print(f"[INFO] Found {len(prompt_paths)} prompt file(s)")
   for idx, prompt_path in enumerate(prompt_paths, start=1):
-    print(f"\n[{idx}/{len(prompt_paths)}] Generating letter...")
+    print(f"\n[{idx}/{len(prompt_paths)}] Processing...")
     summary["processed"] += 1
     base = os.path.basename(prompt_path)
     if base.endswith(".prompt.txt"):
       base = base[: -len(".prompt.txt")]
     else:
       base = os.path.splitext(base)[0]
-    expected = os.path.join(letters_out_dir, f"{base}.coverletter.txt")
-    existed = os.path.exists(expected)
+    expected = os.path.join(text_out_dir, f"{base}.coverletter.txt")
+
+    # 🔹 SKIP EARLY if output exists and overwrite is False
+    if os.path.exists(expected) and not overwrite:
+      print(f"[SKIP] Already exists: {expected}")
+      summary["skipped"] += 1
+      continue
+
     out_path = send_prompt_text_to_ollama_and_save(
       prompt_path=prompt_path,
-      letters_out_dir=letters_out_dir,
+      text_out_dir=text_out_dir,
       base_url=base_url,
       model=model,
       temperature=temperature,
       overwrite=overwrite,
     )
+
     if out_path is None:
       summary["failed"] += 1
-      continue
-    if existed and not overwrite:
-      summary["skipped"] += 1
     else:
       summary["saved"] += 1
+
   print("\n[SUMMARY]")
   print(f"  Processed: {summary['processed']}")
   print(f"  Saved:     {summary['saved']}")

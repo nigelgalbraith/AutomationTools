@@ -9,7 +9,8 @@
     "prompt_injection_keys": [
       "field_a",
       "field_b",
-      "field_c"
+      "field_c",
+      "field_d"
     ],
     "basename_keys": [
       "field_a",
@@ -25,6 +26,9 @@
       "field_c": {
         "css": "[data-automation=\"itemDetails\"]",
         "sep": "\n"
+      },
+      "field_d": {
+        "regex": "\"id\"\\s*:\\s*\"(\\d+)\""
       }
     },
     "download_urls": [
@@ -50,7 +54,8 @@
     "prompt_injection_keys": [
       "field_a",
       "field_b",
-      "field_c"
+      "field_c",
+      "field_d"
     ],
     "basename_keys": [
       "field_a",
@@ -66,6 +71,9 @@
       "field_c": {
         "css": "[data-automation=\"itemDetails\"]",
         "sep": "\n"
+      },
+      "field_d": {
+        "regex": "\"id\"\\s*:\\s*\"(\\d+)\""
       }
     },
     "download_urls": [

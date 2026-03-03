@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
 import requests
@@ -24,13 +25,19 @@ def fetch_text(url: str, timeout_s: int = 15, headers: Optional[Dict[str, str]] 
 
 
 def parse_fields_from_html(html: str, rules: Dict[str, Dict[str, Any]]) -> Dict[str, str]:
-  """Extract named text fields from HTML using CSS selector rules"""
+  """Extract named text fields from HTML using CSS selector or regex rules"""
   soup = BeautifulSoup(html, "html.parser")
   out: Dict[str, str] = {}
   for field, rule in (rules or {}).items():
-    selector = (rule or {}).get("css", "")
-    attr = (rule or {}).get("attr")
-    sep = (rule or {}).get("sep", "\n")
+    rule = rule or {}
+    pattern = rule.get("regex")
+    if pattern:
+      m = re.search(pattern, html)
+      out[field] = m.group(1).strip() if m else ""
+      continue
+    selector = rule.get("css", "")
+    attr = rule.get("attr")
+    sep = rule.get("sep", "\n")
     if not selector:
       out[field] = ""
       continue

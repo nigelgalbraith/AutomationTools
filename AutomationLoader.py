@@ -452,27 +452,38 @@ class StateMachine:
             self.selected_groups = [choice]
         self.state = State.PIPELINE_PRE
 
+
     def run_pipeline_pre(self) -> None:
         """Run pre-phase steps for EACH group, then advance to plan/confirm."""
         spec = self._pending_pipeline_spec or {}
         pipeline = spec.get("pipeline") or []
         label = spec.get("label", "DONE")
         success_key = spec.get("success_key", "ok")
+        pre_steps = [s for s in pipeline if (s or {}).get("phase", "pre") == "pre"]
+        action_spec = self.actions.get(self.current_action_key or "", {})
+        if not pre_steps:
+            if self.plan_only:
+                self.state = State.PREPARE_PLAN
+                return
+            if action_spec.get("skip_prepare_plan", False):
+                self.state = State.CONFIRM
+                return
+            self.state = State.PREPARE_PLAN
+            return
         group_names = self.selected_groups or list(self.cfg_groups.keys())
         for group_name in group_names:
             group_cfg = self.cfg_groups[group_name]
             group_ctx = self.runtime_ctx["groups"].setdefault(group_name, {})
             print(f"\n  ==> Group: {group_name}")
             run_pipeline_steps(
-                group_name,
-                group_cfg,
-                pipeline,
-                phase="pre",
-                label=label,
-                success_key=success_key,
-                ctx=group_ctx,
+            group_name,
+            group_cfg,
+            pre_steps,
+            phase="pre",
+            label=label,
+            success_key=success_key,
+            ctx=group_ctx,
             )
-        action_spec = self.actions.get(self.current_action_key or "", {})
         if self.plan_only:
             self.state = State.PREPARE_PLAN
             return

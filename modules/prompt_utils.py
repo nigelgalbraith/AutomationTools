@@ -46,7 +46,7 @@ def write_prompts_from_items(
       for key in (injection_keys or []):
         values[key] = item.get(key, "")
       rendered = render_prompt_template(template_text, values)
-      base = build_basename(idx, item, basename_keys)
+      base = build_basename(item, basename_keys)
       path = os.path.join(prompts_out_dir, f"{base}{output_suffix}")
       with open(path, "w", encoding="utf-8", newline="") as f:
         f.write(rendered)

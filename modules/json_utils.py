@@ -44,13 +44,12 @@ def slugify(text: str) -> str:
   return s or "item"
 
 
-def build_basename(idx: int, item: Dict[str, str], basename_keys: List[str]) -> str:
-  """Build output basename from index and configured keys."""
-  parts = [f"{idx:03d}"]
-  for key in (basename_keys or []):
-    parts.append(slugify(item.get(key, f"unknown_{key}")))
-  return "_".join(parts)
-
+def build_basename(item: Dict[str, str], basename_keys: List[str]) -> str:
+  """Build output basename from configured keys."""
+  return "_".join(
+    slugify(item.get(key, f"unknown_{key}"))
+    for key in (basename_keys or [])
+  )
 
 def resolve_value(data: dict, primary_key: str, secondary_key: str, default_key: str = "default", check_file: bool = True) -> str | bool:
   """Resolve a nested dictionary value with fallback to `default_key`"""
@@ -153,7 +152,7 @@ def save_items_json_dir(
   saved = 0
   for idx, item in enumerate(items, start=1):
     try:
-      base = build_basename(idx, item, basename_keys)
+      base = build_basename(item, basename_keys)
       path = os.path.join(out_dir, f"{base}.json")
       save_json_file(path, item)
       print(f"[{idx}/{len(items)}] Saved: {path}")

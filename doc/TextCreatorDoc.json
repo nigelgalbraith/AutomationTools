@@ -1,20 +1,44 @@
 {
   "EXAMPLE": {
-    "it": {
-      "download_loc": "TextCreator/produced/downloads",
-      "html_dir": "TextCreator/produced/downloads",
-      "items_out_dir": "TextCreator/produced/items",
-      "text_out_dir": "TextCreator/produced/text",
-      "prompt_template_path": "TextCreator/PromptTemplates/Template.txt",
-      "prompts_out_dir": "TextCreator/produced/prompts",
-      "prompt_injection_keys": ["field_a", "field_b", "field_c", "url"],
+    "GROUP-A": {
+      "download_loc": "TextCreator/produced/downloads/Group-A",
+      "html_dir": "TextCreator/produced/downloads/Group-A",
+      "items_out_dir": "TextCreator/produced/items/Group-A",
+      "text_out_dir": "TextCreator/produced/text/Group-A",
+      "prompt_template_path": "TextCreator/PromptTemplates/Template-A.txt",
+      "prompts_out_dir": "TextCreator/produced/prompts/Group-A",
+      "prompt_injection_keys": ["field_a", "field_b", "field_c", "field_d", "url"],
       "basename_keys": ["field_a", "field_b"],
       "extract_rules": {
         "field_a": { "css": "h1" },
-        "field_b": { "css": ".some-selector" },
-        "field_c": { "css": ".content", "sep": "\n" }
+        "field_b": { "css": ".some-selector-a" },
+        "field_c": { "css": ".content-a", "sep": "\n" },
+        "field_d": { "regex": "\"id\"\\s*:\\s*\"(\\d+)\"" }
       },
-      "download_urls": ["https://example.com/search?q=something"],
+      "download_urls": ["https://example.com/search/group-a"],
+      "link_selector": "a[href*='/item/']",
+      "links_per_search": 10,
+      "download_delay": 3.0,
+      "filename_from_url_regex": "/item/(\\d+)",
+      "title_selectors": ["h1", "title"]
+    },
+
+    "GROUP-B": {
+      "download_loc": "TextCreator/produced/downloads/Group-B",
+      "html_dir": "TextCreator/produced/downloads/Group-B",
+      "items_out_dir": "TextCreator/produced/items/Group-B",
+      "text_out_dir": "TextCreator/produced/text/Group-B",
+      "prompt_template_path": "TextCreator/PromptTemplates/Template-B.txt",
+      "prompts_out_dir": "TextCreator/produced/prompts/Group-B",
+      "prompt_injection_keys": ["field_a", "field_b", "field_c", "field_d", "url"],
+      "basename_keys": ["field_a", "field_b"],
+      "extract_rules": {
+        "field_a": { "css": "h1" },
+        "field_b": { "css": ".some-selector-b" },
+        "field_c": { "css": ".content-b", "sep": "\n" },
+        "field_d": { "regex": "\"id\"\\s*:\\s*\"(\\d+)\"" }
+      },
+      "download_urls": ["https://example.com/search/group-b"],
       "link_selector": "a[href*='/item/']",
       "links_per_search": 10,
       "download_delay": 3.0,
@@ -22,6 +46,7 @@
       "title_selectors": ["h1", "title"]
     }
   },
+
   "DESCRIPTION": {
     "<GROUP>": "A named config group. Each group is a runnable configuration profile.",
     "<GROUP>.download_loc": "Directory where downloaded HTML pages will be saved.",
@@ -30,11 +55,13 @@
     "<GROUP>.text_out_dir": "Directory where generated text outputs are saved.",
     "<GROUP>.prompt_template_path": "Path to the base prompt template file used to generate per-item prompts.",
     "<GROUP>.prompts_out_dir": "Directory where per-item prompt text files are written.",
-    "<GROUP>.prompt_injection_keys": "List of extracted item keys to inject into the prompt template (e.g. 'field_a', 'field_b', 'url').",
-    "<GROUP>.basename_keys": "Item keys used to build output filenames (e.g. ['field_a','field_b']).",
-    "<GROUP>.extract_rules": "Rules describing how to extract fields from HTML (CSS selectors, optional separators).",
+    "<GROUP>.prompt_injection_keys": "List of extracted item keys to inject into the prompt template.",
+    "<GROUP>.basename_keys": "Item keys used to build output filenames.",
+    "<GROUP>.extract_rules": "Rules describing how to extract fields from HTML (CSS selectors, optional separators, and optional regex extraction).",
     "<GROUP>.extract_rules.<field>.css": "CSS selector used to extract a field from the HTML page.",
-    "<GROUP>.extract_rules.<field>.sep": "Optional separator used when joining multiple extracted text nodes (commonly '\\n').",
+    "<GROUP>.extract_rules.<field>.attr": "Optional attribute name to read from the matched node instead of text content.",
+    "<GROUP>.extract_rules.<field>.sep": "Optional separator used when joining extracted text content (commonly '\\n').",
+    "<GROUP>.extract_rules.<field>.regex": "Regex pattern applied to the raw HTML to extract a field. If present, it takes precedence over 'css'. The first capture group is used as the extracted value.",
     "<GROUP>.download_urls": "List of listing/search URLs to scrape links from.",
     "<GROUP>.link_selector": "CSS selector used to find target page links on a listing/search page.",
     "<GROUP>.links_per_search": "Maximum number of links to collect per listing/search URL.",
