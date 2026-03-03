@@ -1,91 +1,105 @@
 {
   "Group-A": {
-    "download_loc": "TextCreator/produced/downloads/Group-A",
-    "html_dir": "TextCreator/produced/downloads/Group-A/",
-    "items_out_dir": "TextCreator/produced/items/Group-A",
-    "text_out_dir": "TextCreator/produced/text/Group-A",
-    "prompt_template_path": "TextCreator/PromptTemplates/Template-A-Prompt.txt",
-    "prompts_out_dir": "TextCreator/produced/prompts/Group-A",
-    "prompt_injection_keys": [
-      "field_a",
-      "field_b",
-      "field_c",
-      "field_d"
-    ],
-    "basename_keys": [
-      "field_a",
-      "field_b"
-    ],
-    "extract_rules": {
-      "field_a": {
-        "css": "h1"
-      },
-      "field_b": {
-        "css": "[data-automation=\"item-name\"]"
-      },
-      "field_c": {
-        "css": "[data-automation=\"itemDetails\"]",
-        "sep": "\n"
-      },
-      "field_d": {
-        "regex": "\"id\"\\s*:\\s*\"(\\d+)\""
+    "download_keys": {
+      "download_loc": "TextCreator/produced/downloads/Group-A",
+      "download_urls": [
+        "https://example.com/collection/a"
+      ],
+      "follow_links": true,
+      "link_selector": "a[href*='/item/']",
+      "links_per_search": 10,
+      "download_delay": 3.0,
+      "filename_from_url_regex": "/item/(\\d+)",
+      "title_selectors": [
+        "[data-automation='itemTitle']",
+        "h1"
+      ]
+    },
+    "extract_keys": {
+      "html_dir": "TextCreator/produced/downloads/Group-A",
+      "items_out_dir": "TextCreator/produced/items/Group-A",
+      "basename_keys": [
+        "field_a",
+        "field_b"
+      ],
+      "extract_rules": {
+        "field_a": {
+          "css": "h1"
+        },
+        "field_b": {
+          "css": "[data-automation=\"item-name\"]"
+        },
+        "field_c": {
+          "css": "[data-automation=\"itemDetails\"]",
+          "sep": "\n"
+        },
+        "field_d": {
+          "regex": "\"id\"\\s*:\\s*\"(\\d+)\""
+        }
       }
     },
-    "download_urls": [
-      "https://example.com/collection/a"
-    ],
-    "link_selector": "a[href*='/item/']",
-    "links_per_search": 10,
-    "download_delay": 3.0,
-    "filename_from_url_regex": "/item/(\\d+)",
-    "title_selectors": [
-      "[data-automation='itemTitle']",
-      "h1"
-    ]
+    "prompt_keys": {
+      "text_out_dir": "TextCreator/produced/text/Group-A",
+      "prompt_template_path": "TextCreator/PromptTemplates/Template-A-Prompt.txt",
+      "prompts_out_dir": "TextCreator/produced/prompts/Group-A",
+      "prompt_injection_keys": [
+        "field_a",
+        "field_b",
+        "field_c",
+        "field_d"
+      ]
+    }
   },
 
   "Group-B": {
-    "download_loc": "TextCreator/produced/downloads/Group-B",
-    "html_dir": "TextCreator/produced/downloads/Group-B/",
-    "items_out_dir": "TextCreator/produced/items/Group-B",
-    "text_out_dir": "TextCreator/produced/text/Group-B",
-    "prompt_template_path": "TextCreator/PromptTemplates/Template-B-Prompt.txt",
-    "prompts_out_dir": "TextCreator/produced/prompts/Group-B",
-    "prompt_injection_keys": [
-      "field_a",
-      "field_b",
-      "field_c",
-      "field_d"
-    ],
-    "basename_keys": [
-      "field_a",
-      "field_b"
-    ],
-    "extract_rules": {
-      "field_a": {
-        "css": "h1"
-      },
-      "field_b": {
-        "css": "[data-automation=\"item-name\"]"
-      },
-      "field_c": {
-        "css": "[data-automation=\"itemDetails\"]",
-        "sep": "\n"
-      },
-      "field_d": {
-        "regex": "\"id\"\\s*:\\s*\"(\\d+)\""
+    "download_keys": {
+      "download_loc": "TextCreator/produced/downloads/Group-B",
+      "download_urls": [
+        "https://example.com/collection/b"
+      ],
+      "follow_links": true,
+      "link_selector": "a[href*='/item/']",
+      "links_per_search": 10,
+      "download_delay": 3.0,
+      "filename_from_url_regex": "/item/(\\d+)",
+      "title_selectors": [
+        "[data-automation='itemTitle']",
+        "h1"
+      ]
+    },
+    "extract_keys": {
+      "html_dir": "TextCreator/produced/downloads/Group-B",
+      "items_out_dir": "TextCreator/produced/items/Group-B",
+      "basename_keys": [
+        "field_a",
+        "field_b"
+      ],
+      "extract_rules": {
+        "field_a": {
+          "css": "h1"
+        },
+        "field_b": {
+          "css": "[data-automation=\"item-name\"]"
+        },
+        "field_c": {
+          "css": "[data-automation=\"itemDetails\"]",
+          "sep": "\n"
+        },
+        "field_d": {
+          "regex": "\"id\"\\s*:\\s*\"(\\d+)\""
+        }
       }
     },
-    "download_urls": [
-      "https://example.com/collection/b"
-    ],
-    "link_selector": "a[href*='/item/']",
-    "links_per_search": 10,
-    "download_delay": 3.0,
-    "filename_from_url_regex": "/item/(\\d+)",
-    "title_selectors": [
-      "[data-automation='itemTitle']",
-      "h1"
-    ]
+    "prompt_keys": {
+      "text_out_dir": "TextCreator/produced/text/Group-B",
+      "prompt_template_path": "TextCreator/PromptTemplates/Template-B-Prompt.txt",
+      "prompts_out_dir": "TextCreator/produced/prompts/Group-B",
+      "prompt_injection_keys": [
+        "field_a",
+        "field_b",
+        "field_c",
+        "field_d"
+      ]
+    }
   }
 }

@@ -40,6 +40,9 @@ MINIMIZED_MODE = True
 SHOW_SOURCE_ON_EXTRACTION = True
 
 # CONSTANTS
+DOWNLOAD_KEYS_SECTION = "download_keys"
+EXTRACT_KEYS_SECTION = "extract_keys"
+PROMPT_KEYS_SECTION = "prompt_keys"
 DOWNLOAD_LOC_KEY = "download_loc"
 LETTERS_OUT_DIR_KEY = "text_out_dir"
 PROMPT_TEMPLATE_PATH_KEY = "prompt_template_path"
@@ -50,6 +53,7 @@ ITEMS_OUT_DIR_KEY = "items_out_dir"
 EXTRACT_RULES_KEY = "extract_rules"
 BASENAME_KEYS_KEY = "basename_keys"
 DL_URLS_KEY = "download_urls"
+FOLLOW_LINKS_KEY = "follow_links"
 LINK_SELECTOR_KEY = "link_selector"
 LINKS_PER_SEARCH_KEY = "links_per_search"
 DOWNLOAD_DELAY_KEY = "download_delay"
@@ -59,24 +63,46 @@ TITLE_SELECTORS_KEY = "title_selectors"
 # VALIDATION
 VALIDATION_CONFIG: Dict[str, Any] = {
   "required_job_fields": {
-    DOWNLOAD_LOC_KEY: str,
-    LETTERS_OUT_DIR_KEY: str,
-    PROMPT_TEMPLATE_PATH_KEY: str,
-    PROMPTS_OUT_DIR_KEY: str,
-    PROMPT_INJECTION_KEYS_KEY: list,
-    HTML_DIR_KEY: str,
-    ITEMS_OUT_DIR_KEY: str,
-    EXTRACT_RULES_KEY: dict,
-    BASENAME_KEYS_KEY: list,
-    DL_URLS_KEY: list,
-    LINK_SELECTOR_KEY: str,
-    LINKS_PER_SEARCH_KEY: int,
-    DOWNLOAD_DELAY_KEY: float,
-    FILENAME_FROM_URL_REGEX_KEY: str,
-    TITLE_SELECTORS_KEY: list,
+    DOWNLOAD_KEYS_SECTION: dict,
+    EXTRACT_KEYS_SECTION: dict,
+    PROMPT_KEYS_SECTION: dict,
   },
 }
-SECONDARY_VALIDATION: Dict[str, Any] = {}
+
+SECONDARY_VALIDATION: Dict[str, Any] = {
+  DOWNLOAD_KEYS_SECTION: {
+    "required_job_fields": {
+      DOWNLOAD_LOC_KEY: str,
+      DL_URLS_KEY: list,
+      LINK_SELECTOR_KEY: str,
+      LINKS_PER_SEARCH_KEY: int,
+      DOWNLOAD_DELAY_KEY: float,
+      FOLLOW_LINKS_KEY: bool,
+      FILENAME_FROM_URL_REGEX_KEY: str,
+      TITLE_SELECTORS_KEY: list,
+    },
+    "allow_empty": True,
+  },
+
+  EXTRACT_KEYS_SECTION: {
+    "required_job_fields": {
+      HTML_DIR_KEY: str,
+      ITEMS_OUT_DIR_KEY: str,
+      EXTRACT_RULES_KEY: dict,
+      BASENAME_KEYS_KEY: list,
+    }
+  },
+
+  PROMPT_KEYS_SECTION: {
+    "required_job_fields": {
+      LETTERS_OUT_DIR_KEY: str,
+      PROMPT_TEMPLATE_PATH_KEY: str,
+      PROMPTS_OUT_DIR_KEY: str,
+      PROMPT_INJECTION_KEYS_KEY: list,
+    }
+  },
+}
+
 REQUIRED_USER = "standard"
 
 # CONSTANTS
@@ -154,6 +180,7 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
     "prompt": "Show config help now? [y/n]: ",
     "execute_state": "SHOW_CONFIG_DOC",
     "post_state": "MENU_SELECTION",
+    "skip_group_select": True,
     "skip_prepare_plan": True,
     "skip_confirm": True,
   },
@@ -172,15 +199,16 @@ DOWNLOAD_HTML_EXEC = [
     "phase": "exec",
     "fn": download_html_pages,
     "args": [
-      lambda job, meta, ctx: meta[DL_URLS_KEY],
-      lambda job, meta, ctx: meta[DOWNLOAD_LOC_KEY],
-      lambda job, meta, ctx: meta[LINK_SELECTOR_KEY],
-      lambda job, meta, ctx: meta[LINKS_PER_SEARCH_KEY],
+      lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][DL_URLS_KEY],
+      lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][DOWNLOAD_LOC_KEY],
+      lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION].get(FOLLOW_LINKS_KEY, True),
+      lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][LINK_SELECTOR_KEY],
+      lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][LINKS_PER_SEARCH_KEY],
       lambda job, meta, ctx: HEADLESS_MODE,
       lambda job, meta, ctx: MINIMIZED_MODE,
-      lambda job, meta, ctx: meta[DOWNLOAD_DELAY_KEY],
-      lambda job, meta, ctx: meta[FILENAME_FROM_URL_REGEX_KEY],
-      lambda job, meta, ctx: meta[TITLE_SELECTORS_KEY],
+      lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][DOWNLOAD_DELAY_KEY],
+      lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][FILENAME_FROM_URL_REGEX_KEY],
+      lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][TITLE_SELECTORS_KEY],
     ],
     "result": "download_results",
   }
@@ -191,7 +219,7 @@ EXTRACT_FIELDS_HTML_EXEC = [
     "phase": "exec",
     "fn": list_html_files,
     "args": [
-      lambda job, meta, ctx: meta[HTML_DIR_KEY],
+      lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION][HTML_DIR_KEY],
     ],
     "result": "sources",
   },
@@ -200,7 +228,7 @@ EXTRACT_FIELDS_HTML_EXEC = [
     "fn": extract_fields_from_url,
     "args": [
       lambda job, meta, ctx: ctx.get("sources", []),
-      lambda job, meta, ctx: meta.get(EXTRACT_RULES_KEY, {}),
+      lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION].get(EXTRACT_RULES_KEY, {}),
       lambda job, meta, ctx: SHOW_SOURCE_ON_EXTRACTION,
     ],
     "result": "items",
@@ -211,8 +239,8 @@ EXTRACT_FIELDS_HTML_EXEC = [
     "fn": save_items_json_dir,
     "args": [
       lambda job, meta, ctx: ctx.get("items", []),
-      lambda job, meta, ctx: meta[ITEMS_OUT_DIR_KEY],
-      lambda job, meta, ctx: meta.get(BASENAME_KEYS_KEY, []),
+      lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION][ITEMS_OUT_DIR_KEY],
+      lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION].get(BASENAME_KEYS_KEY, []),
     ],
     "result": "saved_items_ok",
     "when": lambda job, meta, ctx: bool(ctx.get("items")),
@@ -224,7 +252,7 @@ UPDATE_PROMPTS_EXEC = [
     "phase": "exec",
     "fn": load_items_from_dir,
     "args": [
-      lambda job, meta, ctx: meta[ITEMS_OUT_DIR_KEY],
+      lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION][ITEMS_OUT_DIR_KEY],
     ],
     "result": "items",
   },
@@ -232,11 +260,11 @@ UPDATE_PROMPTS_EXEC = [
     "phase": "exec",
     "fn": write_prompts_from_items,
     "args": [
-      lambda job, meta, ctx: meta[PROMPT_TEMPLATE_PATH_KEY],
-      lambda job, meta, ctx: meta[PROMPTS_OUT_DIR_KEY],
+      lambda job, meta, ctx: meta[PROMPT_KEYS_SECTION][PROMPT_TEMPLATE_PATH_KEY],
+      lambda job, meta, ctx: meta[PROMPT_KEYS_SECTION][PROMPTS_OUT_DIR_KEY],
       lambda job, meta, ctx: ctx.get("items", []),
-      lambda job, meta, ctx: meta.get(PROMPT_INJECTION_KEYS_KEY, []),
-      lambda job, meta, ctx: meta.get(BASENAME_KEYS_KEY, []),
+      lambda job, meta, ctx: meta[PROMPT_KEYS_SECTION].get(PROMPT_INJECTION_KEYS_KEY, []),
+      lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION].get(BASENAME_KEYS_KEY, []),
     ],
     "result": "saved_prompts_count",
     "when": lambda job, meta, ctx: bool(ctx.get("items")),
@@ -259,8 +287,8 @@ GENERATE_TEXT_EXEC = [
     "phase": "exec",
     "fn": generate_text_from_prompts_dir,
     "args": [
-      lambda job, meta, ctx: meta[PROMPTS_OUT_DIR_KEY],
-      lambda job, meta, ctx: meta[LETTERS_OUT_DIR_KEY],
+      lambda job, meta, ctx: meta[PROMPT_KEYS_SECTION][PROMPTS_OUT_DIR_KEY],
+      lambda job, meta, ctx: meta[PROMPT_KEYS_SECTION][LETTERS_OUT_DIR_KEY],
       lambda job, meta, ctx: BASE_URL,
       lambda job, meta, ctx: MODEL,
       lambda job, meta, ctx: float(TEMPERATURE),

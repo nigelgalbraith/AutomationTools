@@ -125,6 +125,7 @@ def _download_html_page(
 def download_html_pages(
   search_urls: List[str],
   download_dir: str,
+  follow_links: bool,
   link_selector: str,
   links_per_search: int = 10,
   headless: bool = False,
@@ -137,7 +138,7 @@ def download_html_pages(
   min_html_size_bytes: int = 5000,
   url_must_contain: Optional[str] = None,
 ) -> Dict[str, Any]:
-  """Download HTML pages by scraping links from search URLs"""
+  """Download HTML pages by scraping links from search URLs (or downloading URLs directly)."""
   results: Dict[str, Any] = {
     "success": False,
     "total_links_found": 0,
@@ -154,22 +155,28 @@ def download_html_pages(
   try:
     print(f"[INFO] Starting Selenium (headless={headless}, minimized={minimized})")
     driver = setup_selenium_driver(headless=headless, minimized=minimized)
-    all_links: List[str] = []
-    for idx, url in enumerate(search_urls, start=1):
-      print(f"[INFO] [{idx}/{len(search_urls)}] Loading search page: {url}")
-      links = _fetch_page_links(
-        driver=driver,
-        url=url,
-        limit=links_per_search,
-        link_selector=link_selector,
-        url_must_contain=url_must_contain,
-      )
-      print(f"[OK] Found {len(links)} link(s) on search page.")
-      all_links.extend(links)
-      time.sleep(delay_between_actions)
-    unique_links = sorted(set(all_links))
-    results["total_links_found"] = len(unique_links)
-    print(f"[INFO] Total unique link(s) to download: {len(unique_links)}")
+    if follow_links:
+      all_links: List[str] = []
+      for idx, url in enumerate(search_urls, start=1):
+        print(f"[INFO] [{idx}/{len(search_urls)}] Loading search page: {url}")
+        links = _fetch_page_links(
+          driver=driver,
+          url=url,
+          limit=links_per_search,
+          link_selector=link_selector,
+          url_must_contain=url_must_contain,
+        )
+        print(f"[OK] Found {len(links)} link(s) on search page.")
+        all_links.extend(links)
+        time.sleep(delay_between_actions)
+      unique_links = sorted(set(all_links))
+      results["total_links_found"] = len(unique_links)
+      print(f"[INFO] Total unique link(s) to download: {len(unique_links)}")
+    else:
+      print("[INFO] follow_links=False -> downloading provided URLs directly.")
+      unique_links = [u.strip() for u in search_urls if (u or "").strip()]
+      results["total_links_found"] = len(unique_links)
+      print(f"[INFO] Total URL(s) to download: {len(unique_links)}")
     for i, page_url in enumerate(unique_links, start=1):
       results["downloads_attempted"] += 1
       print(f"[INFO] [{i}/{len(unique_links)}] Downloading: {page_url}")
