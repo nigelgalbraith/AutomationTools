@@ -43,7 +43,7 @@
     },
     "prompt_keys": {
       "text_out_dir": "TextCreator/produced/text/Group-A",
-      "prompt_template_path": "TextCreator/PromptTemplates/Template-A-Prompt.txt",
+      "prompt_template_path": "TextCreator/promptTemplates/Template-A-Prompt.txt",
       "prompts_out_dir": "TextCreator/produced/prompts/Group-A",
       "prompt_injection_keys": [
         "field_a",
@@ -98,7 +98,7 @@
     },
     "prompt_keys": {
       "text_out_dir": "TextCreator/produced/text/Group-B",
-      "prompt_template_path": "TextCreator/PromptTemplates/Template-B-Prompt.txt",
+      "prompt_template_path": "TextCreator/promptTemplates/Template-B-Prompt.txt",
       "prompts_out_dir": "TextCreator/produced/prompts/Group-B",
       "prompt_injection_keys": [
         "field_a",
