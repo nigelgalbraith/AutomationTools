@@ -92,15 +92,22 @@ def _fetch_page_links(
   from selenium.webdriver.support.ui import WebDriverWait
   from selenium.webdriver.support import expected_conditions as EC
   driver.get(url)
+  time.sleep(3.0)
+  print(f"[DEBUG] Page title: {driver.title}")
+  print(f"[DEBUG] Current URL: {driver.current_url}")
   try:
-    WebDriverWait(driver, 12).until(
-      EC.presence_of_element_located((By.CSS_SELECTOR, link_selector))
+    WebDriverWait(driver, 20).until(
+      lambda d: len(d.find_elements(By.CSS_SELECTOR, link_selector)) > 0
     )
-  except Exception:
+  except Exception as e:
+    print(f"[WARN] No elements found for selector: {link_selector} -> {e!r}")
+    print(f"[DEBUG] Page title: {driver.title}")
+    print(f"[DEBUG] Page source length: {len(driver.page_source or '')}")
     return []
   driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
   time.sleep(2.0)
   elements = driver.find_elements(By.CSS_SELECTOR, link_selector)
+  print(f"[DEBUG] Raw matched elements: {len(elements)}")
   page_links: List[str] = []
   active_skip_ids = skip_ids or set()
   for element in elements:
