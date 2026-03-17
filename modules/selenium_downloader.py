@@ -4,12 +4,37 @@ import os
 import re
 import time
 from random import uniform
-from typing import Any, Dict, List, Optional, Tuple
-
+from typing import Any, Dict, List, Optional, Tuple, Set
+from modules.system_utils import load_skip_list
 
 # ---------------------------------------------------------------------
 # HELPERS
-# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------  
+
+def extract_skip_id_from_url(url: str, filename_from_url_regex: Optional[str]) -> str:
+  """Extract skip ID from URL using the configured regex."""
+  if not filename_from_url_regex:
+    return ""
+  match = re.search(filename_from_url_regex, url)
+  if not match:
+    return ""
+  return match.group(1).strip()
+
+
+def append_skip_id(skip_id: str, skip_list_file: Optional[str], skip_ids: Set[str]) -> None:
+  """Append a new skip ID to the skip list file and update the in-memory set."""
+  if not skip_id or not skip_list_file:
+    return
+  if skip_id in skip_ids:
+    return
+  skip_ids.add(skip_id)
+  with open(skip_list_file, "a+", encoding="utf-8") as f:
+    f.seek(0, os.SEEK_END)
+    if f.tell() > 0:
+      f.seek(f.tell() - 1)
+      if f.read(1) != "\n":
+        f.write("\n")
+    f.write(skip_id + "\n")
 
 
 def setup_selenium_driver(headless: bool = False, minimized: bool = False):
@@ -53,8 +78,16 @@ def _extract_title_slug(driver: Any, selectors: List[str]) -> Optional[str]:
   return None
 
 
-def _fetch_page_links(driver, url, limit, link_selector, url_must_contain=None):
-  """Extract links from a search page using a CSS selector."""
+def _fetch_page_links(
+  driver,
+  url,
+  limit,
+  link_selector,
+  url_must_contain=None,
+  skip_ids: Optional[Set[str]] = None,
+  filename_from_url_regex: Optional[str] = None,
+):
+  """Extract non-skipped links from a search page using a CSS selector."""
   from selenium.webdriver.common.by import By
   from selenium.webdriver.support.ui import WebDriverWait
   from selenium.webdriver.support import expected_conditions as EC
@@ -69,12 +102,17 @@ def _fetch_page_links(driver, url, limit, link_selector, url_must_contain=None):
   time.sleep(2.0)
   elements = driver.find_elements(By.CSS_SELECTOR, link_selector)
   page_links: List[str] = []
+  active_skip_ids = skip_ids or set()
   for element in elements:
     href = element.get_attribute("href")
     if not href:
       continue
     clean_url = href.split("?", 1)[0]
     if url_must_contain and url_must_contain not in clean_url:
+      continue
+    skip_id = extract_skip_id_from_url(clean_url, filename_from_url_regex)
+    if skip_id and skip_id in active_skip_ids:
+      print(f"[INFO] Skipping URL with skip ID '{skip_id}': {clean_url}")
       continue
     if clean_url not in page_links:
       page_links.append(clean_url)
@@ -133,6 +171,7 @@ def download_html_pages(
   delay_between_actions: float = 3.0,
   filename_from_url_regex: Optional[str] = None,
   title_selectors: Optional[List[str]] = None,
+  skip_list_file: Optional[str] = None,
   min_delay_between_downloads_s: float = 2.0,
   max_delay_between_downloads_s: float = 4.0,
   min_html_size_bytes: int = 5000,
@@ -147,6 +186,11 @@ def download_html_pages(
     "download_dir": download_dir,
     "errors": [],
   }
+  skip_ids = load_skip_list(skip_list_file)
+  if not skip_list_file:
+    print("[INFO] Skip list disabled.")
+  else:
+    print(f"[INFO] Loaded {len(skip_ids)} skip IDs.")
   if not search_urls:
     print("[INFO] No search URLs provided.")
     return results
@@ -165,18 +209,31 @@ def download_html_pages(
           limit=links_per_search,
           link_selector=link_selector,
           url_must_contain=url_must_contain,
+          skip_ids=skip_ids,
+          filename_from_url_regex=filename_from_url_regex,
         )
         print(f"[OK] Found {len(links)} link(s) on search page.")
         all_links.extend(links)
         time.sleep(delay_between_actions)
       unique_links = sorted(set(all_links))
-      results["total_links_found"] = len(unique_links)
-      print(f"[INFO] Total unique link(s) to download: {len(unique_links)}")
+      print(f"[INFO] Total unique scraped link(s): {len(unique_links)}")
     else:
       print("[INFO] follow_links=False -> downloading provided URLs directly.")
-      unique_links = [u.strip() for u in search_urls if (u or "").strip()]
-      results["total_links_found"] = len(unique_links)
-      print(f"[INFO] Total URL(s) to download: {len(unique_links)}")
+      unique_links = sorted(set(u.strip() for u in search_urls if (u or "").strip()))
+      print(f"[INFO] Total provided URL(s): {len(unique_links)}")
+    filtered_links: List[str] = []
+    skipped_count = 0
+    for link in unique_links:
+      skip_id = extract_skip_id_from_url(link, filename_from_url_regex)
+      if skip_id and skip_id in skip_ids:
+        skipped_count += 1
+        print(f"[INFO] Skipping URL with skip ID '{skip_id}': {link}")
+        continue
+      filtered_links.append(link)
+    unique_links = filtered_links
+    results["total_links_found"] = len(unique_links)
+    print(f"[INFO] Total link(s) after skip filtering: {len(unique_links)}")
+    print(f"[INFO] Total skipped link(s): {skipped_count}")
     for i, page_url in enumerate(unique_links, start=1):
       results["downloads_attempted"] += 1
       print(f"[INFO] [{i}/{len(unique_links)}] Downloading: {page_url}")
@@ -192,6 +249,8 @@ def download_html_pages(
       if ok:
         results["downloads_succeeded"] += 1
         print(f"    [OK] Saved: {filename}")
+        job_id = extract_skip_id_from_url(page_url, filename_from_url_regex)
+        append_skip_id(job_id, skip_list_file, skip_ids)
       else:
         results["errors"].append({"url": page_url, "error": err})
         print(f"    [ERROR] Failed: {err}")

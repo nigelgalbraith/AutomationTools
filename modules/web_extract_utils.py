@@ -6,11 +6,26 @@ from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urlparse
 import requests
 from bs4 import BeautifulSoup
+from modules.system_utils import load_skip_list
 
 
 # ---------------------------------------------------------------------
 # HELPERS
 # ---------------------------------------------------------------------
+def should_skip_extracted_item(item_data: Dict[str, str], extract_rules: Dict[str, Any]) -> bool:
+  """Return True if any extracted field value matches its configured skip list."""
+  for field_name, rule in extract_rules.items():
+    skip_list_file = rule.get("skip_list_file", "")
+    if not skip_list_file:
+      continue
+    field_value = str(item_data.get(field_name, "")).strip()
+    if not field_value:
+      continue
+    skip_values = {value.strip().lower() for value in load_skip_list(skip_list_file)}
+    if field_value.lower() in skip_values:
+      print(f"[INFO] Skipping item because '{field_name}' matched skip list: {field_value}")
+      return True
+  return False
 
 
 def fetch_text(url: str, timeout_s: int = 15, headers: Optional[Dict[str, str]] = None) -> str:
@@ -74,17 +89,25 @@ def _extract_one_source(source: str, rules: Dict[str, Dict[str, Any]], show_sour
 
 def extract_fields_from_url(
   source: Union[str, List[str]], rules: Dict[str, Dict[str, Any]], show_source: bool = True
-) -> Union[Dict[str, str], List[Dict[str, str]]]:
-  """Extract fields from one URL/path, or from a list of URL/path sources"""
+) -> Union[Optional[Dict[str, str]], List[Dict[str, str]]]:
+  """Extract fields from one URL/path, or from a list of URL/path sources."""
   if isinstance(source, list):
     items: List[Dict[str, str]] = []
     for s in source:
       try:
-        items.append(_extract_one_source(s, rules, show_source=True))
+        item = _extract_one_source(s, rules, show_source=show_source)
+        if should_skip_extracted_item(item, rules):
+          print(f"[INFO] Skipped extracted item: {s}")
+          continue
+        items.append(item)
       except Exception as e:
         print(f"[ERROR] Extraction failed: {s} -> {e!r}")
     return items
-  return _extract_one_source(source, rules, show_source=True)
+  item = _extract_one_source(source, rules, show_source=show_source)
+  if should_skip_extracted_item(item, rules):
+    print(f"[INFO] Skipped extracted item: {source}")
+    return {}
+  return item
 
 
 # ---------------------------------------------------------------------

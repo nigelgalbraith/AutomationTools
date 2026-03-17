@@ -9,6 +9,7 @@
         "links_per_search": 10,
         "download_delay": 3.0,
         "filename_from_url_regex": "/item/(\\d+)",
+        "skip_list_file": "TextCreator/skip_lists/SkipList.txt",
         "title_selectors": ["h1", "title"]
       },
       "extract_keys": {
@@ -16,8 +17,14 @@
         "items_out_dir": "TextCreator/produced/items/Group-A",
         "basename_keys": ["field_a", "field_b"],
         "extract_rules": {
-          "field_a": { "css": "h1" },
-          "field_b": { "css": ".some-selector-a" },
+          "field_a": {
+            "css": "h1",
+            "skip_list_file": "TextCreator/skip_lists/FieldASkipList.txt"
+          },
+          "field_b": {
+            "css": ".some-selector-a",
+            "skip_list_file": "TextCreator/skip_lists/FieldBSkipList.txt"
+          },
           "field_c": { "css": ".content-a", "sep": "\n" },
           "field_d": { "regex": "\"id\"\\s*:\\s*\"(\\d+)\"" }
         }
@@ -39,6 +46,7 @@
         "links_per_search": 10,
         "download_delay": 3.0,
         "filename_from_url_regex": "/item/(\\d+)",
+        "skip_list_file": "TextCreator/skip_lists/SkipList.txt",
         "title_selectors": ["h1", "title"]
       },
       "extract_keys": {
@@ -46,9 +54,15 @@
         "items_out_dir": "TextCreator/produced/items/Group-B",
         "basename_keys": ["field_a", "field_b"],
         "extract_rules": {
-          "field_a": { "css": "h1" },
-          "field_b": { "css": ".some-selector-b" },
-          "field_c": { "css": ".content-b", "sep": "\n" },
+          "field_a": {
+            "css": "h1",
+            "skip_list_file": "TextCreator/skip_lists/FieldASkipList.txt"
+          },
+          "field_b": {
+            "css": ".some-selector-a",
+            "skip_list_file": "TextCreator/skip_lists/FieldBSkipList.txt"
+          },
+          "field_c": { "css": ".content-a", "sep": "\n" },
           "field_d": { "regex": "\"id\"\\s*:\\s*\"(\\d+)\"" }
         }
       },
@@ -71,6 +85,7 @@
     "<GROUP>.download_keys.links_per_search": "Maximum number of links to collect per listing/search URL.",
     "<GROUP>.download_keys.download_delay": "Delay (seconds) between loading listing/search pages.",
     "<GROUP>.download_keys.filename_from_url_regex": "Regex used to derive a stable filename from a downloaded page URL (optional but recommended).",
+    "<GROUP>.download_keys.skip_list_file": "Optional text file containing IDs (one per line) that should be skipped during downloads. IDs are extracted from URLs using filename_from_url_regex.",
     "<GROUP>.download_keys.title_selectors": "Fallback CSS selectors used to locate a page title within a downloaded HTML page.",
     "<GROUP>.extract_keys": "Extraction configuration block (read saved HTML and extract structured fields).",
     "<GROUP>.extract_keys.html_dir": "Directory containing HTML pages to extract fields from (often the same as download_loc).",
@@ -78,6 +93,7 @@
     "<GROUP>.extract_keys.basename_keys": "Item keys used to build output filenames.",
     "<GROUP>.extract_keys.extract_rules": "Rules describing how to extract fields from HTML (CSS selectors, optional separators, and optional regex extraction).",
     "<GROUP>.extract_keys.extract_rules.<field>.css": "CSS selector used to extract a field from the HTML page.",
+    "<GROUP>.extract_keys.extract_rules.<field>.skip_list_file": "Optional text file containing values (one per line). If the extracted field value matches any entry, the item will be skipped and no item JSON will be written.",
     "<GROUP>.extract_keys.extract_rules.<field>.attr": "Optional attribute name to read from the matched node instead of text content.",
     "<GROUP>.extract_keys.extract_rules.<field>.sep": "Optional separator used when joining extracted text content (commonly '\\n').",
     "<GROUP>.extract_keys.extract_rules.<field>.regex": "Regex pattern applied to the raw HTML to extract a field. If present, it takes precedence over 'css'. The first capture group is used as the extracted value.",

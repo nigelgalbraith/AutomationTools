@@ -5,12 +5,21 @@ system_utils.py
 
 import os
 import subprocess
-from typing import List
+from typing import List, Set, Optional
 
 
 # ----------------------------------------------------------------------------
 # SMALL HELPERS / STATUS
 # ----------------------------------------------------------------------------
+
+def load_skip_list(skip_list_file: Optional[str]) -> Set[str]:
+  """Load skip list values from file."""
+  if not skip_list_file:
+    return set()
+  if not os.path.exists(skip_list_file):
+    return set()
+  with open(skip_list_file, "r", encoding="utf-8") as f:
+    return {line.strip() for line in f if line.strip()}
 
 
 def check_account(expected_user="standard"):

@@ -59,6 +59,7 @@ LINKS_PER_SEARCH_KEY = "links_per_search"
 DOWNLOAD_DELAY_KEY = "download_delay"
 FILENAME_FROM_URL_REGEX_KEY = "filename_from_url_regex"
 TITLE_SELECTORS_KEY = "title_selectors"
+SKIP_LIST_FILE_KEY = "skip_list_file"
 
 # VALIDATION
 VALIDATION_CONFIG: Dict[str, Any] = {
@@ -80,6 +81,7 @@ SECONDARY_VALIDATION: Dict[str, Any] = {
       FOLLOW_LINKS_KEY: bool,
       FILENAME_FROM_URL_REGEX_KEY: str,
       TITLE_SELECTORS_KEY: list,
+      SKIP_LIST_FILE_KEY: str,
     },
     "allow_empty": True,
   },
@@ -209,6 +211,7 @@ DOWNLOAD_HTML_EXEC = [
       lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][DOWNLOAD_DELAY_KEY],
       lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][FILENAME_FROM_URL_REGEX_KEY],
       lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][TITLE_SELECTORS_KEY],
+      lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][SKIP_LIST_FILE_KEY],
     ],
     "result": "download_results",
   }
