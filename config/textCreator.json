@@ -1,7 +1,7 @@
 {
   "Group-A": {
     "download_keys": {
-      "download_loc": "textCreator/produced/downloads/Group-A",
+      "download_loc": "textCreator/produced/Group-A/html",
       "download_urls": [
         "https://example.com/collection/a"
       ],
@@ -17,8 +17,8 @@
       ]
     },
     "extract_keys": {
-      "html_dir": "textCreator/produced/downloads/Group-A",
-      "items_out_dir": "textCreator/produced/items/Group-A",
+      "html_dir": "textCreator/produced/Group-A/html",
+      "items_out_dir": "textCreator/produced/Group-A/items",
       "basename_keys": [
         "field_a",
         "field_b"
@@ -42,9 +42,9 @@
       }
     },
     "prompt_keys": {
-      "text_out_dir": "textCreator/produced/text/Group-A",
+      "text_out_dir": "textCreator/produced/Group-A/text",
       "prompt_template_path": "textCreator/promptTemplates/Template-A-Prompt.txt",
-      "prompts_out_dir": "textCreator/produced/prompts/Group-A",
+      "prompts_out_dir": "textCreator/produced/Group-A/prompts",
       "prompt_injection_keys": [
         "field_a",
         "field_b",
@@ -56,7 +56,7 @@
 
   "Group-B": {
     "download_keys": {
-      "download_loc": "textCreator/produced/downloads/Group-B",
+      "download_loc": "textCreator/produced/Group-B/html",
       "download_urls": [
         "https://example.com/collection/b"
       ],
@@ -72,8 +72,8 @@
       ]
     },
     "extract_keys": {
-      "html_dir": "textCreator/produced/downloads/Group-B",
-      "items_out_dir": "textCreator/produced/items/Group-B",
+      "html_dir": "textCreator/produced/Group-B/html",
+      "items_out_dir": "textCreator/produced/Group-B/items",
       "basename_keys": [
         "field_a",
         "field_b"
@@ -97,9 +97,9 @@
       }
     },
     "prompt_keys": {
-      "text_out_dir": "textCreator/produced/text/Group-B",
+      "text_out_dir": "textCreator/produced/Group-B/text",
       "prompt_template_path": "textCreator/promptTemplates/Template-B-Prompt.txt",
-      "prompts_out_dir": "textCreator/produced/prompts/Group-B",
+      "prompts_out_dir": "textCreator/produced/Group-B/prompts",
       "prompt_injection_keys": [
         "field_a",
         "field_b",
