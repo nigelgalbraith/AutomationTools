@@ -28,9 +28,9 @@ from modules.selenium_downloader import (
 )
 
 # CONSTANTS
-CONFIG_PATH = "config/textCreator.json"
+CONFIG_PATH = "config/TextCreator.json"
 TOOL_TYPE = "TextCreator"
-CONFIG_DOC = "doc/textCreatorDoc.json"
+CONFIG_DOC = "doc/TextCreatorDoc.json"
 BASE_URL = "http://localhost:11434"
 MODEL = "phi3:latest"
 TEMPERATURE = 0.25
