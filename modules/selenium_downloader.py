@@ -28,13 +28,17 @@ def append_skip_id(skip_id: str, skip_list_file: Optional[str], skip_ids: Set[st
   if skip_id in skip_ids:
     return
   skip_ids.add(skip_id)
-  with open(skip_list_file, "a+", encoding="utf-8") as f:
-    f.seek(0, os.SEEK_END)
-    if f.tell() > 0:
-      f.seek(f.tell() - 1)
-      if f.read(1) != "\n":
-        f.write("\n")
-    f.write(skip_id + "\n")
+  try:
+    with open(skip_list_file, "a+", encoding="utf-8") as f:
+      f.seek(0, os.SEEK_END)
+      if f.tell() > 0:
+        f.seek(f.tell() - 1)
+        if f.read(1) != "\n":
+          f.write("\n")
+      f.write(skip_id + "\n")
+    print(f"[INFO] Added skip ID: {skip_id} -> {os.path.basename(skip_list_file)}")
+  except Exception as e:
+    print(f"[ERROR] Failed to write skip ID '{skip_id}': {e!r}")
 
 
 def setup_selenium_driver(headless: bool = False, minimized: bool = False):
