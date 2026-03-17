@@ -9,3 +9,4 @@ venv/
 
 # Ignore everything inside produced
 TextCreator/produced/*
+TextCreator/skipLists/*
