@@ -8,5 +8,5 @@ venv/
 .env/
 
 # Ignore everything inside produced
-TextCreator/produced/*
-TextCreator/skipLists/*
+TextCreator/produced/
+TextCreator/skipLists/
