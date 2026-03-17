@@ -10,7 +10,7 @@
       "links_per_search": 10,
       "download_delay": 3.0,
       "filename_from_url_regex": "/item/(\\d+)",
-      "skip_list_file": "",
+      "skip_list_file": "TextCreator/skip_lists/MainSkipList.txt",
       "title_selectors": [
         "[data-automation='itemTitle']",
         "h1"
@@ -65,7 +65,7 @@
       "links_per_search": 10,
       "download_delay": 3.0,
       "filename_from_url_regex": "/item/(\\d+)",
-      "skip_list_file": "",
+      "skip_list_file": "TextCreator/skip_lists/MainSkipList.txt",
       "title_selectors": [
         "[data-automation='itemTitle']",
         "h1"
