@@ -114,6 +114,7 @@ def _fetch_page_links(
   print(f"[DEBUG] Raw matched elements: {len(elements)}")
   page_links: List[str] = []
   active_skip_ids = skip_ids or set()
+  logged_skipped_urls: Set[str] = set()
   for element in elements:
     href = element.get_attribute("href")
     if not href:
@@ -123,7 +124,12 @@ def _fetch_page_links(
       continue
     skip_id = extract_skip_id_from_url(clean_url, filename_from_url_regex)
     if skip_id and skip_id in active_skip_ids:
-      print(f"[INFO] Skipping URL with skip ID '{skip_id}': {clean_url}")
+      if clean_url not in logged_skipped_urls:
+        print(
+          f"[INFO] Skipping URL with skip ID '{skip_id}' | "
+          f"raw href: {href} | clean URL: {clean_url}"
+        )
+        logged_skipped_urls.add(clean_url)
       continue
     if clean_url not in page_links:
       page_links.append(clean_url)
