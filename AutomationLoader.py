@@ -98,6 +98,7 @@ def run_pipeline_steps(job: Optional[str],
         rkey = step.get("result")
         if rkey is not None:
             ctx[rkey] = result if result is not None else True
+        print()
     errors = ctx.get("errors") or []
     default_success = (len(errors) == 0)
     override_success = None
@@ -118,6 +119,7 @@ def run_pipeline_steps(job: Optional[str],
         print(f"{label} (pre): {status}")
         return
     print(f"{label}: {status}")
+    print()
 
 
 class StateMachine:
