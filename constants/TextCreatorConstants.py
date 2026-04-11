@@ -152,7 +152,7 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
     "skip_confirm": False,
     "skip_group_select": True,
   },
-  "Generate letters": {
+  "Generate text": {
     "verb": "generate_text",
     "prompt": "Generate text from prompt text files? [y/n]: ",
     "execute_state": "GENERATE_TEXT",
