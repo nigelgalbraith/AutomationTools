@@ -17,11 +17,11 @@ def send_prompt_text_to_ollama_and_save(
   base_url: str,
   model: str,
   temperature: float,
-  output_suffix: str = ".coverletter.txt",
+  output_suffix: str = ".generated.txt",
   overwrite: bool = False,
   timeout_s: int = 600,
 ) -> Optional[str]:
-  """Generate one letter from one prompt text file and save to disk"""
+  """Generate one text from one prompt text file and save to disk"""
   print(f"\n[INFO] Processing prompt: {prompt_path}")
   try:
     with open(prompt_path, "r", encoding="utf-8") as f:
@@ -76,14 +76,14 @@ def send_prompt_text_to_ollama_and_save(
       base = os.path.splitext(base)[0]
     out_path = os.path.join(text_out_dir, f"{base}{output_suffix}")
     if (not overwrite) and os.path.exists(out_path):
-      print(f"[INFO] Letter exists, skipping: {out_path}")
+      print(f"[INFO] Text exists, skipping: {out_path}")
       return out_path
     with open(out_path, "w", encoding="utf-8") as f:
       f.write(text_out)
-    print(f"[OK] Letter saved: {out_path}")
+    print(f"[OK] Text saved: {out_path}")
     return out_path
   except Exception as e:
-    print(f"[ERROR] Failed to save letter for {prompt_path} -> {e!r}")
+    print(f"[ERROR] Failed to save text for {prompt_path} -> {e!r}")
     return None
 
 
@@ -96,7 +96,7 @@ def generate_text_from_prompts_dir(
   prompt_glob: str = "*.prompt.txt",
   overwrite: bool = False,
 ) -> Dict[str, int]:
-  """Generate letters for prompt files in prompts_out_dir"""
+  """Generate texts for prompt files in prompts_out_dir"""
   summary = {"processed": 0, "saved": 0, "skipped": 0, "failed": 0}
   print(f"\n[INFO] Looking for prompts in: {prompts_out_dir}")
   if not os.path.isdir(prompts_out_dir):
@@ -112,8 +112,7 @@ def generate_text_from_prompts_dir(
       base = base[: -len(".prompt.txt")]
     else:
       base = os.path.splitext(base)[0]
-    expected = os.path.join(text_out_dir, f"{base}.coverletter.txt")
-
+    expected = os.path.join(text_out_dir, f"{base}.generated.txt")
     # 🔹 SKIP EARLY if output exists and overwrite is False
     if os.path.exists(expected) and not overwrite:
       print(f"[SKIP] Already exists: {expected}")
