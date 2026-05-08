@@ -44,7 +44,7 @@ DOWNLOAD_KEYS_SECTION = "download_keys"
 EXTRACT_KEYS_SECTION = "extract_keys"
 PROMPT_KEYS_SECTION = "prompt_keys"
 DOWNLOAD_LOC_KEY = "download_loc"
-LETTERS_OUT_DIR_KEY = "text_out_dir"
+TEXT_OUT_DIR_KEY = "text_out_dir"
 PROMPT_TEMPLATE_PATH_KEY = "prompt_template_path"
 PROMPTS_OUT_DIR_KEY = "prompts_out_dir"
 PROMPT_INJECTION_KEYS_KEY = "prompt_injection_keys"
@@ -97,7 +97,7 @@ SECONDARY_VALIDATION: Dict[str, Any] = {
 
   PROMPT_KEYS_SECTION: {
     "required_job_fields": {
-      LETTERS_OUT_DIR_KEY: str,
+      TEXT_OUT_DIR_KEY: str,
       PROMPT_TEMPLATE_PATH_KEY: str,
       PROMPTS_OUT_DIR_KEY: str,
       PROMPT_INJECTION_KEYS_KEY: list,
@@ -111,7 +111,7 @@ REQUIRED_USER = "standard"
 PLAN_COLUMN_ORDER = [
   PROMPT_TEMPLATE_PATH_KEY,
   PROMPTS_OUT_DIR_KEY,
-  LETTERS_OUT_DIR_KEY,
+  TEXT_OUT_DIR_KEY,
 ]
 OPTIONAL_PLAN_COLUMNS: Dict[str, Any] = {}
 DEPENDENCIES = ["python3-selenium", "chromium-driver"]
@@ -291,7 +291,7 @@ GENERATE_TEXT_EXEC = [
     "fn": generate_text_from_prompts_dir,
     "args": [
       lambda job, meta, ctx: meta[PROMPT_KEYS_SECTION][PROMPTS_OUT_DIR_KEY],
-      lambda job, meta, ctx: meta[PROMPT_KEYS_SECTION][LETTERS_OUT_DIR_KEY],
+      lambda job, meta, ctx: meta[PROMPT_KEYS_SECTION][TEXT_OUT_DIR_KEY],
       lambda job, meta, ctx: BASE_URL,
       lambda job, meta, ctx: MODEL,
       lambda job, meta, ctx: float(TEMPERATURE),
