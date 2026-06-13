@@ -114,7 +114,7 @@ PLAN_COLUMN_ORDER = [
   TEXT_OUT_DIR_KEY,
 ]
 OPTIONAL_PLAN_COLUMNS: Dict[str, Any] = {}
-DEPENDENCIES = ["python3-selenium", "chromium-driver"]
+DEPENDENCIES = ["python3-selenium", "chromium","chromium-driver"]
 
 # CORE
 ACTIONS: Dict[str, Dict[str, Any]] = {
