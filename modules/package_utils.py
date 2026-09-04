@@ -35,7 +35,7 @@ def ensure_dependencies_installed(dependencies):
   """Ensure required executables are installed via APT and return True if all succeed"""
   success = True
   for dep in dependencies:
-    if which(dep) is None:
+    if not check_package(dep):
       try:
         subprocess.run(["sudo", "apt", "update", "-y"], check=True)
         subprocess.run(["sudo", "apt", "install", "-y", dep], check=True)
