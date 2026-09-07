@@ -47,8 +47,8 @@ REQUIRED_CONSTANTS = [
 
 AVAILABLE_CONSTANTS = {
     "Text Creation utility": ("constants.TextCreatorConstants", 1000),
+    "Web Crawler utility": ("constants.WebCrawlerConstants", 1000),
 }
-
 
 class State(Enum):
     INITIAL = auto()

@@ -23,7 +23,7 @@ from modules.docker_utils import (
   start_ollama_compose,
   stop_ollama_compose,
 )
-from modules.selenium_downloader import (
+from modules.web_download_utils import (
     download_html_pages,
 )
 

@@ -8,8 +8,10 @@ Helpers for loading JSON config and validating config/job structures.
 import os
 import re
 import json
+import tempfile
+
 from pathlib import Path
-from typing import Union,Dict, Any, List, Tuple
+from typing import Union, Dict, Any, List, Tuple, Optional
 
 
 # ---------------------------------------------------------------------
@@ -28,12 +30,21 @@ def load_json(path: str) -> Dict[str, Any]:
 
 
 def save_json_file(path: str, data: Dict[str, Any]) -> None:
-  """Save a dict to a JSON file"""
+  """Atomically save a dict, preserving the previous file if writing fails."""
   parent = os.path.dirname(path)
   if parent:
     os.makedirs(parent, exist_ok=True)
-  with open(path, "w", encoding="utf-8") as f:
-    json.dump(data, f, indent=2, ensure_ascii=False)
+  temporary_path = None
+  try:
+    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=parent or ".", prefix=".json-", suffix=".tmp", delete=False) as f:
+      temporary_path = f.name
+      json.dump(data, f, indent=2, ensure_ascii=False)
+      f.flush()
+      os.fsync(f.fileno())
+    os.replace(temporary_path, path)
+  finally:
+    if temporary_path and os.path.exists(temporary_path):
+      os.unlink(temporary_path)
 
 
 def slugify(text: str) -> str:
@@ -161,3 +172,59 @@ def save_items_json_dir(
       print(f"[ERROR] Failed saving item #{idx} -> {e!r}")
   print(f"[SUMMARY] JSON files written: {saved}/{len(items)}")
   return saved == len(items)
+
+
+def save_named_json(
+  data: Dict[str, Any],
+  out_dir: str,
+  output_name: str,
+) -> Optional[str]:
+  """Save data as a named JSON file in the configured output directory."""
+  if not output_name:
+    print("[ERROR] No output name provided.")
+    return None
+  os.makedirs(out_dir, exist_ok=True)
+  safe_name = os.path.basename(output_name)
+  if not safe_name.lower().endswith(".json"):
+    safe_name = f"{safe_name}.json"
+  path = os.path.join(out_dir, safe_name)
+  try:
+    save_json_file(path, data)
+    print(f"[INFO] Saved JSON: {path}")
+    return path
+  except Exception as e:
+    print(f"[ERROR] Failed saving JSON -> {e!r}")
+    return None
+
+def select_json_file(
+  json_dir: str,
+) -> Optional[str]:
+  """Select a JSON file from a directory."""
+  if not os.path.isdir(json_dir):
+    print(f"[INFO] JSON directory does not exist: {json_dir}")
+    return None
+  files = sorted(
+    name for name in os.listdir(json_dir)
+    if name.lower().endswith(".json")
+  )
+  if not files:
+    print(f"[INFO] No JSON files found in: {json_dir}")
+    return None
+  print()
+  print("JSON files")
+  print("----------")
+  for index, filename in enumerate(files, start=1):
+    print(f"{index}. {filename}")
+  print("0. Cancel")
+  while True:
+    choice = input("Select JSON file: ").strip()
+    if choice == "0":
+      return None
+    try:
+      index = int(choice) - 1
+    except ValueError:
+      print("Invalid selection.")
+      continue
+    if 0 <= index < len(files):
+      return os.path.abspath(os.path.join(json_dir, files[index]))
+    print("Invalid selection.")

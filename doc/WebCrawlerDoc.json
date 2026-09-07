@@ -1,0 +1,82 @@
+{
+  "EXAMPLE": {
+    "Wikipedia-Albert-Einstein": {
+      "search_keys": {
+        "domain": "wikipedia.org",
+        "terms": [
+          "Albert Einstein"
+        ],
+        "max_results": 20
+      },
+      "crawl_keys": {
+        "photon_enabled": true,
+        "photon_depth": 2,
+        "selenium_enabled": true,
+        "selenium_depth": 2,
+        "selenium_max_pages": 100,
+        "download_delay": 2.0
+      },
+      "output_keys": {
+        "output_name": "Wikipedia-Albert-Einstein"
+      }
+    },
+    "Wikipedia-Stephen-Hawking": {
+      "search_keys": {
+        "domain": "wikipedia.org",
+        "terms": [
+          "Stephen Hawking"
+        ],
+        "max_results": 20
+      },
+      "crawl_keys": {
+        "photon_enabled": true,
+        "photon_depth": 2,
+        "selenium_enabled": true,
+        "selenium_depth": 2,
+        "selenium_max_pages": 100,
+        "download_delay": 2.0
+      },
+      "output_keys": {
+        "output_name": "Wikipedia-Stephen-Hawking"
+      }
+    },
+    "Wikipedia-Physics": {
+      "search_keys": {
+        "domain": "wikipedia.org",
+        "terms": [
+          "quantum mechanics",
+          "general relativity",
+          "cosmology"
+        ],
+        "max_results": 20
+      },
+      "crawl_keys": {
+        "photon_enabled": true,
+        "photon_depth": 2,
+        "selenium_enabled": true,
+        "selenium_depth": 2,
+        "selenium_max_pages": 100,
+        "download_delay": 2.0
+      },
+      "output_keys": {
+        "output_name": "Wikipedia-Physics"
+      }
+    }
+  },
+  "DESCRIPTION": {
+    "<GROUP>": "A named WebCrawler configuration profile.",
+    "<GROUP>.search_keys": "Performs Bing RSS web search using domain and terms to discover candidate URLs. The provider may return fewer URLs than max_results. Search web displays candidates only; all crawl actions search first. Provider/network failures are reported as failures.",
+    "<GROUP>.search_keys.domain": "Domain to restrict search results to, for example 'wikipedia.org'.",
+    "<GROUP>.search_keys.terms": "List of terms to search for. Only terms actually found on pages are included in crawler results.",
+    "<GROUP>.search_keys.max_results": "Maximum number of search result URLs collected for each search term.",
+    "<GROUP>.crawl_keys": "Controls Photon and Selenium crawling of the candidate URLs discovered by web search.",
+    "<GROUP>.crawl_keys.photon_enabled": "If true, Photon crawling is enabled.",
+    "<GROUP>.crawl_keys.photon_depth": "Maximum Photon crawl depth from each discovered search result URL.",
+    "<GROUP>.crawl_keys.selenium_enabled": "If true, Selenium processes Photon failures during Run all steps, or all search candidates when Photon is disabled.",
+    "<GROUP>.crawl_keys.download_delay": "Delay in seconds after Selenium loads a page before its rendered text is checked.",
+    "<GROUP>.output_keys": "Crawler output configuration block.",
+    "<GROUP>.output_keys.output_name": "Base filename used when saving the crawler result JSON. The .json extension is added automatically.",
+    "<GROUP>.crawl_keys.selenium_depth": "Maximum Selenium link depth from each candidate; zero checks only candidates.",
+    "<GROUP>.crawl_keys.selenium_max_pages": "Maximum pages attempted across all Selenium candidates in one crawl."
+  }
+}

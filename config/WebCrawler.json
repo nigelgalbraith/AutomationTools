@@ -1,0 +1,43 @@
+{
+  "Wikipedia-Albert-Einstein": {
+    "search_keys": {
+      "domain": "wikipedia.org",
+      "terms": [
+        "Albert Einstein"
+      ],
+      "max_results": 20
+    },
+    "crawl_keys": {
+      "photon_enabled": true,
+      "photon_depth": 2,
+      "selenium_enabled": true,
+      "selenium_depth": 2,
+      "selenium_max_pages": 100,
+      "download_delay": 2.0
+    },
+    "output_keys": {
+      "output_name": "Wikipedia-Albert-Einstein"
+    }
+  },
+
+  "Wikipedia-Stephen-Hawking": {
+    "search_keys": {
+      "domain": "wikipedia.org",
+      "terms": [
+        "Stephen Hawking"
+      ],
+      "max_results": 20
+    },
+    "crawl_keys": {
+      "photon_enabled": true,
+      "photon_depth": 2,
+      "selenium_enabled": true,
+      "selenium_depth": 2,
+      "selenium_max_pages": 100,
+      "download_delay": 2.0
+    },
+    "output_keys": {
+      "output_name": "Wikipedia-Stephen-Hawking"
+    }
+  }
+}

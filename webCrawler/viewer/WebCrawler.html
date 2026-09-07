@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web Crawler Results</title>
+  <link rel="icon" type="image/png" href="images/search.png">
+  <link rel="stylesheet" href="css/WebCrawler.css">
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h1>Web Crawler Results</h1>
+    </header>
+
+    <section id="summary" class="summary" hidden>
+      <div>
+        <span class="label">Domain:</span>
+        <span id="domain"></span>
+      </div>
+
+      <div>
+        <span class="label">Total Results:</span>
+        <span id="total-results"></span>
+      </div>
+    </section>
+
+    <section id="message" class="message">
+      Loading results...
+    </section>
+
+    <section id="results-container" hidden>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Term</th>
+            <th>URL</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+
+        <tbody id="results-body"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script type="module" src="js/WebCrawler.js"></script>
+</body>
+</html>
