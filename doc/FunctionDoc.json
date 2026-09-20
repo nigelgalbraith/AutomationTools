@@ -1,0 +1,30 @@
+{
+  "FIXED_FIELDS": [
+    "<GROUP>.ModuleFolder",
+    "<GROUP>.CheckFolders",
+    "<GROUP>.CheckFiles"
+  ],
+  "EDITABLE_FIELDS": [
+    "<GROUP>",
+    "<GROUP>.ModuleFolder",
+    "<GROUP>.CheckFolders.<VALUES>",
+    "<GROUP>.CheckFiles.<VALUES>"
+  ],
+  "EXAMPLE": {
+    "display_utils.py": {
+      "ModuleFolder": "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/modules",
+      "CheckFolders": [
+        "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/constants"
+      ],
+      "CheckFiles": [
+        "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/AutomationLoader.py"
+      ]
+    }
+  },
+  "DESCRIPTION": {
+    "<GROUP>": "Each top-level JSON key is an AutomationLoader group/job and the Python module filename, including .py. Use the normal AutomationLoader group selection to choose a module or all configured groups. Each group independently requires ModuleFolder (string), CheckFolders (list), and CheckFiles (list).",
+    "<GROUP>.ModuleFolder": "Directory containing the target Python module.",
+    "<GROUP>.CheckFolders": "Folders recursively scanned when checking where functions from the selected module are used.",
+    "<GROUP>.CheckFiles": "Individual Python files additionally scanned when checking function usage."
+  }
+}
