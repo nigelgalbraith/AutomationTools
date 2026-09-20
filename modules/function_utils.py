@@ -4,19 +4,19 @@ import os
 from pathlib import Path
 from typing import Dict
 
-# ---------------------------------------------------------------------
-# HELPERS
-# ---------------------------------------------------------------------
 
+# ---------------------------------------------------------------------
+# PATH HELPERS
+# ---------------------------------------------------------------------
 
 def _expand(path: str) -> Path:
     """Expand ~ and environment variables in `path`, then resolve to an absolute Path."""
     return Path(os.path.expandvars(os.path.expanduser(path))).resolve()
 
+
 # ---------------------------------------------------------------------
 # SOURCE COLLECTION
 # ---------------------------------------------------------------------
-
 
 def collect_usage_sources(check_folders, check_files, module_folder):
     """
@@ -46,10 +46,10 @@ def collect_usage_sources(check_folders, check_files, module_folder):
         )
     return list(dict.fromkeys(external)), list(dict.fromkeys(internal))
 
+
 # ---------------------------------------------------------------------
 # MODULE PARSING
 # ---------------------------------------------------------------------
-
 
 def load_module_functions(module_folder: str, job: str) -> Dict:
     """
@@ -85,10 +85,10 @@ def load_module_function_docs(module_folder: str, job: str) -> Dict[str, str]:
             docs[n.name] = doc.strip()
     return docs
 
+
 # ---------------------------------------------------------------------
 # USAGE SCANNING
 # ---------------------------------------------------------------------
-
 
 def scan_function_usage(module_functions: dict, check_folders, check_files, module_folder):
     """
@@ -132,10 +132,10 @@ def detect_usage(scan_result: dict) -> bool:
     usage = scan_result["usage"]
     return any(locations for locations in usage.values())
 
+
 # ---------------------------------------------------------------------
 # OUTPUT
 # ---------------------------------------------------------------------
-
 
 def print_usage_summary(job: str, scan_result: dict) -> None:
     """

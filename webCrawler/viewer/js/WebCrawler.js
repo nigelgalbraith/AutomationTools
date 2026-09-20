@@ -5,12 +5,10 @@ const message = document.getElementById("message");
 const resultsContainer = document.getElementById("results-container");
 const resultsBody = document.getElementById("results-body");
 
-
 function getResultPath() {
   const params = new URLSearchParams(window.location.search);
   return params.get("result");
 }
-
 
 function createResultRow(result, index) {
   const row = document.createElement("tr");
@@ -40,7 +38,6 @@ function createResultRow(result, index) {
   return row;
 }
 
-
 function renderResults(data) {
   const results = Array.isArray(data.results) ? data.results : [];
 
@@ -65,14 +62,12 @@ function renderResults(data) {
   resultsContainer.hidden = false;
 }
 
-
 function showError(text) {
   summary.hidden = true;
   resultsContainer.hidden = true;
   message.hidden = false;
   message.textContent = text;
 }
-
 
 async function loadResults() {
   const resultPath = getResultPath();
@@ -98,6 +93,5 @@ async function loadResults() {
     showError("Unable to load crawler results.");
   }
 }
-
 
 loadResults();

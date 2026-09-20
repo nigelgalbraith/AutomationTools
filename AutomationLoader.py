@@ -30,6 +30,10 @@ from modules.state_machine_utils import (
 )
 
 
+# ---------------------------------------------------------------------
+# REQUIRED CONSTANTS
+# ---------------------------------------------------------------------
+
 REQUIRED_CONSTANTS = [
     "CONFIG_PATH",
     "VALIDATION_CONFIG",
@@ -45,11 +49,20 @@ REQUIRED_CONSTANTS = [
 ]
 
 
+# ---------------------------------------------------------------------
+# AVAILABLE CONSTANTS
+# ---------------------------------------------------------------------
+
 AVAILABLE_CONSTANTS = {
     "Text Creation utility": ("constants.TextCreatorConstants", 1000),
     "Web Crawler utility": ("constants.WebCrawlerConstants", 1000),
     "Functions utility": ("constants.FunctionConstants", 1000),
 }
+
+
+# ---------------------------------------------------------------------
+# PIPELINE STATES
+# ---------------------------------------------------------------------
 
 class State(Enum):
     INITIAL = auto()
@@ -69,14 +82,20 @@ class State(Enum):
     FINALIZE = auto()
 
 
-def run_pipeline_steps(job: Optional[str],
-                       meta: Dict[str, Any],
-                       pipeline: List[Dict[str, Any]],
-                       *,
-                       phase: str,
-                       label: str,
-                       success_key: str,
-                       ctx: Dict[str, Any]) -> None:
+# ---------------------------------------------------------------------
+# PIPELINE EXECUTION
+# ---------------------------------------------------------------------
+
+def run_pipeline_steps(
+    job: Optional[str],
+    meta: Dict[str, Any],
+    pipeline: List[Dict[str, Any]],
+    *,
+    phase: str,
+    label: str,
+    success_key: str,
+    ctx: Dict[str, Any],
+) -> None:
     """Run pipeline steps for a given phase, storing outputs in ctx."""
     ctx.setdefault("errors", [])
     phase = (phase or "").strip().lower()
@@ -122,9 +141,15 @@ def run_pipeline_steps(job: Optional[str],
     print()
 
 
+# ---------------------------------------------------------------------
+# STATE MACHINE
+# ---------------------------------------------------------------------
+
 class StateMachine:
-    def __init__(self, constants, *, auto_yes: bool = False, cli_action: Optional[str] = None,
-                 plan_only: bool = False, config_path: Optional[str] = None) -> None:
+    def __init__(
+        self, constants, *, auto_yes: bool = False, cli_action: Optional[str] = None,
+        plan_only: bool = False, config_path: Optional[str] = None,
+    ) -> None:
         """Initialize machine state and fields."""
         self.state: State = State.INITIAL
         self.finalize_msg: Optional[str] = None
@@ -144,7 +169,6 @@ class StateMachine:
         self.runtime_ctx: Dict[str, Any] = {}
         self.selected_groups: List[str] = []
 
-
     def setup(self, required_user: str) -> None:
         """Initialize logging and verify user; advance to DEP_CHECK or FINALIZE."""
         for k, v in vars(self.c).items():
@@ -158,7 +182,6 @@ class StateMachine:
             self.state = State.FINALIZE
             return
         self.state = State.DEP_CHECK
-
 
     def dep_check(self, deps: List[str]) -> None:
         """Check dependencies and collect missing ones."""
@@ -174,7 +197,6 @@ class StateMachine:
             print("\n  ==> Running Dependency Check")
             print(wrap_in_box(out, title="Dependency Check", indent=2, pad=1))
         self.state = State.DEP_INSTALL if self._deps_install_list else State.CONFIG_LOADING
-
 
     def dep_install(self) -> None:
         """Install missing dependencies in batch, verify each; fail fast on error."""
@@ -200,7 +222,6 @@ class StateMachine:
         print("\n  ==> Running Dependency Check")
         print(wrap_in_box(out, title="Dependency Install", indent=2, pad=1))
         self.state = State.CONFIG_LOADING
-
 
     def load_config(self, config_path: str) -> None:
         """Load JSON config object containing groups (e.g., it/labour)."""
@@ -246,7 +267,6 @@ class StateMachine:
         self.verification_ok = True
         self.state = State.JSON_REQUIRED_KEYS_CHECK
 
-
     def validate_json_required_keys(self, validation_config: Dict, object_type: type = dict) -> None:
         """Validate required fields against EACH group object."""
         required_fields = (validation_config or {}).get("required_job_fields", {})
@@ -263,7 +283,6 @@ class StateMachine:
                 self.verification_outcomes[f"{group_name}: {field} ({expected_str})"] = ok
                 primary_ok = primary_ok and ok
         self.state = State.DISPLAY_VERIFICATION if not primary_ok else State.SECONDARY_VALIDATION
-
 
     def validate_secondary_keys(self, secondary_validation: Dict) -> None:
         """Validate nested required fields for EACH group config."""
@@ -333,7 +352,6 @@ class StateMachine:
             self.verification_notes.append("[WARN] Secondary validation failed for one or more nested fields.")
         self.state = State.DISPLAY_VERIFICATION
 
-
     def display_verification_outcome(self, config_doc: Optional[str] = None) -> None:
         """Display combined verification results; exit on failure or continue on success."""
         if self.verification_outcomes:
@@ -362,7 +380,6 @@ class StateMachine:
         print(wrap_in_box(lines, indent=2, pad=1))
         self.state = State.BUILD_ACTIONS
 
-
     def build_actions(self, base_actions: Dict[str, Dict[str, Any]]) -> None:
         """Build the main menu from ACTIONS, validating execute_state keys."""
         actions = dict(base_actions)
@@ -378,7 +395,6 @@ class StateMachine:
             actions["Cancel"] = cancel_spec
         self.actions = actions
         self.state = State.MENU_SELECTION
-
 
     def select_action(self) -> None:
         """Prompt for an action, or use CLI overrides; set the next state."""
@@ -423,7 +439,6 @@ class StateMachine:
         else:
             self.state = State.GROUP_SELECTION
 
-
     def select_groups(self) -> None:
         """Sub-select: choose which config group(s) to run (e.g. it/labour/All)."""
         group_names = list(self.cfg_groups.keys())
@@ -454,7 +469,6 @@ class StateMachine:
             self.selected_groups = [choice]
         self.state = State.PIPELINE_PRE
 
-
     def run_pipeline_pre(self) -> None:
         """Run pre-phase steps for EACH group, then advance to plan/confirm."""
         spec = self._pending_pipeline_spec or {}
@@ -478,13 +492,13 @@ class StateMachine:
             group_ctx = self.runtime_ctx["groups"].setdefault(group_name, {})
             print(f"\n  ==> Group: {group_name}")
             run_pipeline_steps(
-            group_name,
-            group_cfg,
-            pre_steps,
-            phase="pre",
-            label=label,
-            success_key=success_key,
-            ctx=group_ctx,
+                group_name,
+                group_cfg,
+                pre_steps,
+                phase="pre",
+                label=label,
+                success_key=success_key,
+                ctx=group_ctx,
             )
         if self.plan_only:
             self.state = State.PREPARE_PLAN
@@ -493,7 +507,6 @@ class StateMachine:
             self.state = State.CONFIRM
             return
         self.state = State.PREPARE_PLAN
-
 
     def prepare_plan(self, key_label: str, plan_columns: List[str]) -> None:
         """Print plan and move to CONFIRM (or finalize if plan-only)."""
@@ -534,7 +547,6 @@ class StateMachine:
             return
         self.state = State.CONFIRM
 
-
     def confirm_action(self) -> None:
         """Confirm the chosen action; advance to EXECUTE or bounce to MENU."""
         spec = self.actions[self.current_action_key]
@@ -548,7 +560,6 @@ class StateMachine:
             self.state = State.MENU_SELECTION
             return
         self.state = State.EXECUTE
-
 
     def run_pipeline_action(self) -> None:
         """Run exec-phase steps for EACH group and then go to post_state."""
@@ -578,7 +589,6 @@ class StateMachine:
         except KeyError:
             print(f"[WARN] Unknown post_state '{post_state_name}', defaulting to CONFIG_LOADING.")
             self.state = State.CONFIG_LOADING
-
 
     def main(self) -> None:
         """Run the state machine with a dispatch table until FINALIZE."""
@@ -615,6 +625,10 @@ class StateMachine:
                 print(self.finalize_msg)
 
 
+# ---------------------------------------------------------------------
+# COMMAND-LINE ARGUMENTS
+# ---------------------------------------------------------------------
+
 def _parse_args_groups(consts) -> argparse.Namespace:
     """Parse CLI args for group-config loader while keeping your existing pattern."""
     p = argparse.ArgumentParser(add_help=True)
@@ -625,6 +639,10 @@ def _parse_args_groups(consts) -> argparse.Namespace:
     p.add_argument("--plan-only", action="store_true", help="Plan-only mode.")
     return p.parse_args()
 
+
+# ---------------------------------------------------------------------
+# ENTRY POINT
+# ---------------------------------------------------------------------
 
 if __name__ == "__main__":
     early = parse_args_early()
