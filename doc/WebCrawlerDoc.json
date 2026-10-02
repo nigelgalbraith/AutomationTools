@@ -17,7 +17,7 @@
         "download_delay": 2.0
       },
       "output_keys": {
-        "output_name": "Wikipedia-Albert-Einstein"
+        "output_dir": "~/Documents/webCrawler/produced/Wikipedia-Albert-Einstein"
       }
     },
     "Wikipedia-Stephen-Hawking": {
@@ -37,7 +37,7 @@
         "download_delay": 2.0
       },
       "output_keys": {
-        "output_name": "Wikipedia-Stephen-Hawking"
+        "output_dir": "~/Documents/webCrawler/produced/Wikipedia-Stephen-Hawking"
       }
     },
     "Wikipedia-Physics": {
@@ -59,7 +59,7 @@
         "download_delay": 2.0
       },
       "output_keys": {
-        "output_name": "Wikipedia-Physics"
+        "output_dir": "~/Documents/webCrawler/produced/Wikipedia-Physics"
       }
     }
   },
@@ -75,7 +75,7 @@
     "<GROUP>.crawl_keys.selenium_enabled": "If true, Selenium processes Photon failures during Run all steps, or all search candidates when Photon is disabled.",
     "<GROUP>.crawl_keys.download_delay": "Delay in seconds after Selenium loads a page before its rendered text is checked.",
     "<GROUP>.output_keys": "Crawler output configuration block.",
-    "<GROUP>.output_keys.output_name": "Base filename used when saving the crawler result JSON. The .json extension is added automatically.",
+    "<GROUP>.output_keys.output_dir": "Full output directory for this group. Supports ~ and is created if required. Result JSON filenames use the group name.",
     "<GROUP>.crawl_keys.selenium_depth": "Maximum Selenium link depth from each candidate; zero checks only candidates.",
     "<GROUP>.crawl_keys.selenium_max_pages": "Maximum pages attempted across all Selenium candidates in one crawl."
   }

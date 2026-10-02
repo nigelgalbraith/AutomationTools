@@ -6,7 +6,7 @@ import time
 from random import uniform
 from typing import Any, Dict, List, Optional, Tuple, Set, Callable
 from urllib.parse import urlparse
-from modules.system_utils import load_skip_list
+from modules.system_utils import expand_path, load_skip_list
 
 
 # ---------------------------------------------------------------------
@@ -31,6 +31,9 @@ def append_skip_id(skip_id: str, skip_list_file: Optional[str], skip_ids: Set[st
         return
     skip_ids.add(skip_id)
     try:
+        skip_list_file = expand_path(skip_list_file)
+        if os.path.dirname(skip_list_file):
+            os.makedirs(os.path.dirname(skip_list_file), exist_ok=True)
         with open(skip_list_file, "a+", encoding="utf-8") as f:
             f.seek(0, os.SEEK_END)
             if f.tell() > 0:
@@ -163,7 +166,7 @@ def _download_html_page(
         if title_selectors:
             title_slug = _extract_title_slug(driver, title_selectors)
         filename = f"{base}.html" if not title_slug else f"{base}_{title_slug}.html"
-        filepath = os.path.join(download_dir, filename)
+        filepath = os.path.join(expand_path(download_dir), filename)
         with open(filepath, "w", encoding="utf-8", newline="") as f:
             f.write(page_source)
         size = os.path.getsize(filepath)
@@ -196,6 +199,7 @@ def download_html_pages(
     url_must_contain: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Download HTML pages by scraping links from search URLs (or downloading URLs directly)."""
+    download_dir = expand_path(download_dir)
     results: Dict[str, Any] = {
         "success": False,
         "total_links_found": 0,

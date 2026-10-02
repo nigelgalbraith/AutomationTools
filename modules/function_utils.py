@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Dict
+from modules.system_utils import expand_path
 
 
 # ---------------------------------------------------------------------
@@ -11,7 +12,7 @@ from typing import Dict
 
 def _expand(path: str) -> Path:
     """Expand ~ and environment variables in `path`, then resolve to an absolute Path."""
-    return Path(os.path.expandvars(os.path.expanduser(path))).resolve()
+    return Path(os.path.expandvars(expand_path(path))).resolve()
 
 
 # ---------------------------------------------------------------------
@@ -59,7 +60,7 @@ def load_module_functions(module_folder: str, job: str) -> Dict:
         fns = load_module_functions("./modules", "display_utils.py")
     """
     import ast
-    module_path = Path(os.path.expandvars(os.path.expanduser(module_folder))) / job
+    module_path = Path(os.path.expandvars(expand_path(module_folder))) / expand_path(job)
     tree = ast.parse(module_path.read_text(encoding="utf-8", errors="replace"))
     return {
         n.name: n
@@ -76,7 +77,7 @@ def load_module_function_docs(module_folder: str, job: str) -> Dict[str, str]:
         docs = load_module_function_docs("./modules", "display_utils.py")
     """
     import ast
-    module_path = Path(os.path.expandvars(os.path.expanduser(module_folder))) / job
+    module_path = Path(os.path.expandvars(expand_path(module_folder))) / expand_path(job)
     tree = ast.parse(module_path.read_text(encoding="utf-8", errors="replace"))
     docs: Dict[str, str] = {}
     for n in tree.body:

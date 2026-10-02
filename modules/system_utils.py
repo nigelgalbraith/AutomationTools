@@ -12,10 +12,16 @@ from typing import List, Set, Optional
 # SYSTEM STATUS HELPERS
 # ---------------------------------------------------------------------
 
+def expand_path(path):
+    """Expand ~ in filesystem paths."""
+    return os.path.expanduser(path)
+
+
 def load_skip_list(skip_list_file: Optional[str]) -> Set[str]:
     """Load skip list values from file."""
     if not skip_list_file:
         return set()
+    skip_list_file = expand_path(skip_list_file)
     if not os.path.exists(skip_list_file):
         return set()
     with open(skip_list_file, "r", encoding="utf-8") as f:

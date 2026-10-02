@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Dict, Any
 
+from modules.system_utils import expand_path
+
 from modules.display_utils import (
     display_config_doc,
 )
@@ -48,7 +50,6 @@ PHOTON_SCRIPT = "~/apps/Photon/photon.py"
 # VIEWER CONFIG
 # ---------------------------------------------------------------------
 
-RESULTS_DIR = "webCrawler/produced"
 WEB_VIEWER = "webCrawler/viewer/WebCrawler.html"
 VIEWER_HOST = "127.0.0.1"
 VIEWER_PORT = 8765
@@ -80,7 +81,7 @@ SELENIUM_ENABLED_KEY = "selenium_enabled"
 SELENIUM_DEPTH_KEY = "selenium_depth"
 SELENIUM_MAX_PAGES_KEY = "selenium_max_pages"
 DOWNLOAD_DELAY_KEY = "download_delay"
-OUTPUT_NAME_KEY = "output_name"
+OUTPUT_DIR_KEY = "output_dir"
 
 
 # ---------------------------------------------------------------------
@@ -120,7 +121,7 @@ SECONDARY_VALIDATION: Dict[str, Any] = {
     },
     OUTPUT_KEYS_SECTION: {
         "required_job_fields": {
-            OUTPUT_NAME_KEY: str,
+            OUTPUT_DIR_KEY: str,
         },
     },
 }
@@ -140,7 +141,7 @@ REQUIRED_USER = "standard"
 PLAN_COLUMN_ORDER = [
     DOMAIN_KEY,
     TERMS_KEY,
-    OUTPUT_NAME_KEY,
+    OUTPUT_DIR_KEY,
 ]
 
 
@@ -255,8 +256,8 @@ CRAWL_PHOTON_EXEC = [
             lambda job, meta, ctx: make_checkpoint(
                 "photon",
                 meta[SEARCH_KEYS_SECTION][DOMAIN_KEY],
-                meta[OUTPUT_KEYS_SECTION][OUTPUT_NAME_KEY],
-                RESULTS_DIR,
+                job,
+                meta[OUTPUT_KEYS_SECTION][OUTPUT_DIR_KEY],
                 ctx,
             ),
         ],
@@ -281,8 +282,8 @@ CRAWL_SELENIUM_FALLBACK_EXEC = [
             lambda job, meta, ctx: make_checkpoint(
                 "selenium",
                 meta[SEARCH_KEYS_SECTION][DOMAIN_KEY],
-                meta[OUTPUT_KEYS_SECTION][OUTPUT_NAME_KEY],
-                RESULTS_DIR,
+                job,
+                meta[OUTPUT_KEYS_SECTION][OUTPUT_DIR_KEY],
                 ctx,
             ),
         ],
@@ -311,8 +312,8 @@ CRAWL_SELENIUM_ALL_EXEC = [
             lambda job, meta, ctx: make_checkpoint(
                 "selenium",
                 meta[SEARCH_KEYS_SECTION][DOMAIN_KEY],
-                meta[OUTPUT_KEYS_SECTION][OUTPUT_NAME_KEY],
-                RESULTS_DIR,
+                job,
+                meta[OUTPUT_KEYS_SECTION][OUTPUT_DIR_KEY],
                 ctx,
             ),
         ],
@@ -354,8 +355,8 @@ OUTPUT_RESULTS_EXEC = [
         "fn": save_named_json,
         "args": [
             lambda job, meta, ctx: ctx.get("result_data", {}),
-            lambda job, meta, ctx: RESULTS_DIR,
-            lambda job, meta, ctx: meta[OUTPUT_KEYS_SECTION][OUTPUT_NAME_KEY],
+            lambda job, meta, ctx: meta[OUTPUT_KEYS_SECTION][OUTPUT_DIR_KEY],
+            lambda job, meta, ctx: job,
         ],
         "result": "saved_result",
         "when": lambda job, meta, ctx: bool(ctx.get("final_results", [])),
@@ -392,7 +393,7 @@ VIEW_RESULTS_EXEC = [
         "phase": "exec",
         "fn": select_json_file,
         "args": [
-            lambda job, meta, ctx: RESULTS_DIR,
+            lambda job, meta, ctx: expand_path(meta[OUTPUT_KEYS_SECTION][OUTPUT_DIR_KEY]),
         ],
         "result": "selected_result",
     },
@@ -406,7 +407,7 @@ VIEW_RESULTS_EXEC = [
             lambda job, meta, ctx: VIEWER_PORT,
         ],
         "result": "viewer_opened",
-        "when": lambda job, meta, ctx: bool(ctx.get("selected_result")),
+        "when": lambda job, meta, ctx: isinstance(ctx.get("selected_result"), str) and bool(ctx.get("selected_result")),
     },
 ]
 

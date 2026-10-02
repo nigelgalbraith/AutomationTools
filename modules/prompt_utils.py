@@ -4,6 +4,7 @@ import os
 import re
 from typing import Dict, List
 from modules.json_utils import build_basename
+from modules.system_utils import expand_path
 
 
 # ---------------------------------------------------------------------
@@ -34,6 +35,8 @@ def write_prompts_from_items(
     if not items:
         print("[INFO] No items provided. Nothing to render.")
         return 0
+    template_path = expand_path(template_path)
+    prompts_out_dir = expand_path(prompts_out_dir)
     with open(template_path, "r", encoding="utf-8", newline="") as f:
         template_text = f.read()
     os.makedirs(prompts_out_dir, exist_ok=True)

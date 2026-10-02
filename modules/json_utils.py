@@ -12,6 +12,7 @@ import tempfile
 
 from pathlib import Path
 from typing import Union, Dict, Any, List, Tuple, Optional
+from modules.system_utils import expand_path
 
 
 # ---------------------------------------------------------------------
@@ -20,6 +21,7 @@ from typing import Union, Dict, Any, List, Tuple, Optional
 
 def load_json(path: str) -> Dict[str, Any]:
     """Load a JSON file into a dict"""
+    path = expand_path(path)
     if not os.path.exists(path):
         raise FileNotFoundError(f"JSON file not found: {path}")
     with open(path, "r", encoding="utf-8") as f:
@@ -31,6 +33,7 @@ def load_json(path: str) -> Dict[str, Any]:
 
 def save_json_file(path: str, data: Dict[str, Any]) -> None:
     """Atomically save a dict, preserving the previous file if writing fails."""
+    path = expand_path(path)
     parent = os.path.dirname(path)
     if parent:
         os.makedirs(parent, exist_ok=True)
@@ -72,10 +75,11 @@ def resolve_value(data: dict, primary_key: str, secondary_key: str, default_key:
         value = data[default_key][secondary_key]
     if value is None:
         return False
-    if check_file and isinstance(value, str) and not os.path.isfile(value):
-        return False
+    if check_file and isinstance(value, str):
+        value = expand_path(value)
+        if not os.path.isfile(value):
+            return False
     return value
-
 
 # ---------------------------------------------------------------------
 # VALIDATION FUNCTIONS
@@ -133,6 +137,7 @@ def validate_secondary_subkey(jobs_block: Dict[str, Dict[str, Any]], subkey: str
 
 def load_items_from_dir(items_dir: str) -> List[Dict[str, str]]:
     """Load extracted item JSON files from items_dir (excludes *.profile.json)"""
+    items_dir = expand_path(items_dir)
     items: List[Dict[str, str]] = []
     if not os.path.isdir(items_dir):
         return items
@@ -159,6 +164,7 @@ def save_items_json_dir(
     if not items:
         print("[INFO] No items to save.")
         return False
+    out_dir = expand_path(out_dir)
     os.makedirs(out_dir, exist_ok=True)
     print(f"[INFO] Saving {len(items)} JSON file(s) to: {out_dir}")
     saved = 0
@@ -184,6 +190,7 @@ def save_named_json(
     if not output_name:
         print("[ERROR] No output name provided.")
         return None
+    out_dir = expand_path(out_dir)
     os.makedirs(out_dir, exist_ok=True)
     safe_name = os.path.basename(output_name)
     if not safe_name.lower().endswith(".json"):
@@ -202,6 +209,7 @@ def select_json_file(
     json_dir: str,
 ) -> Optional[str]:
     """Select a JSON file from a directory."""
+    json_dir = expand_path(json_dir)
     if not os.path.isdir(json_dir):
         print(f"[INFO] JSON directory does not exist: {json_dir}")
         return None

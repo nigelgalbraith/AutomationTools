@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Union, Callable
 from urllib.parse import parse_qs, unquote, urlparse
 import requests
 from bs4 import BeautifulSoup
-from modules.system_utils import load_skip_list
+from modules.system_utils import expand_path, load_skip_list
 from modules.json_utils import save_named_json
 
 
@@ -80,13 +80,14 @@ def _extract_one_source(source: str, rules: Dict[str, Dict[str, Any]], show_sour
     if parsed.scheme in ("http", "https"):
         html = fetch_text(source)
     elif parsed.scheme == "file":
-        with open(parsed.path, "r", encoding="utf-8", errors="replace") as f:
-            html = f.read()
-    elif os.path.exists(source):
-        with open(source, "r", encoding="utf-8", errors="replace") as f:
+        with open(expand_path(parsed.path), "r", encoding="utf-8", errors="replace") as f:
             html = f.read()
     else:
-        raise ValueError(f"Unsupported source: {source}")
+        source = expand_path(source)
+        if not os.path.exists(source):
+            raise ValueError(f"Unsupported source: {source}")
+        with open(source, "r", encoding="utf-8", errors="replace") as f:
+            html = f.read()
     data = parse_fields_from_html(html, rules)
     if show_source:
         data["html_source"] = source
@@ -124,6 +125,7 @@ def list_html_files(html_dir: str) -> List[str]:
     """Return absolute paths for .html/.htm files in html_dir, sorted"""
     if not html_dir:
         return []
+    html_dir = expand_path(html_dir)
     if not os.path.isdir(html_dir):
         print(f"[WARN] html_dir does not exist: {html_dir}")
         return []
@@ -200,8 +202,8 @@ def run_photon(
     depth: int,
 ) -> List[str]:
     """Run Photon and return URLs discovered by the crawl."""
-    python_path = Path(os.path.expanduser(photon_python))
-    script_path = Path(os.path.expanduser(photon_script))
+    python_path = Path(expand_path(photon_python))
+    script_path = Path(expand_path(photon_script))
     if not python_path.exists():
         raise FileNotFoundError(f"Photon Python not found: {python_path}")
     if not script_path.exists():
@@ -335,11 +337,11 @@ def build_crawl_results(
     }
 
 
-def make_checkpoint(source: str, domain: str, output_name: str, results_dir: str, ctx: Dict[str, Any]):
+def make_checkpoint(source: str, domain: str, filename: str, results_dir: str, ctx: Dict[str, Any]):
     """Initialize and publish one crawler's live results independently of final output."""
-    if output_name.lower().endswith(".json"):
-        output_name = output_name[:-5]
-    output_name = f"{output_name}-{source.capitalize()}"
+    if filename.lower().endswith(".json"):
+        filename = filename[:-5]
+    filename = f"{filename}-{source.capitalize()}"
     saved_results = None
     def checkpoint(results):
         nonlocal saved_results
@@ -353,7 +355,7 @@ def make_checkpoint(source: str, domain: str, output_name: str, results_dir: str
         path = save_named_json(
             build_crawl_results(domain, unique),
             results_dir,
-            output_name,
+            filename,
         )
         if path:
             saved_results = unique

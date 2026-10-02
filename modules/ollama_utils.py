@@ -4,6 +4,7 @@ import os
 from glob import glob
 from typing import Dict, Optional
 import requests
+from modules.system_utils import expand_path
 
 
 # ---------------------------------------------------------------------
@@ -21,6 +22,8 @@ def send_prompt_text_to_ollama_and_save(
     timeout_s: int = 600,
 ) -> Optional[str]:
     """Generate one text from one prompt text file and save to disk"""
+    prompt_path = expand_path(prompt_path)
+    text_out_dir = expand_path(text_out_dir)
     print(f"\n[INFO] Processing prompt: {prompt_path}")
     try:
         with open(prompt_path, "r", encoding="utf-8") as f:
@@ -96,6 +99,8 @@ def generate_text_from_prompts_dir(
     overwrite: bool = False,
 ) -> Dict[str, int]:
     """Generate texts for prompt files in prompts_out_dir"""
+    prompts_out_dir = expand_path(prompts_out_dir)
+    text_out_dir = expand_path(text_out_dir)
     summary = {"processed": 0, "saved": 0, "skipped": 0, "failed": 0}
     print(f"\n[INFO] Looking for prompts in: {prompts_out_dir}")
     if not os.path.isdir(prompts_out_dir):

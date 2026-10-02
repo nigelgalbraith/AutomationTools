@@ -3,6 +3,7 @@ from __future__ import annotations
 import subprocess
 import time
 import requests
+from modules.system_utils import expand_path
 
 
 # ---------------------------------------------------------------------
@@ -17,7 +18,7 @@ def is_ollama_running(compose_dir: str) -> bool:
     try:
         result = subprocess.run(
             ["docker", "compose", "ps", "--status", "running"],
-            cwd=compose_dir,
+            cwd=expand_path(compose_dir),
             capture_output=True,
             text=True,
             check=True,
@@ -56,7 +57,7 @@ def start_ollama_compose(compose_dir: str) -> bool:
             print(f"[INFO] Starting docker compose in: {compose_dir}")
             subprocess.run(
                 ["docker", "compose", "up", "-d"],
-                cwd=compose_dir,
+                cwd=expand_path(compose_dir),
                 check=True,
             )
             print("[OK] Docker compose started.")
@@ -78,7 +79,7 @@ def stop_ollama_compose(compose_dir: str) -> bool:
         return False
     try:
         print(f"[INFO] Stopping docker compose in: {compose_dir}")
-        subprocess.run(["docker", "compose", "down"], cwd=compose_dir, check=True)
+        subprocess.run(["docker", "compose", "down"], cwd=expand_path(compose_dir), check=True)
         print("[OK] Docker compose stopped.")
         return True
     except Exception as e:

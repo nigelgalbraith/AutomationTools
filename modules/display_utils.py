@@ -12,6 +12,7 @@ from pathlib import Path
 import os
 import getpass
 import json
+from modules.system_utils import expand_path
 
 
 # ---------------------------------------------------------------------
@@ -331,7 +332,7 @@ def pick_constants_interactively(choices: dict[str, tuple[str, Optional[int]]]) 
 
 def display_config_doc(doc_path: str) -> bool:
     """Load a config help JSON doc and print its EXAMPLE and DESCRIPTION sections"""
-    path = Path(doc_path)
+    path = Path(expand_path(doc_path))
     if not path.is_file():
         print(f"[ERROR] Config doc not found: {path}")
         return False
@@ -361,7 +362,7 @@ def display_config_doc(doc_path: str) -> bool:
 
 def format_config_help(doc_path: str) -> list[str]:
     """Return formatted output lines for a config help JSON doc"""
-    path = Path(doc_path)
+    path = Path(expand_path(doc_path))
     if not path.is_file():
         return [f"[WARN] No config help found at: {doc_path}"]
     try:

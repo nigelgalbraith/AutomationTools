@@ -16,7 +16,7 @@
       "download_delay": 2.0
     },
     "output_keys": {
-      "output_name": "Wikipedia-Albert-Einstein"
+      "output_dir": "~/Documents/webCrawler/produced/Wikipedia-Albert-Einstein"
     }
   },
 
@@ -37,7 +37,7 @@
       "download_delay": 2.0
     },
     "output_keys": {
-      "output_name": "Wikipedia-Stephen-Hawking"
+      "output_dir": "~/Documents/webCrawler/produced/Wikipedia-Stephen-Hawking"
     }
   }
 }
