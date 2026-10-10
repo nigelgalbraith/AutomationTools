@@ -1,0 +1,110 @@
+{
+  "browser_utils.py": {
+    "ModuleFolder": "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/modules",
+    "CheckFolders": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/constants"
+    ],
+    "CheckFiles": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/AutomationLoader.py"
+    ]
+  },
+  "display_utils.py": {
+    "ModuleFolder": "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/modules",
+    "CheckFolders": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/constants"
+    ],
+    "CheckFiles": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/AutomationLoader.py"
+    ]
+  },
+  "docker_utils.py": {
+    "ModuleFolder": "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/modules",
+    "CheckFolders": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/constants"
+    ],
+    "CheckFiles": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/AutomationLoader.py"
+    ]
+  },
+  "function_utils.py": {
+    "ModuleFolder": "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/modules",
+    "CheckFolders": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/constants"
+    ],
+    "CheckFiles": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/AutomationLoader.py"
+    ]
+  },
+  "json_utils.py": {
+    "ModuleFolder": "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/modules",
+    "CheckFolders": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/constants"
+    ],
+    "CheckFiles": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/AutomationLoader.py"
+    ]
+  },
+  "ollama_utils.py": {
+    "ModuleFolder": "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/modules",
+    "CheckFolders": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/constants"
+    ],
+    "CheckFiles": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/AutomationLoader.py"
+    ]
+  },
+  "package_utils.py": {
+    "ModuleFolder": "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/modules",
+    "CheckFolders": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/constants"
+    ],
+    "CheckFiles": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/AutomationLoader.py"
+    ]
+  },
+  "prompt_utils.py": {
+    "ModuleFolder": "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/modules",
+    "CheckFolders": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/constants"
+    ],
+    "CheckFiles": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/AutomationLoader.py"
+    ]
+  },
+  "state_machine_utils.py": {
+    "ModuleFolder": "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/modules",
+    "CheckFolders": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/constants"
+    ],
+    "CheckFiles": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/AutomationLoader.py"
+    ]
+  },
+  "system_utils.py": {
+    "ModuleFolder": "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/modules",
+    "CheckFolders": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/constants"
+    ],
+    "CheckFiles": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/AutomationLoader.py"
+    ]
+  },
+  "web_download_utils.py": {
+    "ModuleFolder": "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/modules",
+    "CheckFolders": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/constants"
+    ],
+    "CheckFiles": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/AutomationLoader.py"
+    ]
+  },
+  "web_extract_utils.py": {
+    "ModuleFolder": "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/modules",
+    "CheckFolders": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/constants"
+    ],
+    "CheckFiles": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/AutomationLoader.py"
+    ]
+  }
+}
