@@ -24,8 +24,12 @@ def _validate_input_path(value: str, name: str) -> Path:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{name} must be a non-empty path.")
     path = Path(expand_path(value)).resolve()
-    if not path.is_file() or not os.access(path, os.R_OK):
-        raise ValueError(f"Input must be a readable regular file: {path}")
+    if not path.exists():
+        raise FileNotFoundError(f"{name} does not exist: {path}")
+    if not path.is_file():
+        raise ValueError(f"{name} is not a regular file: {path}")
+    if not os.access(path, os.R_OK):
+        raise PermissionError(f"{name} is not readable: {path}")
     return path
 
 
@@ -73,6 +77,7 @@ def validate_ubuntu_yaml(autoinstall_path: str) -> bool:
         raise ValueError("Autoinstall configuration must specify version: 1.")
     if data.get("interactive-sections") != ["storage"]:
         raise ValueError("Autoinstall configuration must specify interactive-sections: [storage].")
+    print(f"[OK] Autoinstall YAML validated: {path}")
     return True
 
 
@@ -103,6 +108,7 @@ def validate_ubuntu_iso(source_iso: str) -> bool:
             and entry.get("variant") == "desktop" for entry in entries
         ):
             raise ValueError("ISO does not contain a supported Ubuntu Desktop installation source.")
+    print(f"[OK] Ubuntu ISO validated: {source}")
     return True
 
 

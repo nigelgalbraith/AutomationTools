@@ -114,7 +114,7 @@ def run_pipeline_steps(
             result = fn(*args)
         except Exception as e:
             ctx["errors"].append({"step": getattr(fn, "__name__", "unknown"), "error": str(e)})
-            print(f"[ERROR] {getattr(fn, '__name__', 'unknown')} failed → {e!r}")
+            print(f"[ERROR] {getattr(fn, '__name__', 'unknown')} failed → {e}")
             continue
         rkey = step.get("result")
         if rkey is not None:
