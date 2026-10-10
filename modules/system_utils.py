@@ -50,13 +50,20 @@ def run_cmd(
     *,
     check: bool = True,
     timeout: int | float | None = None,
+    stream: bool = False,
+    show_cmd: bool = True,
 ) -> subprocess.CompletedProcess | None:
-    """Run a system command, print output, and return CompletedProcess (or None on failure)."""
-    print(f"[CMD] {' '.join(cmd)}")
+    """Run a command; stream=True inherits terminal output instead of capturing it.
+
+    show_cmd=False hides only the command line, not output or errors.
+    Return CompletedProcess (stdout/stderr are None when streaming), or None on failure.
+    """
+    if show_cmd:
+        print(f"[CMD] {' '.join(cmd)}", flush=True)
     try:
         result = subprocess.run(
             cmd,
-            capture_output=True,
+            capture_output=not stream,
             text=True,
             check=False,
             timeout=timeout,

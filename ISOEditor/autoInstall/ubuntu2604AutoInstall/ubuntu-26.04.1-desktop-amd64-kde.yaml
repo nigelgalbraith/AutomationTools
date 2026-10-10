@@ -1,0 +1,73 @@
+# Ubuntu Desktop 26.04.1 LTS Automated Installation
+# KDE Plasma Desktop
+#
+# Default login credentials:
+# Username: user
+# Password: Welcome123!
+# Hostname: ubuntu
+#
+# Users should change their password after installation.
+
+autoinstall:
+  version: 1
+
+  # Only ask which drive/partitions to install Ubuntu on
+  interactive-sections:
+    - storage
+
+  # Language and region
+  locale: en_NZ.UTF-8
+  timezone: Pacific/Auckland
+
+  # Keyboard
+  keyboard:
+    layout: us
+
+  # Default user account
+  identity:
+    realname: User
+    hostname: ubuntu
+    username: user
+    password: "$6$RYiJ7FA4UeJGxrSh$uvEHDhmG7gwLz4sRHhCJCiYCQjNjVn2Z9iTverQka33zOHoGx1zGvS/MdBLBLwCLAW0YjHQYKOwH9hcTtFx9B1"
+
+  # Select installation drive manually
+  storage:
+    layout:
+      name: direct
+
+  # KDE Plasma and applications
+  packages:
+    - kubuntu-desktop
+    - vlc
+    - firefox
+    - libreoffice
+    - gimp
+    - pdfarranger
+    - file-roller
+    - gparted
+    - timeshift
+    - ufw
+    - unattended-upgrades
+
+  # Install security updates
+  updates: security
+
+  # Configure KDE login manager and firewall
+  late-commands:
+
+    # Set SDDM as the default display manager
+    - curtin in-target --target=/target -- sh -c 'echo "sddm shared/default-x-display-manager select sddm" | debconf-set-selections'
+    - curtin in-target --target=/target -- sh -c 'echo "/usr/bin/sddm" > /etc/X11/default-display-manager'
+    - curtin in-target --target=/target -- systemctl enable sddm
+
+    # Configure UFW firewall
+    - curtin in-target --target=/target -- ufw default deny incoming
+    - curtin in-target --target=/target -- ufw default allow outgoing
+    - curtin in-target --target=/target -- ufw --force enable
+
+    # Enable automatic security updates
+    - curtin in-target --target=/target -- systemctl enable apt-daily.timer
+    - curtin in-target --target=/target -- systemctl enable apt-daily-upgrade.timer
+
+  # Restart after installation
+  shutdown: reboot

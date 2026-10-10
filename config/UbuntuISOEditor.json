@@ -1,0 +1,9 @@
+{
+  "Ubuntu-26.04.1-desktop-amd64": {
+    "iso_keys": {
+      "source_iso": "~/Downloads/ubuntu-26.04.1-desktop-amd64.iso",
+      "autoinstall_dir": "ISOEditor/autoInstall/ubuntuAutoInstall",
+      "output_iso_loc": "~/Downloads"
+    }
+  }
+}
