@@ -35,6 +35,15 @@
       "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/AutomationLoader.py"
     ]
   },
+  "iso_utils.py": {
+    "ModuleFolder": "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/modules",
+    "CheckFolders": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/constants"
+    ],
+    "CheckFiles": [
+      "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/AutomationLoader.py"
+    ]
+  },
   "json_utils.py": {
     "ModuleFolder": "/mnt/nigel/userData/GitHub/Private/DebianScripts/AutomationTools/modules",
     "CheckFolders": [
