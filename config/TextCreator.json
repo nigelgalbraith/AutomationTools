@@ -1,7 +1,7 @@
 {
   "Group-A": {
     "download_keys": {
-      "download_loc": "~/Documents/Automation/textCreator/produced/Group-A/html",
+      "download_loc": "~/Documents/AutomationToolsData/textCreator/produced/Group-A/html",
       "download_urls": [
         "https://example.com/collection/a"
       ],
@@ -10,15 +10,15 @@
       "links_per_search": 10,
       "download_delay": 3.0,
       "filename_from_url_regex": "/item/(\\d+)",
-      "skip_list_file": "~/Documents/Automation/textCreator/skipLists/MainSkipList.txt",
+      "skip_list_file": "~/Documents/AutomationToolsData/textCreator/skipLists/MainSkipList.txt",
       "title_selectors": [
         "[data-automation='itemTitle']",
         "h1"
       ]
     },
     "extract_keys": {
-      "html_dir": "~/Documents/Automation/textCreator/produced/Group-A/html",
-      "items_out_dir": "~/Documents/Automation/textCreator/produced/Group-A/items",
+      "html_dir": "~/Documents/AutomationToolsData/textCreator/produced/Group-A/html",
+      "items_out_dir": "~/Documents/AutomationToolsData/textCreator/produced/Group-A/items",
       "basename_keys": [
         "field_a",
         "field_b"
@@ -29,11 +29,11 @@
         },
         "field_b": {
           "css": "[data-automation=\"item-name\"]",
-          "skip_list_file": "~/Documents/Automation/textCreator/skipLists/itemNameSkipList.txt"
+          "skip_list_file": "~/Documents/AutomationToolsData/textCreator/skipLists/itemNameSkipList.txt"
         },
         "field_c": {
           "css": "[data-automation=\"itemDetails\"]",
-          "skip_list_file": "~/Documents/Automation/textCreator/skipLists/itemDetailsSkipList.txt",
+          "skip_list_file": "~/Documents/AutomationToolsData/textCreator/skipLists/itemDetailsSkipList.txt",
           "sep": "\n"
         },
         "field_d": {
@@ -42,9 +42,9 @@
       }
     },
     "prompt_keys": {
-      "text_out_dir": "~/Documents/Automation/textCreator/produced/Group-A/text",
+      "text_out_dir": "~/Documents/AutomationToolsData/textCreator/produced/Group-A/text",
       "prompt_template_path": "textCreator/promptTemplates/Template-A-Prompt.txt",
-      "prompts_out_dir": "~/Documents/Automation/textCreator/produced/Group-A/prompts",
+      "prompts_out_dir": "~/Documents/AutomationToolsData/textCreator/produced/Group-A/prompts",
       "prompt_injection_keys": [
         "field_a",
         "field_b",
@@ -56,7 +56,7 @@
 
   "Group-B": {
     "download_keys": {
-      "download_loc": "~/Documents/Automation/textCreator/produced/Group-B/html",
+      "download_loc": "~/Documents/AutomationToolsData/textCreator/produced/Group-B/html",
       "download_urls": [
         "https://example.com/collection/b"
       ],
@@ -65,15 +65,15 @@
       "links_per_search": 10,
       "download_delay": 3.0,
       "filename_from_url_regex": "/item/(\\d+)",
-      "skip_list_file": "~/Documents/Automation/textCreator/skipLists/MainSkipList.txt",
+      "skip_list_file": "~/Documents/AutomationToolsData/textCreator/skipLists/MainSkipList.txt",
       "title_selectors": [
         "[data-automation='itemTitle']",
         "h1"
       ]
     },
     "extract_keys": {
-      "html_dir": "~/Documents/Automation/textCreator/produced/Group-B/html",
-      "items_out_dir": "~/Documents/Automation/textCreator/produced/Group-B/items",
+      "html_dir": "~/Documents/AutomationToolsData/textCreator/produced/Group-B/html",
+      "items_out_dir": "~/Documents/AutomationToolsData/textCreator/produced/Group-B/items",
       "basename_keys": [
         "field_a",
         "field_b"
@@ -84,11 +84,11 @@
         },
         "field_b": {
           "css": "[data-automation=\"item-name\"]",
-          "skip_list_file": "~/Documents/Automation/textCreator/skipLists/itemNameSkipList.txt"
+          "skip_list_file": "~/Documents/AutomationToolsData/textCreator/skipLists/itemNameSkipList.txt"
         },
         "field_c": {
           "css": "[data-automation=\"itemDetails\"]",
-          "skip_list_file": "~/Documents/Automation/textCreator/skipLists/itemDetailsSkipList.txt",
+          "skip_list_file": "~/Documents/AutomationToolsData/textCreator/skipLists/itemDetailsSkipList.txt",
           "sep": "\n"
         },
         "field_d": {
@@ -97,9 +97,9 @@
       }
     },
     "prompt_keys": {
-      "text_out_dir": "~/Documents/Automation/textCreator/produced/Group-B/text",
+      "text_out_dir": "~/Documents/AutomationToolsData/textCreator/produced/Group-B/text",
       "prompt_template_path": "textCreator/promptTemplates/Template-B-Prompt.txt",
-      "prompts_out_dir": "~/Documents/Automation/textCreator/produced/Group-B/prompts",
+      "prompts_out_dir": "~/Documents/AutomationToolsData/textCreator/produced/Group-B/prompts",
       "prompt_injection_keys": [
         "field_a",
         "field_b",

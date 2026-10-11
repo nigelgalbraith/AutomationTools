@@ -16,7 +16,7 @@
       "download_delay": 2.0
     },
     "output_keys": {
-      "output_dir": "~/Documents/Automation/webCrawler/produced/Wikipedia-Albert-Einstein"
+      "output_dir": "~/Documents/AutomationToolsData/webCrawler/produced/Wikipedia-Albert-Einstein"
     }
   },
 
@@ -37,7 +37,7 @@
       "download_delay": 2.0
     },
     "output_keys": {
-      "output_dir": "~/Documents/Automation/webCrawler/produced/Wikipedia-Stephen-Hawking"
+      "output_dir": "~/Documents/AutomationToolsData/webCrawler/produced/Wikipedia-Stephen-Hawking"
     }
   },
 
@@ -60,7 +60,7 @@
       "download_delay": 2.0
     },
     "output_keys": {
-      "output_dir": "~/Documents/Automation/webCrawler/produced/Wikipedia-Physics"
+      "output_dir": "~/Documents/AutomationToolsData/webCrawler/produced/Wikipedia-Physics"
     }
   }
 }
