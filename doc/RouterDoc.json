@@ -1,0 +1,71 @@
+{
+    "FIXED_FIELDS": [
+        "<GROUP>.model_specs_path",
+        "<GROUP>.model_specs_readme_path",
+        "<GROUP>.template_config_path",
+        "<GROUP>.template_router_password_path",
+        "<GROUP>.target_router_password_path",
+        "<GROUP>.router_details_path",
+        "<GROUP>.router_details_readme_path",
+        "<GROUP>.decoded_config_archive_path",
+        "<GROUP>.decoded_config_path",
+        "<GROUP>.edited_config_path",
+        "<GROUP>.encoded_config_path"
+    ],
+    "EDITABLE_FIELDS": [
+        "<GROUP>",
+        "<GROUP>.model_specs_path",
+        "<GROUP>.model_specs_readme_path",
+        "<GROUP>.template_config_path",
+        "<GROUP>.template_router_password_path",
+        "<GROUP>.target_router_password_path",
+        "<GROUP>.router_details_path",
+        "<GROUP>.router_details_readme_path",
+        "<GROUP>.decoded_config_archive_path",
+        "<GROUP>.decoded_config_path",
+        "<GROUP>.edited_config_path",
+        "<GROUP>.encoded_config_path"
+    ],
+    "EXAMPLE": {
+        "router_one": {
+            "model_specs_path": "routers/model_specs/Spark_SmartModem_VRV9517.json",
+            "model_specs_readme_path": "routers/model_specs/ModelSpecsReadMe.md",
+            "template_config_path": "~/Documents/AutomationData/routers/templates/router_one.cfg",
+            "template_router_password_path": "~/Documents/AutomationData/routers/templatePasswords/router_one_password.txt",
+            "target_router_password_path": "~/Documents/AutomationData/routers/targetPasswords/router_one_password.txt",
+            "router_details_path": "~/Documents/AutomationData/routers/details/router_one_details.json",
+            "router_details_readme_path": "routers/details/RouterDetailsReadMe.md",
+            "decoded_config_archive_path": "~/Documents/AutomationData/routers/decoded/router_one_decoded.tar.gz",
+            "decoded_config_path": "~/Documents/AutomationData/routers/decoded/router_one_decoded",
+            "edited_config_path": "~/Documents/AutomationData/routers/edited/router_one_edited",
+            "encoded_config_path": "~/Documents/AutomationData/routers/encoded/router_one_encoded.cfg"
+        },
+        "router_two": {
+            "model_specs_path": "routers/model_specs/Spark_SmartModem_VRV9517.json",
+            "model_specs_readme_path": "routers/model_specs/ModelSpecsReadMe.md",
+            "template_config_path": "~/Documents/AutomationData/routers/templates/router_two.cfg",
+            "template_router_password_path": "~/Documents/AutomationData/routers/templatePasswords/router_two_password.txt",
+            "target_router_password_path": "~/Documents/AutomationData/routers/targetPasswords/router_two_password.txt",
+            "router_details_path": "~/Documents/AutomationData/routers/details/router_two_details.json",
+            "router_details_readme_path": "routers/details/RouterDetailsReadMe.md",
+            "decoded_config_archive_path": "~/Documents/AutomationData/routers/decoded/router_two_decoded.tar.gz",
+            "decoded_config_path": "~/Documents/AutomationData/routers/decoded/router_two_decoded",
+            "edited_config_path": "~/Documents/AutomationData/routers/edited/router_two_edited",
+            "encoded_config_path": "~/Documents/AutomationData/routers/encoded/router_two_encoded.cfg"
+        }
+    },
+    "DESCRIPTION": {
+        "<GROUP>": "Each group defines one router job. Paths expand ~; relative paths are relative to the working directory, as in AutomationLoader. Outputs must not exist. Decode extracts automatically; Run All validates, decodes, extracts, edits, and encodes once.",
+        "<GROUP>.model_specs_path": "Router model specification JSON file.",
+        "<GROUP>.model_specs_readme_path": "Model specification documentation file.",
+        "<GROUP>.template_config_path": "Original encrypted router backup; never modified.",
+        "<GROUP>.template_router_password_path": "Text file containing the template router password.",
+        "<GROUP>.target_router_password_path": "Separate text file containing the target router password.",
+        "<GROUP>.router_details_path": "JSON object of settings to apply. Keys must match config_fields labels in the model specification. Unspecified settings are preserved.",
+        "<GROUP>.router_details_readme_path": "Documentation explaining router details JSON settings and how to add new configuration fields.",
+        "<GROUP>.decoded_config_archive_path": "New decoded TAR.GZ file.",
+        "<GROUP>.decoded_config_path": "New directory for extracted configuration files.",
+        "<GROUP>.edited_config_path": "New directory for the edited copy.",
+        "<GROUP>.encoded_config_path": "New encrypted CFG file for the target router."
+    }
+}
