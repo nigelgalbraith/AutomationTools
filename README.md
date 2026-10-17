@@ -36,6 +36,7 @@ The loader manages common execution tasks while tool-specific functionality rema
 - **Web Crawler** — Performs web searches and website crawling, processes results, and provides an HTML results viewer.
 - **Ubuntu ISO Editor** — Creates customized Ubuntu Desktop installation ISOs using Autoinstall YAML configurations.
 - **Function Utility** — Provides function inspection and usage information.
+- **Router Configuration** — Decodes, extracts, edits and re-encodes router backups using JSON model specifications and configurable paths.
 
 The framework supports additional tools through its constants-module registration system.
 
@@ -154,6 +155,7 @@ Examples include:
 - `json_utils.py`
 - `ollama_utils.py`
 - `package_utils.py`
+- `router_utils.py`
 - `state_machine_utils.py`
 - `system_utils.py`
 - `web_download_utils.py`
@@ -229,24 +231,28 @@ AutomationTools/
 │   ├── FunctionConstants.py
 │   ├── TextCreatorConstants.py
 │   ├── WebCrawlerConstants.py
-│   └── UbuntuISOEditorConstants.py
+│   ├── UbuntuISOEditorConstants.py
+│   └── RouterConstants.py
 │
 ├── config/
 │   ├── FunctionsConfig.json
 │   ├── TextCreator.json
 │   ├── WebCrawler.json
-│   └── UbuntuISOEditor.json
+│   ├── UbuntuISOEditor.json
+│   └── RouterConfig.json
 │
 ├── config-sample/
 │   ├── TextCreator.json
 │   ├── WebCrawler.json
-│   └── UbuntuISOEditor.json
+│   ├── UbuntuISOEditor.json
+│   └── RouterConfig.json
 │
 ├── doc/
 │   ├── FunctionDoc.json
 │   ├── TextCreatorDoc.json
 │   ├── WebCrawlerDoc.json
-│   └── UbuntuISOEditorDoc.json
+│   ├── UbuntuISOEditorDoc.json
+│   └── RouterDoc.json
 │
 ├── modules/
 │   ├── browser_utils.py
@@ -257,6 +263,7 @@ AutomationTools/
 │   ├── json_utils.py
 │   ├── ollama_utils.py
 │   ├── package_utils.py
+│   ├── router_utils.py
 │   ├── state_machine_utils.py
 │   ├── system_utils.py
 │   ├── web_download_utils.py
@@ -365,6 +372,12 @@ Function Utility:
 
 ```bash
 python3 AutomationLoader.py --constants constants.FunctionConstants
+```
+
+Router Configuration:
+
+```bash
+python3 AutomationLoader.py --constants constants.RouterConstants
 ```
 
 ### Plan-Only Mode
@@ -501,7 +514,7 @@ textCreator/promptTemplates-sample/
 2. Extract structured information from the downloaded content.
 3. Save the extracted information.
 4. Generate prompts using the configured templates.
-5. Start the Ollama service when required.
+5. Start Ollama when required.
 6. Generate text using the selected model.
 7. Save the generated output.
 8. Stop Ollama when requested.
@@ -721,6 +734,418 @@ Example:
 No changes to the constants or ISO utility modules are required solely to add another configuration group.
 
 Compatibility depends on the Ubuntu Desktop source ISO and installer.
+
+---
+
+## Router Configuration
+
+The Router Configuration utility automates decoding, inspecting, editing and re-encoding router configuration backups.
+
+Router models are described using JSON specifications rather than separate Python implementations for each router model.
+
+The Router utility uses configured paths for model specifications, original router templates, passwords, router details and generated output files.
+
+### Features
+
+- Load router model specifications.
+- Validate router configuration and model requirements.
+- View router model specification documentation.
+- View router details and router details documentation.
+- Decode encrypted router configuration backups.
+- Save decoded configuration archives.
+- Extract decoded router configuration files.
+- View decoded configuration fields.
+- Edit router configuration fields using router details.
+- View edited configuration fields.
+- Rebuild and encrypt router configuration backups.
+- Validate generated encoded configurations.
+- Run the complete decode, edit and encode workflow.
+
+### Configuration
+
+Configuration:
+
+```text
+config/RouterConfig.json
+```
+
+Constants:
+
+```text
+constants/RouterConstants.py
+```
+
+Documentation:
+
+```text
+doc/RouterDoc.json
+```
+
+Utility module:
+
+```text
+modules/router_utils.py
+```
+
+### Router Constants
+
+The Router utility is configured by `constants/RouterConstants.py`.
+
+The constants module defines the JSON configuration paths, required fields, dependencies, actions, execution steps and pipeline states.
+
+#### Configuration Constants
+
+```python
+CONFIG_PATH = "config/RouterConfig.json"
+TOOL_TYPE = "Router Configuration"
+CONFIG_DOC = "doc/RouterDoc.json"
+```
+
+These constants identify the router configuration file, tool type and configuration documentation.
+
+#### Router JSON Keys
+
+The following constants identify fields used by the router configuration:
+
+```python
+MODEL_SPECS_PATH = "model_specs_path"
+MODEL_SPECS_README_PATH = "model_specs_readme_path"
+TEMPLATE_CONFIG_PATH = "template_config_path"
+TEMPLATE_ROUTER_PASSWORD_PATH = "template_router_password_path"
+TARGET_ROUTER_PASSWORD_PATH = "target_router_password_path"
+ROUTER_DETAILS_PATH = "router_details_path"
+ROUTER_DETAILS_README_PATH = "router_details_readme_path"
+DECODED_CONFIG_PATH = "decoded_config_path"
+DECODED_CONFIG_ARCHIVE_PATH = "decoded_config_archive_path"
+EDITED_CONFIG_PATH = "edited_config_path"
+ENCODED_CONFIG_PATH = "encoded_config_path"
+```
+
+| Configuration key | Purpose |
+|---|---|
+| `model_specs_path` | Router model JSON specification |
+| `model_specs_readme_path` | Router model specification documentation |
+| `template_config_path` | Original encrypted router backup |
+| `template_router_password_path` | Password for decrypting the original template |
+| `target_router_password_path` | Password used when encrypting the target backup |
+| `router_details_path` | Router details used when editing configuration fields |
+| `router_details_readme_path` | Documentation describing router details |
+| `decoded_config_path` | Extracted decoded configuration directory |
+| `decoded_config_archive_path` | Saved decoded configuration archive |
+| `edited_config_path` | Edited configuration directory |
+| `encoded_config_path` | Final encrypted router configuration backup |
+
+All these paths are configurable through `RouterConfig.json`.
+
+The router processing functions use the configured paths rather than hardcoded router-specific directories.
+
+#### Validation Constants
+
+`VALIDATION_CONFIG` requires all router path fields to be strings.
+
+```python
+VALIDATION_CONFIG = {
+    "required_job_fields": {
+        MODEL_SPECS_PATH: str,
+        MODEL_SPECS_README_PATH: str,
+        TEMPLATE_CONFIG_PATH: str,
+        TEMPLATE_ROUTER_PASSWORD_PATH: str,
+        TARGET_ROUTER_PASSWORD_PATH: str,
+        ROUTER_DETAILS_PATH: str,
+        ROUTER_DETAILS_README_PATH: str,
+        DECODED_CONFIG_PATH: str,
+        DECODED_CONFIG_ARCHIVE_PATH: str,
+        EDITED_CONFIG_PATH: str,
+        ENCODED_CONFIG_PATH: str,
+    },
+}
+```
+
+Secondary validation is currently empty:
+
+```python
+SECONDARY_VALIDATION = {}
+```
+
+Additional runtime validation is performed by the router utility functions.
+
+#### User Requirements
+
+```python
+REQUIRED_USER = "standard"
+```
+
+The Router utility is configured for standard-user execution.
+
+#### Dependencies
+
+```python
+DEPENDENCIES = ["openssl"]
+```
+
+OpenSSL is required for supported router encryption and decryption operations.
+
+#### Plan Configuration
+
+```python
+PLAN_COLUMN_ORDER = [
+    TEMPLATE_CONFIG_PATH,
+    ROUTER_DETAILS_PATH,
+    ENCODED_CONFIG_PATH,
+]
+
+OPTIONAL_PLAN_COLUMNS = {}
+```
+
+The plan identifies the original router template, router details and final encoded configuration path.
+
+### Router Actions
+
+The `ACTIONS` constant defines the operations available through the loader.
+
+| Action | Execution state |
+|---|---|
+| Validate Router Configuration | `VALIDATE_CONFIG` |
+| View Router Model Specifications | `VIEW_MODEL_SPECS` |
+| View Router Details | `VIEW_ROUTER_DETAILS` |
+| View Router Details Help | `VIEW_ROUTER_DETAILS_HELP` |
+| Decode Router Configuration | `DECODE_CONFIG` |
+| View Decoded Router Configuration | `VIEW_DECODED_CONFIG` |
+| Edit Router Configuration | `EDIT_CONFIG` |
+| View Edited Router Configuration | `VIEW_EDITED_CONFIG` |
+| Encode Router Configuration | `ENCODE_CONFIG` |
+| Run All Steps | `RUN_ALL` |
+| Show Config Help | `SHOW_CONFIG_DOC` |
+| Cancel | `FINALIZE` |
+
+Actions are connected to pipeline states through their `execute_state` values.
+
+Read-only actions generally skip the loader's execution confirmation.
+
+Decode, edit, encode and Run All actions retain their configured loader confirmation behaviour.
+
+This is separate from automatic overwriting of generated output files.
+
+### Router Execution Steps
+
+The Router constants module defines reusable pipeline step groups.
+
+#### Preparation
+
+`LOAD_MODEL_SPECS_PRE`
+
+Loads the router model specification using `load_router_model_specs()`.
+
+The loaded specification is stored in the pipeline context as `model_specs`.
+
+#### Validation
+
+`VALIDATE_CONFIG_EXEC`
+
+Uses `validate_router_configuration()` to validate the selected router configuration against its model specification.
+
+#### Documentation and Viewing
+
+- `VIEW_MODEL_SPECS_EXEC` — Displays model specification documentation.
+- `VIEW_ROUTER_DETAILS_EXEC` — Displays configured router details.
+- `VIEW_ROUTER_DETAILS_HELP_EXEC` — Displays router details documentation.
+- `VIEW_DECODED_CONFIG_EXEC` — Displays decoded configuration fields.
+- `VIEW_EDITED_CONFIG_EXEC` — Displays edited configuration fields.
+- `SHOW_CONFIG_DOC_EXEC` — Displays the Router configuration documentation.
+
+#### Decoding
+
+`DECODE_CONFIG_EXEC` performs three operations:
+
+1. `decode_router_config()` — Decrypts the original router configuration.
+2. `save_router_config()` — Saves the decoded configuration archive.
+3. `extract_router_config()` — Extracts the decoded archive into the configured output directory.
+
+The pipeline uses results from earlier steps to determine whether subsequent steps can execute.
+
+#### Editing
+
+`EDIT_CONFIG_EXEC`
+
+Calls `edit_router_config_fields()` using the decoded configuration directory, edited configuration directory, model specification and router details.
+
+The edited configuration is saved to the configured output directory.
+
+#### Encoding
+
+`ENCODE_CONFIG_EXEC`
+
+Calls `encode_router_config()` using:
+
+- Edited configuration path
+- Original template configuration path
+- Encoded configuration output path
+- Router model specification
+- Template router password path
+- Target router password path
+
+The function rebuilds and encrypts the router backup for the target configuration.
+
+### Router Pipeline States
+
+`PIPELINE_STATES` connects the preparation and execution steps into actions.
+
+The configured pipeline states are:
+
+```text
+VALIDATE_CONFIG
+VIEW_MODEL_SPECS
+VIEW_DECODED_CONFIG
+VIEW_EDITED_CONFIG
+VIEW_ROUTER_DETAILS
+VIEW_ROUTER_DETAILS_HELP
+DECODE_CONFIG
+EDIT_CONFIG
+ENCODE_CONFIG
+RUN_ALL
+SHOW_CONFIG_DOC
+```
+
+Most router operations load the model specification before executing their corresponding action.
+
+The `RUN_ALL` pipeline executes:
+
+```text
+Load Model Specifications
+          |
+          v
+Validate Router Configuration
+          |
+          v
+Decode Router Configuration
+          |
+          v
+Save Decoded Archive
+          |
+          v
+Extract Decoded Configuration
+          |
+          v
+View Decoded Configuration
+          |
+          v
+Edit Router Configuration
+          |
+          v
+View Edited Configuration
+          |
+          v
+Encode Router Configuration
+```
+
+The `RUN_ALL` pipeline uses the following step groups:
+
+```python
+"RUN_ALL": {
+    "pipeline": [
+        *LOAD_MODEL_SPECS_PRE,
+        *VALIDATE_CONFIG_EXEC,
+        *DECODE_CONFIG_EXEC,
+        *VIEW_DECODED_CONFIG_EXEC,
+        *EDIT_CONFIG_EXEC,
+        *VIEW_EDITED_CONFIG_EXEC,
+        *ENCODE_CONFIG_EXEC,
+    ],
+    "label": "ROUTER_AUTOMATION_COMPLETE",
+    "success_key": "encoded_config",
+}
+```
+
+The loader manages pipeline execution and result tracking.
+
+Router-specific processing remains in `modules/router_utils.py`.
+
+### Router Workflow
+
+The Router utility can execute individual operations or run the complete processing sequence.
+
+A typical workflow is:
+
+1. Load the selected router model specification.
+2. Validate the router configuration and configured paths.
+3. Decode the original encrypted router backup.
+4. Save the decoded archive.
+5. Extract the decoded configuration.
+6. View decoded configuration fields.
+7. Apply the configured router details to the decoded configuration.
+8. Save the edited configuration.
+9. View edited configuration fields.
+10. Rebuild and encrypt the router configuration.
+11. Verify and save the encoded backup.
+
+The router model specification determines the supported encryption, archive and configuration formats.
+
+The original router backup is used as an input template and should remain unchanged.
+
+### Automatic Output Overwrite
+
+The Router automation is intended to recreate generated output files and directories on repeated runs.
+
+After the automatic-overwrite change is applied to `modules/router_utils.py`, the expected behaviour is:
+
+- If a generated output does not exist, create it.
+- If a generated output already exists, automatically replace it.
+- Do not prompt for overwrite confirmation.
+- Do not skip processing solely because a generated output exists.
+- Preserve the original encrypted template and other input files.
+
+The following functions handle generated router outputs:
+
+| Function | Generated output |
+|---|---|
+| `save_router_config()` | Decoded configuration archive |
+| `extract_router_config()` | Extracted decoded directory |
+| `edit_router_config_fields()` | Edited configuration directory |
+| `encode_router_config()` | Encoded router backup |
+
+Replacing existing directories should not leave stale files from previous runs.
+
+The automatic overwrite behaviour applies only to generated output destinations, not to original router templates, password files, model specifications or router details.
+
+The loader's existing action confirmation settings are independent of output overwrite handling.
+
+### Router Model Support
+
+Router processing is driven by JSON model specifications.
+
+Model specifications can define:
+
+- Router model and firmware metadata
+- Encryption algorithm
+- Encrypted payload format
+- Password requirements
+- Salt and key derivation
+- Headers and trailers
+- Checksums
+- Archive format
+- Compression
+- Configuration file format
+- Editable configuration fields
+
+If another router uses mechanisms already supported by `router_utils.py`, it can be configured using another model specification.
+
+Unsupported encryption or archive mechanisms may require additional reusable utility functionality.
+
+### Router Backup Safety
+
+Router backups may contain sensitive configuration data and credentials.
+
+Recommended precautions:
+
+- Keep original router backups unchanged.
+- Store generated outputs separately from original templates.
+- Keep router passwords and private backups out of public repositories.
+- Retain recovery copies of important router configurations.
+- Verify generated backups before restoring them to physical routers.
+- Match router hardware and firmware compatibility requirements.
+- Ensure configured output paths do not overlap input paths.
+
+A successful local encryption and decryption test does not guarantee that a physical router will accept a generated backup.
 
 ---
 
