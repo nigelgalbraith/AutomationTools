@@ -36,7 +36,14 @@
         "trailer": {
             "character": "=",
             "repeat": 64
-        }
+        },
+        "iv_length": null,
+        "signature_length": null,
+        "preamble": null,
+        "backup_version": null,
+        "header_terminator": null,
+        "cipher_key_id": null,
+        "signature_key_id": null
     },
     "archive": {
         "format": "tar",

@@ -1,0 +1,51 @@
+{
+    "model": null,
+    "firmware": null,
+    "hardware": null,
+    "encryption": null,
+    "encoding": null,
+    "salted": null,
+    "password_base": null,
+    "password_hash": null,
+    "key_derivation": null,
+    "config_fields": {
+        "file": null,
+        "wifi_2g_ssid": null,
+        "wifi_2g_password": null,
+        "wifi_5g_ssid": null,
+        "wifi_5g_password": null
+    },
+    "password_required": null,
+    "key_derivation_digest": null,
+    "backup_format": {
+        "type": null,
+        "header_lines": null,
+        "preserve_header": null,
+        "payload_line_length": null,
+        "newline": null,
+        "checksum": {
+            "algorithm": null,
+            "scope": null,
+            "encoding": null,
+            "after_payload_lines": null,
+            "prefix": {
+                "encoding": null,
+                "random_bytes": null
+            }
+        },
+        "trailer": {
+            "character": null,
+            "repeat": null
+        },
+        "iv_length": null,
+        "signature_length": null,
+        "preamble": null,
+        "backup_version": null,
+        "header_terminator": null
+    },
+    "archive": {
+        "format": null,
+        "compression": null
+    },
+    "configuration_format": null
+}

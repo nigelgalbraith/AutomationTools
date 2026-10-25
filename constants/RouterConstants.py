@@ -36,6 +36,8 @@ MODEL_SPECS_README_PATH = "model_specs_readme_path"
 TEMPLATE_CONFIG_PATH = "template_config_path"
 TEMPLATE_ROUTER_PASSWORD_PATH = "template_router_password_path"
 TARGET_ROUTER_PASSWORD_PATH = "target_router_password_path"
+TEMPLATE_DEVICE_KEY_PATH = "template_device_key_path"
+TARGET_DEVICE_KEY_PATH = "target_device_key_path"
 ROUTER_DETAILS_PATH = "router_details_path"
 ROUTER_DETAILS_README_PATH = "router_details_readme_path"
 DECODED_CONFIG_PATH = "decoded_config_path"
@@ -284,7 +286,7 @@ DECODE_CONFIG_EXEC = [
     {
         "phase": "exec",
         "fn": decode_router_config,
-        "args": [TEMPLATE_CONFIG_PATH, lambda job, meta, ctx: ctx.get("model_specs"), TEMPLATE_ROUTER_PASSWORD_PATH],
+        "args": [TEMPLATE_CONFIG_PATH, lambda job, meta, ctx: ctx.get("model_specs"), TEMPLATE_ROUTER_PASSWORD_PATH, lambda job, meta, ctx: meta.get(TEMPLATE_DEVICE_KEY_PATH)],
         "result": "decoded_data",
         "when": lambda job, meta, ctx: isinstance(ctx.get("model_specs"), dict) and ctx.get("validated", True) is True and not ctx.get("errors"),
     },
@@ -318,7 +320,7 @@ ENCODE_CONFIG_EXEC = [
     {
         "phase": "exec",
         "fn": encode_router_config,
-        "args": [EDITED_CONFIG_PATH, TEMPLATE_CONFIG_PATH, ENCODED_CONFIG_PATH, lambda job, meta, ctx: ctx.get("model_specs"), TEMPLATE_ROUTER_PASSWORD_PATH, TARGET_ROUTER_PASSWORD_PATH],
+        "args": [EDITED_CONFIG_PATH, TEMPLATE_CONFIG_PATH, ENCODED_CONFIG_PATH, lambda job, meta, ctx: ctx.get("model_specs"), TEMPLATE_ROUTER_PASSWORD_PATH, TARGET_ROUTER_PASSWORD_PATH, lambda job, meta, ctx: meta.get(TEMPLATE_DEVICE_KEY_PATH), lambda job, meta, ctx: meta.get(TARGET_DEVICE_KEY_PATH)],
         "result": "encoded_config",
         "when": lambda job, meta, ctx: isinstance(ctx.get("model_specs"), dict) and ("decoded_data" not in ctx or bool(ctx.get("decoded_directory"))) and ctx.get("edited_directory", True) is not False and ctx.get("validated", True) is True and not ctx.get("errors"),
     },

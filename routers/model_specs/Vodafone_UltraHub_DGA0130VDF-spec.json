@@ -1,0 +1,51 @@
+{
+    "model": "DGA0130VDF",
+    "firmware": "17.4.b.0380",
+    "hardware": "VANT-9",
+    "encryption": "aes-256-cbc",
+    "encoding": "binary",
+    "salted": false,
+    "password_base": null,
+    "password_hash": null,
+    "key_derivation": "device-key",
+    "config_fields": {
+        "file": null,
+        "wifi_2g_ssid": null,
+        "wifi_2g_password": null,
+        "wifi_5g_ssid": null,
+        "wifi_5g_password": null
+    },
+    "password_required": false,
+    "key_derivation_digest": null,
+    "backup_format": {
+        "type": "technicolor-thenc",
+        "header_lines": 9,
+        "preserve_header": true,
+        "payload_line_length": null,
+        "newline": null,
+        "checksum": {
+            "algorithm": null,
+            "scope": null,
+            "encoding": null,
+            "after_payload_lines": null,
+            "prefix": {
+                "encoding": null,
+                "random_bytes": null
+            }
+        },
+        "trailer": {
+            "character": null,
+            "repeat": null
+        },
+        "iv_length": 16,
+        "signature_length": 20,
+        "preamble": "THENC",
+        "backup_version": "1.00",
+        "header_terminator": "\n\n"
+    },
+    "archive": {
+        "format": null,
+        "compression": null
+    },
+    "configuration_format": null
+}

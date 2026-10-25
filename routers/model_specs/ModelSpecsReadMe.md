@@ -1,121 +1,118 @@
 # Router Model Specifications
 
-Router model specifications tell AutomationLoader how to decode, edit and encode router configuration backups.
-
-Each supported router model requires its own JSON specification.
+Both projects use the same canonical JSON schema and the same direct mechanism selections.
+The only router modules are `modules/router_utils.py` and `modules/router_encryption_utils.py`.
 
 ## Adding a Router Model
 
-1. Export a configuration backup from the router.
-2. Copy an existing router model specification JSON.
-3. Update the model, firmware, hardware and encryption settings.
-4. Create a `.txt` file containing the factory password of the router used to create the master template.
-5. Set `template_router_password_path` to that file and `target_router_password_path` to the target router password file.
-6. Configure the fields you want to view or edit.
-7. Set `model_specs_path` to the model JSON file.
-8. Set `template_config_path` to the original backup file.
-9. Test decoding, editing, encoding and restoring.
+Copy `doc/RouterSpecificationTemplate.json`, or an existing model specification, and
+populate the settings supported by the exported backup. The template includes every
+canonical key and nested object; its null values are placeholders, not a runnable
+router configuration. Existing Spark and Vodafone specifications are complete examples.
 
-## Model Specification Settings
+Every specification must contain exactly the canonical keys, including all keys inside
+`config_fields`, `backup_format`, `checksum`, `prefix`, `trailer`, and `archive`.
+Do not omit inactive fields: use JSON `null`. Empty strings and the string `"unknown"`
+are not placeholders for unknown or non-applicable values.
 
-| Setting | Description |
+`ROUTER_SPEC_SCHEMA` in `router_utils.py` defines the types and complete structure.
+Schema validation rejects missing keys, unexpected keys, incorrectly typed values, and
+booleans used as integers. Mechanism validators then require their applicable values.
+Errors identify the invalid JSON path. The same model has the same specification values
+in both projects, although the configured filenames retain each application's existing names.
+
+The canonical `config_fields` roles are `file`, `wifi_2g_ssid`, `wifi_2g_password`,
+`wifi_5g_ssid`, and `wifi_5g_password`. Set unused mappings to null; a known configuration
+format requires `file`. Configuration keys are router-specific values, not Python branches.
+A new semantic field would require a coordinated canonical-schema update in both projects
+and all specifications, rather than adding a one-off JSON key for one router.
+
+## Existing Mechanisms
+
+`router_utils.py` selects encryption using one complete `ENCRYPTION_HANDLERS`
+dictionary keyed by `(encryption, key_derivation)`. Its values are imported callables.
+Validation and encryption entry points use the same dictionary. Other processing
+uses ordinary `if` / `elif` checks. There are no registration calls, function-name
+lookup systems, or router-model branches.
+
+| JSON setting | Supported mechanisms |
 |---|---|
-| `model` | Router model name |
-| `firmware` | Firmware version |
-| `hardware` | Hardware revision |
-| `encryption` | Encryption algorithm |
-| `encoding` | Encrypted data encoding |
-| `salted` | Whether OpenSSL salt is used |
-| `password_required` | Whether the encryption mechanism requires a password |
-| `password_base` | Prefix used when deriving the encryption passphrase |
-| `password_hash` | Hashing method applied to the router password |
-| `key_derivation` | Encryption key and IV derivation method |
-| `key_derivation_digest` | Digest used for key derivation |
-| `backup_format` | Backup wrapper and checksum structure |
-| `archive` | Internal archive format and compression |
-| `configuration_format` | Configuration file syntax |
-| `config_fields` | Configuration settings available for viewing and editing |
+| `encryption` + `key_derivation` | `aes-256-cbc` + `openssl-legacy`; `aes-256-cbc` + `device-key` (explicitly unavailable) |
+| `encoding` | `base64`, `binary` |
+| `backup_format.type` | `line-wrapper`, `technicolor-thenc` (structural parsing only) |
+| `archive.format` + `archive.compression` | `tar` + `gzip` |
+| `configuration_format` | `key-value` |
 
-Use an existing model specification as a reference for the complete JSON structure.
+`encrypt_router_payload` and `decrypt_router_payload` select and call the imported
+`crypt_aes_256_cbc` or `crypt_technicolor_thenc` directly. The actual algorithms,
+key preparation, credential interpretation and unsupported THENC errors remain in
+`router_encryption_utils.py`. File paths and user interaction stay in `router_utils.py`.
 
-## Template Router Passwords
+Encoding and wrapper entry points select their implementations directly. Archive
+workflows call `read_tar_files`, `extract_tar_archive`, and `rebuild_tar_archive`;
+`tar_gzip_mode` validates the configured format/compression and supplies the mode.
+Configuration workflows call `parse_key_value_fields`, `key_value_values`,
+`update_key_value_fields`, and `normalize_key_value_fields` directly. Unsupported
+formats fail explicitly. Archive safety and editable-field integrity checks remain.
 
-The master template is created from one physical router of a particular model.
+A router using supported mechanisms requires its JSON specification and configuration
+entry/files. A new mechanism requires a substantive implementation and a corresponding
+entry in the encryption dictionary. Other new mechanisms use explicit selection branches;
+do not introduce additional registries or modules.
 
-Its factory password is stored separately from the model specification in a plain-text `.txt` file.
+## Spark Credentials and Processing
 
-For example:
+The existing factory Wi-Fi password, passphrase prefix, MD5 password hash, OpenSSL
+legacy derivation digest, salt behavior, Base64 layout, checksum, random prefix,
+TAR/GZIP archive, and configuration mappings are preserved. Passwords stay in the
+existing configured files, separate from model specifications. Login passwords,
+Wi-Fi settings being edited, and backup encryption credentials are distinct concepts.
 
-**Filename:** `VRV9517.txt`
+## Vodafone THENC Limitations
 
-```text
-FACTORY_PASSWORD_OF_TEMPLATE_ROUTER
-```
+Both projects validate the supplied THENC specification and parse the existing header,
+16-byte IV, AES block-aligned ciphertext, and configured 20-byte signature boundary.
+Parsing establishes structure only; it does not verify the signature or decrypt data.
 
-The file contains only the password, without quotation marks or JSON formatting.
+`password_base`, `password_hash`, `key_derivation_digest`, unknown configuration mappings,
+unknown archive settings, and unknown configuration format are null. Non-applicable
+line-wrapper fields remain present with null values. The known `salted: false` and
+`password_required: false` values and all observed header/key identifiers are preserved.
 
-Set `template_router_password_path` and `target_router_password_path` to separate password files.
+`CIPHERKEY` and `SIGNATUREKEY` are identifiers, not cryptographic keys. Configured device-key files can now be read as binary. Device-key derivation, signature
+verification, signing, and authenticated encryption/rebuilding remain unverified.
+Attempting actual cryptographic processing still fails explicitly; even
+an explicitly supplied key is rejected until derivation and authentication are verified.
+An export-password text file is never read as a binary device key. No router login or
+Wi-Fi password is substituted. Archive format and configuration fields remain unknown.
 
-### Processing
+## AutomationTools Workflow
 
-AutomationLoader passes each selected group's paths from `config/RouterConfig.json` through `RouterConstants.py`.
+Each top-level job in `config/RouterConfig.json` retains its existing paths:
+`model_specs_path`, `model_specs_readme_path`, `template_config_path`,
+`template_router_password_path`, `target_router_password_path`, `router_details_path`,
+`router_details_readme_path`, `decoded_config_archive_path`, `decoded_config_path`,
+`edited_config_path`, and `encoded_config_path`.
 
-1. Decode reads the template CFG and template password, saves the TAR.GZ, and extracts the decoded directory.
-2. Edit loads `router_details_path`, maps each setting through `config_fields`, and saves an edited copy. Unspecified values remain unchanged; unknown or missing fields fail the operation.
-3. Encode rebuilds the original archive with the edited files and encrypts it using the target password. The generated backup is decrypted locally to verify the result.
+RouterConstants and AutomationLoader keep their existing actions and state transitions.
+Run All validates the job, decodes the template, applies the declared router details,
+and rebuilds/encrypts the target backup. Template and target credentials are loaded
+from separate configured paths; automation never prompts for a password. Only populated
+field mappings can be edited. Existing staged replacement and failure handling remain.
+The result is verified locally by decrypting it with the target credential.
 
-Run All performs validation followed by these three actions. No utility prompts are used.
+The existing pipeline generates a backup file. It has no implemented device-upload or
+router-side restore stage; this refactor does not add one or claim device deployment.
 
-## Configuration Locations
+## Optional Device-Key Files
 
-Each top-level group in `config/RouterConfig.json` contains these paths:
+Jobs may include optional `template_device_key_path` and `target_device_key_path`.
+Decode appends the template path. Encode appends the template path then the target path
+(named `device_key_path`), after the existing six arguments. Target verification uses
+the target key. Existing password argument positions are unchanged.
 
-| Configuration Key | Purpose |
-|---|---|
-| `model_specs_path` | Model specification JSON file |
-| `model_specs_readme_path` | Model documentation file |
-| `template_config_path` | Original encrypted CFG file |
-| `template_router_password_path` | Template password file |
-| `target_router_password_path` | Target password file |
-| `router_details_path` | JSON settings to apply |
-| `decoded_config_archive_path` | New decoded TAR.GZ file |
-| `decoded_config_path` | New extracted directory |
-| `edited_config_path` | New edited directory |
-| `encoded_config_path` | New encoded CFG file |
-
-Paths support `~`. Relative paths use AutomationLoader's working directory. Filenames are taken directly from these paths; no suffixes are added. Existing outputs are rejected, and the original configuration is never overwritten.
-
-## Adding Configuration Fields
-
-The `config_fields` section determines which router settings are available in the View and Edit menus.
-
-Each entry maps a display name to the corresponding key in the router's configuration file.
-
-For example:
-
-```json
-"config_fields": {
-    "file": "config/.glbcfg",
-    "wifi_2g_ssid": "ARC_WLAN_24G_SSID_0_ESSID",
-    "wifi_2g_password": "ARC_WLAN_24G_SSID_0_WPA_Passphrase"
-}
-```
-
-The `file` entry identifies the configuration file inside the decoded archive.
-
-Additional fields can be added by mapping their actual configuration keys and adding the corresponding label and value to the router details JSON. Python changes are not required.
-
-## Important Notes
-
-- Keep an unchanged copy of the original router backup.
-- Each template password file must match the physical router used to create that template.
-- Template passwords are stored separately from model specifications.
-- Target router passwords are read from their configured files; explicit view actions display credentials in full.
-- Ensure the router model, hardware revision and firmware are compatible.
-- Different encryption or archive mechanisms may require additional reusable Python helpers.
-- Successfully decoding and re-encoding a backup does not guarantee the target router will accept it.
-- Test a generated configuration before deploying it to multiple routers.
-
-**New router with supported mechanisms → Create a new model JSON and template password file.**
-
-**New unsupported mechanism → Add a reusable Python helper.**
+Device-key models require a configured, nonempty binary key file. Spark ignores these
+paths. Loading bytes does not implement or verify Vodafone cryptography. THENC
+`CIPHERKEY` and `SIGNATUREKEY` values are read from each backup header and preserved
+in wrapper metadata and original header bytes; `cipher_key_id` and `signature_key_id`
+are no longer static model specification fields.
