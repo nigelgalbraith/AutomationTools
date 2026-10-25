@@ -14,7 +14,7 @@ SUPPORTED_HASHES = ("md5", "sha256", "sha512")
 
 
 # ---------------------------------------------------------------------
-# PASSWORD DERIVATION AND ENCRYPTION
+# HELPERS
 # ---------------------------------------------------------------------
 
 def derive_router_passphrase(password: str, model_specs: dict) -> str:
@@ -34,6 +34,20 @@ def derive_router_passphrase(password: str, model_specs: dict) -> str:
     return passphrase
 
 
+def interpret_password_credentials(data: bytes) -> str:
+    """Interpret only explicitly selected text-password credentials."""
+    try:
+        password = data.decode("utf-8").strip()
+    except UnicodeError:
+        raise ValueError("Password file must contain UTF-8 text") from None
+    if not password or any(c in password for c in "\r\n\x00"):
+        raise ValueError("Password file is empty or contains invalid control characters")
+    return password
+
+# ---------------------------------------------------------------------
+# VALIDATION
+# ---------------------------------------------------------------------
+
 def validate_legacy_key_specs(specs: dict) -> None:
     """Validate text-password derivation without treating passwords as keys."""
     required = {"salted": bool, "password_required": bool, "password_base": str,
@@ -49,6 +63,19 @@ def validate_legacy_key_specs(specs: dict) -> None:
         raise ValueError("Invalid password_base")
 
 
+def validate_device_key_specs(specs: dict) -> None:
+    """Reject legacy password settings for the unverified device-key mechanism."""
+    for key in ("password_base", "password_hash", "key_derivation_digest"):
+        if specs[key] is not None:
+            raise ValueError(f"Non-applicable JSON key must be null: {key}")
+    for key in ("salted", "password_required"):
+        if specs[key] is not False:
+            raise ValueError(f"Missing or invalid JSON key: {key}; device-key requires false")
+
+# ---------------------------------------------------------------------
+# PRE STEPS
+# ---------------------------------------------------------------------
+
 def prepare_legacy_key(data: bytes, password: str, specs: dict, decrypt: bool) -> tuple[list, bytes]:
     """Prepare OpenSSL password derivation arguments and private stdin data."""
     if (specs["encryption"], specs["key_derivation"]) != ("aes-256-cbc", "openssl-legacy"):
@@ -61,27 +88,6 @@ def prepare_legacy_key(data: bytes, password: str, specs: dict, decrypt: bool) -
              "-pass", "stdin"], passphrase.encode("utf-8") + b"\n")
 
 
-def interpret_password_credentials(data: bytes) -> str:
-    """Interpret only explicitly selected text-password credentials."""
-    try:
-        password = data.decode("utf-8").strip()
-    except UnicodeError:
-        raise ValueError("Password file must contain UTF-8 text") from None
-    if not password or any(c in password for c in "\r\n\x00"):
-        raise ValueError("Password file is empty or contains invalid control characters")
-    return password
-
-
-def validate_device_key_specs(specs: dict) -> None:
-    """Reject legacy password settings for the unverified device-key mechanism."""
-    for key in ("password_base", "password_hash", "key_derivation_digest"):
-        if specs[key] is not None:
-            raise ValueError(f"Non-applicable JSON key must be null: {key}")
-    for key in ("salted", "password_required"):
-        if specs[key] is not False:
-            raise ValueError(f"Missing or invalid JSON key: {key}; device-key requires false")
-
-
 def load_device_key_credentials(password_path: str | None, model_specs: dict, password_prompt: str = "") -> str | bool:
     """Do not read a configured password file as a binary device key."""
     raise ValueError("THENC device key unavailable: credential loading is not established; an export password is not a device key")
@@ -91,6 +97,9 @@ def load_target_device_key_credentials(template_credentials, model_specs: dict, 
     """Reject destination key selection until authenticated THENC support exists."""
     raise ValueError("THENC destination device key unavailable: an export password is not a device key; signature signing is not established")
 
+# ---------------------------------------------------------------------
+# ENCRYPTION OPERATIONS
+# ---------------------------------------------------------------------
 
 def crypt_aes_256_cbc(data: bytes, password: str, model_specs: dict, decrypt: bool, wrapper=None, device_key=None) -> bytes:
     """Run the established AES cipher with explicit OpenSSL legacy derivation."""

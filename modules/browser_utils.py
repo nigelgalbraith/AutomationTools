@@ -10,10 +10,6 @@ from urllib.parse import quote, urlsplit
 from modules.system_utils import expand_path
 
 
-# ---------------------------------------------------------------------
-# BROWSER VIEWER
-# ---------------------------------------------------------------------
-
 def open_html_with_json(
     viewer_path: str,
     json_path: Optional[str],

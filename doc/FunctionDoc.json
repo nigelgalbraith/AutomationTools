@@ -23,8 +23,8 @@
   },
   "DESCRIPTION": {
     "<GROUP>": "Each top-level JSON key is an AutomationLoader group/job and the Python module filename, including .py. Use the normal AutomationLoader group selection to choose a module or all configured groups. Each group independently requires ModuleFolder (string), CheckFolders (list), and CheckFiles (list).",
-    "<GROUP>.ModuleFolder": "Directory containing the target Python module.",
-    "<GROUP>.CheckFolders": "Folders recursively scanned when checking where functions from the selected module are used.",
-    "<GROUP>.CheckFiles": "Individual Python files additionally scanned when checking function usage."
+    "<GROUP>.ModuleFolder": "Required. Directory containing the target Python module.",
+    "<GROUP>.CheckFolders": "Required. Folders recursively scanned when checking where functions from the selected module are used.",
+    "<GROUP>.CheckFiles": "Required. Individual Python files additionally scanned when checking function usage."
   }
 }

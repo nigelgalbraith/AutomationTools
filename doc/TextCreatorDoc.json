@@ -3,19 +3,27 @@
     "GROUP-A": {
       "download_keys": {
         "download_loc": "TextCreator/produced/Group-A/html",
-        "download_urls": ["https://example.com/search/group-a"],
+        "download_urls": [
+          "https://example.com/search/group-a"
+        ],
         "follow_links": true,
         "link_selector": "a[href*='/item/']",
         "links_per_search": 10,
         "download_delay": 3.0,
         "filename_from_url_regex": "/item/(\\d+)",
         "skip_list_file": "TextCreator/skip_lists/SkipList.txt",
-        "title_selectors": ["h1", "title"]
+        "title_selectors": [
+          "h1",
+          "title"
+        ]
       },
       "extract_keys": {
         "html_dir": "TextCreator/produced/Group-A/html",
         "items_out_dir": "TextCreator/produced/Group-A/items",
-        "basename_keys": ["field_a", "field_b"],
+        "basename_keys": [
+          "field_a",
+          "field_b"
+        ],
         "extract_rules": {
           "field_a": {
             "css": "h1",
@@ -25,34 +33,52 @@
             "css": ".some-selector-a",
             "skip_list_file": "TextCreator/skip_lists/FieldBSkipList.txt"
           },
-          "field_c": { "css": ".content-a", "sep": "\n" },
-          "field_d": { "regex": "\"id\"\\s*:\\s*\"(\\d+)\"" }
+          "field_c": {
+            "css": ".content-a",
+            "sep": "\n"
+          },
+          "field_d": {
+            "regex": "\"id\"\\s*:\\s*\"(\\d+)\""
+          }
         }
       },
       "prompt_keys": {
         "text_out_dir": "TextCreator/produced/Group-A/text",
         "prompt_template_path": "TextCreator/PromptTemplates/Template-A.txt",
         "prompts_out_dir": "TextCreator/produced/Group-A/prompts",
-        "prompt_injection_keys": ["field_a", "field_b", "field_c", "field_d", "url"]
+        "prompt_injection_keys": [
+          "field_a",
+          "field_b",
+          "field_c",
+          "field_d",
+          "url"
+        ]
       }
     },
-
     "GROUP-B": {
       "download_keys": {
         "download_loc": "TextCreator/produced/Group-B/html",
-        "download_urls": ["https://example.com/search/group-b"],
+        "download_urls": [
+          "https://example.com/search/group-b"
+        ],
         "follow_links": true,
         "link_selector": "a[href*='/item/']",
         "links_per_search": 10,
         "download_delay": 3.0,
         "filename_from_url_regex": "/item/(\\d+)",
         "skip_list_file": "TextCreator/skip_lists/SkipList.txt",
-        "title_selectors": ["h1", "title"]
+        "title_selectors": [
+          "h1",
+          "title"
+        ]
       },
       "extract_keys": {
         "html_dir": "TextCreator/produced/Group-B/html",
         "items_out_dir": "TextCreator/produced/Group-B/items",
-        "basename_keys": ["field_a", "field_b"],
+        "basename_keys": [
+          "field_a",
+          "field_b"
+        ],
         "extract_rules": {
           "field_a": {
             "css": "h1",
@@ -62,45 +88,55 @@
             "css": ".some-selector-a",
             "skip_list_file": "TextCreator/skip_lists/FieldBSkipList.txt"
           },
-          "field_c": { "css": ".content-a", "sep": "\n" },
-          "field_d": { "regex": "\"id\"\\s*:\\s*\"(\\d+)\"" }
+          "field_c": {
+            "css": ".content-a",
+            "sep": "\n"
+          },
+          "field_d": {
+            "regex": "\"id\"\\s*:\\s*\"(\\d+)\""
+          }
         }
       },
       "prompt_keys": {
         "text_out_dir": "TextCreator/produced/Group-B/text",
         "prompt_template_path": "TextCreator/PromptTemplates/Template-B.txt",
         "prompts_out_dir": "TextCreator/produced/Group-B/prompts",
-        "prompt_injection_keys": ["field_a", "field_b", "field_c", "field_d", "url"]
+        "prompt_injection_keys": [
+          "field_a",
+          "field_b",
+          "field_c",
+          "field_d",
+          "url"
+        ]
       }
     }
   },
-
   "DESCRIPTION": {
-    "<GROUP>": "A named config group. Each group is a runnable configuration profile.",
-    "<GROUP>.download_keys": "Downloader configuration block (link scraping + HTML downloads).",
-    "<GROUP>.download_keys.download_loc": "Directory where downloaded HTML pages will be saved.",
-    "<GROUP>.download_keys.download_urls": "List of listing/search URLs (or direct pages if follow_links=false).",
-    "<GROUP>.download_keys.follow_links": "If true, scrape embedded links from each download_url; if false, download each download_url directly.",
-    "<GROUP>.download_keys.link_selector": "CSS selector used to find target page links on a listing/search page.",
-    "<GROUP>.download_keys.links_per_search": "Maximum number of links to collect per listing/search URL.",
-    "<GROUP>.download_keys.download_delay": "Delay (seconds) between loading listing/search pages.",
-    "<GROUP>.download_keys.filename_from_url_regex": "Regex used to derive a stable filename from a downloaded page URL (optional but recommended).",
-    "<GROUP>.download_keys.skip_list_file": "Optional text file containing IDs (one per line) that should be skipped during downloads. IDs are extracted from URLs using filename_from_url_regex.",
-    "<GROUP>.download_keys.title_selectors": "Fallback CSS selectors used to locate a page title within a downloaded HTML page.",
-    "<GROUP>.extract_keys": "Extraction configuration block (read saved HTML and extract structured fields).",
-    "<GROUP>.extract_keys.html_dir": "Directory containing HTML pages to extract fields from (often the same as download_loc).",
-    "<GROUP>.extract_keys.items_out_dir": "Directory where extracted items are saved as JSON files.",
-    "<GROUP>.extract_keys.basename_keys": "Item keys used to build output filenames.",
-    "<GROUP>.extract_keys.extract_rules": "Rules describing how to extract fields from HTML (CSS selectors, optional separators, and optional regex extraction).",
-    "<GROUP>.extract_keys.extract_rules.<field>.css": "CSS selector used to extract a field from the HTML page.",
+    "<GROUP>": "A named runnable configuration group. download_keys, extract_keys and prompt_keys are required dictionaries. All explicitly listed section fields are required by the constants, including filename_from_url_regex, skip_list_file and title_selectors.",
+    "<GROUP>.download_keys": "Required. Downloader configuration block (link scraping + HTML downloads).",
+    "<GROUP>.download_keys.download_loc": "Required. Directory where downloaded HTML pages will be saved.",
+    "<GROUP>.download_keys.download_urls": "Required. List of listing/search URLs (or direct pages if follow_links=false).",
+    "<GROUP>.download_keys.follow_links": "Required. If true, scrape embedded links from each download_url; if false, download each download_url directly.",
+    "<GROUP>.download_keys.link_selector": "Required. CSS selector used to find target page links on a listing/search page.",
+    "<GROUP>.download_keys.links_per_search": "Required. Maximum number of links to collect per listing/search URL.",
+    "<GROUP>.download_keys.download_delay": "Required float, in seconds, used after listing/search pages load. It is separate from the downloader built-in random delay between individual downloads.",
+    "<GROUP>.download_keys.filename_from_url_regex": "Required string. Regex with a capture group used to derive a filename/skip ID from a page URL. An empty string disables ID extraction and uses an indexed fallback filename.",
+    "<GROUP>.download_keys.skip_list_file": "Required string path to a download skip-ID list, one ID per line. Use an empty string to disable it. A missing file is treated as an empty list; IDs use filename_from_url_regex when configured.",
+    "<GROUP>.download_keys.title_selectors": "Required list of CSS selectors tried in order to produce an optional filename title suffix. An empty list disables title extraction; the base filename is still used.",
+    "<GROUP>.extract_keys": "Required. Extraction configuration block (read saved HTML and extract structured fields).",
+    "<GROUP>.extract_keys.html_dir": "Required. Directory containing HTML pages to extract fields from (often the same as download_loc).",
+    "<GROUP>.extract_keys.items_out_dir": "Required. Directory where extracted items are saved as JSON files.",
+    "<GROUP>.extract_keys.basename_keys": "Required. Item keys used to build output filenames.",
+    "<GROUP>.extract_keys.extract_rules": "Required. Rules describing how to extract fields from HTML (CSS selectors, optional separators, and optional regex extraction).",
+    "<GROUP>.extract_keys.extract_rules.<field>.css": "Optional CSS selector; the first matching node is used. Ignored when a non-empty regex is supplied. Without either selector or regex, the field is empty.",
     "<GROUP>.extract_keys.extract_rules.<field>.skip_list_file": "Optional text file containing values (one per line). If the extracted field value matches any entry, the item will be skipped and no item JSON will be written.",
     "<GROUP>.extract_keys.extract_rules.<field>.attr": "Optional attribute name to read from the matched node instead of text content.",
     "<GROUP>.extract_keys.extract_rules.<field>.sep": "Optional separator used when joining extracted text content (commonly '\\n').",
-    "<GROUP>.extract_keys.extract_rules.<field>.regex": "Regex pattern applied to the raw HTML to extract a field. If present, it takes precedence over 'css'. The first capture group is used as the extracted value.",
-    "<GROUP>.prompt_keys": "Prompt generation configuration block (turn extracted items into prompts and outputs).",
-    "<GROUP>.prompt_keys.text_out_dir": "Directory where generated text outputs are saved.",
-    "<GROUP>.prompt_keys.prompt_template_path": "Path to the base prompt template file used to generate per-item prompts.",
-    "<GROUP>.prompt_keys.prompts_out_dir": "Directory where per-item prompt text files are written.",
-    "<GROUP>.prompt_keys.prompt_injection_keys": "List of extracted item keys to inject into the prompt template."
+    "<GROUP>.extract_keys.extract_rules.<field>.regex": "Optional Python regex applied to raw HTML, taking precedence over css. Must contain a capture group: its first group is used, or an empty value when no match exists.",
+    "<GROUP>.prompt_keys": "Required. Prompt generation configuration block (turn extracted items into prompts and outputs).",
+    "<GROUP>.prompt_keys.text_out_dir": "Required. Directory where generated text outputs are saved.",
+    "<GROUP>.prompt_keys.prompt_template_path": "Required. Path to the base prompt template file used to generate per-item prompts.",
+    "<GROUP>.prompt_keys.prompts_out_dir": "Required. Directory where per-item prompt text files are written.",
+    "<GROUP>.prompt_keys.prompt_injection_keys": "Required list of item keys to inject into prompts. Missing keys become empty strings; this setting does not create or extract new fields."
   }
 }

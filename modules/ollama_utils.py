@@ -8,8 +8,9 @@ from modules.system_utils import expand_path
 
 
 # ---------------------------------------------------------------------
-# TEXT GENERATION FUNCTIONS
+# TEXT GENERATION
 # ---------------------------------------------------------------------
+
 
 def send_prompt_text_to_ollama_and_save(
     prompt_path: str,
@@ -87,6 +88,11 @@ def send_prompt_text_to_ollama_and_save(
     except Exception as e:
         print(f"[ERROR] Failed to save text for {prompt_path} -> {e!r}")
         return None
+
+
+# ---------------------------------------------------------------------
+# BATCH RUNNERS
+# ---------------------------------------------------------------------
 
 
 def generate_text_from_prompts_dir(

@@ -16,7 +16,7 @@ from modules.system_utils import expand_path
 
 
 # ---------------------------------------------------------------------
-# JSON AND PATH HELPERS
+# HELPERS
 # ---------------------------------------------------------------------
 
 def load_json(path: str) -> Dict[str, Any]:
@@ -82,7 +82,7 @@ def resolve_value(data: dict, primary_key: str, secondary_key: str, default_key:
     return value
 
 # ---------------------------------------------------------------------
-# VALIDATION FUNCTIONS
+# VALIDATION
 # ---------------------------------------------------------------------
 
 def validate_required_fields(jobs: Dict[str, Dict[str, Any]], required_fields: Dict[str, Union[type, Tuple[type, ...]]]) -> Dict[str, bool]:

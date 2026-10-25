@@ -7,7 +7,7 @@ from modules.system_utils import expand_path
 
 
 # ---------------------------------------------------------------------
-# PATH HELPERS
+# HELPERS
 # ---------------------------------------------------------------------
 
 def _expand(path: str) -> Path:

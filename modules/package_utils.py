@@ -11,7 +11,7 @@ from shutil import which
 
 
 # ---------------------------------------------------------------------
-# HELPERS / STATUS
+# HELPERS
 # ---------------------------------------------------------------------
 
 def check_package(pkg: str) -> bool:
@@ -44,7 +44,7 @@ def ensure_dependencies_installed(dependencies):
 
 
 # ---------------------------------------------------------------------
-# APT INSTALL / UNINSTALL
+# PACKAGE OPERATIONS
 # ---------------------------------------------------------------------
 
 def install_packages(packages: Union[str, List[str]]) -> bool:

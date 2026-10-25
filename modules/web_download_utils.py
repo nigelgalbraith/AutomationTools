@@ -10,8 +10,9 @@ from modules.system_utils import expand_path, load_skip_list
 
 
 # ---------------------------------------------------------------------
-# DOWNLOAD HELPERS
+# HELPERS
 # ---------------------------------------------------------------------
+
 
 def extract_skip_id_from_url(url: str, filename_from_url_regex: Optional[str]) -> str:
     """Extract skip ID from URL using the configured regex."""
@@ -44,23 +45,6 @@ def append_skip_id(skip_id: str, skip_list_file: Optional[str], skip_ids: Set[st
         print(f"[INFO] Added skip ID: {skip_id} -> {os.path.basename(skip_list_file)}")
     except Exception as e:
         print(f"[ERROR] Failed to write skip ID '{skip_id}': {e!r}")
-
-
-def setup_selenium_driver(headless: bool = False, minimized: bool = False):
-    """Create a Chrome/Chromium webdriver with practical defaults."""
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options
-    chrome_options = Options()
-    chrome_options.add_argument("--window-size=1920,1080")
-    chrome_options.add_argument("--start-maximized")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    if headless:
-        chrome_options.add_argument("--headless=new")
-    driver = webdriver.Chrome(options=chrome_options)
-    if minimized and not headless:
-        driver.minimize_window()
-    return driver
 
 
 def _filename_base_from_url(url: str, pattern: Optional[str], default: str) -> str:
@@ -178,8 +162,31 @@ def _download_html_page(
 
 
 # ---------------------------------------------------------------------
-# DOWNLOAD AND CRAWL FUNCTIONS
+# PRE STEPS
 # ---------------------------------------------------------------------
+
+
+def setup_selenium_driver(headless: bool = False, minimized: bool = False):
+    """Create a Chrome/Chromium webdriver with practical defaults."""
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+    chrome_options = Options()
+    chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--start-maximized")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    if headless:
+        chrome_options.add_argument("--headless=new")
+    driver = webdriver.Chrome(options=chrome_options)
+    if minimized and not headless:
+        driver.minimize_window()
+    return driver
+
+
+# ---------------------------------------------------------------------
+# BATCH RUNNERS
+# ---------------------------------------------------------------------
+
 
 def download_html_pages(
     search_urls: List[str],

@@ -9,7 +9,7 @@ from typing import List, Set, Optional
 
 
 # ---------------------------------------------------------------------
-# SYSTEM STATUS HELPERS
+# HELPERS
 # ---------------------------------------------------------------------
 
 def expand_path(path):

@@ -1,6 +1,6 @@
 {
     "router_one": {
-        "model_specs_path": "routers/model_specs/Spark_SmartModem_VRV9517.json",
+        "model_specs_path": "routers/model_specs/Spark_SmartModem_VRV9517-spec.json",
         "model_specs_readme_path": "routers/model_specs/ModelSpecsReadMe.md",
         "template_config_path": "~/Documents/AutomationToolsData/routers/templates/router_one.cfg",
         "template_router_password_path": "~/Documents/AutomationToolsData/routers/templatePasswords/router_one_password.txt",
@@ -13,7 +13,7 @@
         "encoded_config_path": "~/Documents/AutomationToolsData/routers/encoded/router_one_encoded.cfg"
     },
     "router_two": {
-        "model_specs_path": "routers/model_specs/Spark_SmartModem_VRV9517.json",
+        "model_specs_path": "routers/model_specs/Spark_SmartModem_VRV9517-spec.json",
         "model_specs_readme_path": "routers/model_specs/ModelSpecsReadMe.md",
         "template_config_path": "~/Documents/AutomationToolsData/routers/templates/router_two.cfg",
         "template_router_password_path": "~/Documents/AutomationToolsData/routers/templatePasswords/router_two_password.txt",

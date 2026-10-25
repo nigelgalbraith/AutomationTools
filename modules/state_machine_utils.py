@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Optional
 
 
 # ---------------------------------------------------------------------
-# CONSTANTS / CLI
+# COMMAND LINE ARGUMENTS
 # ---------------------------------------------------------------------
 
 def load_constants_from_module(module_path: str, required: list[str]):
@@ -58,7 +58,7 @@ def parse_args(consts: Any) -> argparse.Namespace:
 
 
 # ---------------------------------------------------------------------
-# ARG RESOLUTION / CONDITIONS
+# ARGUMENT RESOLUTION AND CONDITIONS
 # ---------------------------------------------------------------------
 
 def resolve_arg(spec: Any, job: str, meta: Dict[str, Any], ctx: Dict[str, Any]) -> Any:

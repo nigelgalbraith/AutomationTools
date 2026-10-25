@@ -50,13 +50,12 @@ ENCODED_CONFIG_PATH = "encoded_config_path"
 # VALIDATION CONFIG
 # ---------------------------------------------------------------------
 
+# Password and device-key fields are optional; credentials follow the model specification.
 VALIDATION_CONFIG: Dict[str, Any] = {
     "required_job_fields": {
         MODEL_SPECS_PATH: str,
         MODEL_SPECS_README_PATH: str,
         TEMPLATE_CONFIG_PATH: str,
-        TEMPLATE_ROUTER_PASSWORD_PATH: str,
-        TARGET_ROUTER_PASSWORD_PATH: str,
         ROUTER_DETAILS_PATH: str,
         ROUTER_DETAILS_README_PATH: str,
         DECODED_CONFIG_PATH: str,
@@ -286,7 +285,7 @@ DECODE_CONFIG_EXEC = [
     {
         "phase": "exec",
         "fn": decode_router_config,
-        "args": [TEMPLATE_CONFIG_PATH, lambda job, meta, ctx: ctx.get("model_specs"), TEMPLATE_ROUTER_PASSWORD_PATH, lambda job, meta, ctx: meta.get(TEMPLATE_DEVICE_KEY_PATH)],
+        "args": [TEMPLATE_CONFIG_PATH, lambda job, meta, ctx: ctx.get("model_specs"), lambda job, meta, ctx: meta.get(TEMPLATE_ROUTER_PASSWORD_PATH), lambda job, meta, ctx: meta.get(TEMPLATE_DEVICE_KEY_PATH)],
         "result": "decoded_data",
         "when": lambda job, meta, ctx: isinstance(ctx.get("model_specs"), dict) and ctx.get("validated", True) is True and not ctx.get("errors"),
     },
@@ -320,7 +319,7 @@ ENCODE_CONFIG_EXEC = [
     {
         "phase": "exec",
         "fn": encode_router_config,
-        "args": [EDITED_CONFIG_PATH, TEMPLATE_CONFIG_PATH, ENCODED_CONFIG_PATH, lambda job, meta, ctx: ctx.get("model_specs"), TEMPLATE_ROUTER_PASSWORD_PATH, TARGET_ROUTER_PASSWORD_PATH, lambda job, meta, ctx: meta.get(TEMPLATE_DEVICE_KEY_PATH), lambda job, meta, ctx: meta.get(TARGET_DEVICE_KEY_PATH)],
+        "args": [EDITED_CONFIG_PATH, TEMPLATE_CONFIG_PATH, ENCODED_CONFIG_PATH, lambda job, meta, ctx: ctx.get("model_specs"), lambda job, meta, ctx: meta.get(TEMPLATE_ROUTER_PASSWORD_PATH), lambda job, meta, ctx: meta.get(TARGET_ROUTER_PASSWORD_PATH), lambda job, meta, ctx: meta.get(TEMPLATE_DEVICE_KEY_PATH), lambda job, meta, ctx: meta.get(TARGET_DEVICE_KEY_PATH)],
         "result": "encoded_config",
         "when": lambda job, meta, ctx: isinstance(ctx.get("model_specs"), dict) and ("decoded_data" not in ctx or bool(ctx.get("decoded_directory"))) and ctx.get("edited_directory", True) is not False and ctx.get("validated", True) is True and not ctx.get("errors"),
     },

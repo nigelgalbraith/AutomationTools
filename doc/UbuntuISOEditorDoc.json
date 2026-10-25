@@ -1,4 +1,3 @@
-
 {
   "EXAMPLE": {
     "GNOME": {
@@ -18,10 +17,10 @@
   },
   "DESCRIPTION": {
     "<GROUP>": "A named Ubuntu Desktop configuration, such as GNOME or KDE. Each group defines its source ISO, Autoinstall YAML file and output ISO filename. Select one group or All to create the corresponding ISOs.",
-    "<GROUP>.iso_keys": "Ubuntu ISO editing paths. The specified YAML file is embedded verbatim at /autoinstall.yaml. Existing boot entries and Ubuntu boot confirmation remain unchanged; xorriso replays existing boot equipment.",
-    "<GROUP>.iso_keys.source_iso": "Readable existing Ubuntu Desktop ISO. The source ISO is never modified. Ubuntu identity and desktop installation-source metadata are checked with xorriso.",
-    "<GROUP>.iso_keys.autoinstall_path": "Existing readable Ubuntu Autoinstall YAML file. Each group specifies exactly one YAML file. GNOME and KDE use separate configurations. No additional YAML selection is required.",
-    "<GROUP>.iso_keys.output_iso": "Full destination path and filename for the generated ISO. The destination directory must exist and be writable. Existing files, directories and dangling symlinks are rejected. Sufficient disk space and filesystem hard-link support are required for atomic publication.",
+    "<GROUP>.iso_keys": "Required. Ubuntu ISO editing paths. The specified YAML file is embedded verbatim at /autoinstall.yaml. Existing boot entries and Ubuntu boot confirmation remain unchanged; xorriso replays existing boot equipment.",
+    "<GROUP>.iso_keys.source_iso": "Required string. Readable existing Ubuntu Desktop ISO. The source ISO is never modified. Ubuntu identity and desktop installation-source metadata are checked with xorriso.",
+    "<GROUP>.iso_keys.autoinstall_path": "Required string. Existing readable Ubuntu Autoinstall YAML file. Each group specifies exactly one YAML file. GNOME and KDE use separate configurations. No additional YAML selection is required.",
+    "<GROUP>.iso_keys.output_iso": "Required string. Full destination path and filename for the generated ISO. The destination directory must exist and be writable. Existing files, directories and dangling symlinks are rejected. Sufficient disk space and filesystem hard-link support are required for atomic publication.",
     "YAML validation": "Requires readable valid YAML, an autoinstall mapping (wrapped in a sole autoinstall key or unwrapped), integer version 1, and interactive-sections: [storage]. Preserves interactive drive selection and leaves YAML contents unchanged. Validation does not replace Ubuntu installer schema checks or installation testing.",
     "Paths": "Paths support ~ and are relative to the working directory when not absolute. GNOME and KDE YAML files are stored in ISOEditor/autoInstall/ubuntu2604AutoInstall. Edit config/UbuntuISOEditor.json or pass --config.",
     "Dependencies": "Run as a standard user. The existing loader installs xorriso and python3-yaml through APT when required. Python YAML imports occur after dependency installation.",
