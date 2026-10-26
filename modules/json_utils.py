@@ -19,16 +19,26 @@ from modules.system_utils import expand_path
 # HELPERS
 # ---------------------------------------------------------------------
 
-def load_json(path: str) -> Dict[str, Any]:
-    """Load a JSON file into a dict"""
-    path = expand_path(path)
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"JSON file not found: {path}")
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    if not isinstance(data, dict):
-        raise TypeError(f"JSON root must be an object: {path}")
-    return data
+def load_json(path: Union[str, Path, List[Union[str, Path]]]) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+    """Load one JSON object or an ordered list, preserving object-root validation."""
+    paths = path if isinstance(path, list) else [path]
+    results = []
+    for item in paths:
+        item = expand_path(item)
+        if not os.path.exists(item):
+            raise FileNotFoundError(f"JSON file not found: {item}")
+        try:
+            with open(item, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except json.JSONDecodeError as exc:
+            raise json.JSONDecodeError(f"{item}: {exc.msg}", exc.doc, exc.pos) from exc
+        except UnicodeDecodeError as exc:
+            raise UnicodeDecodeError(exc.encoding, exc.object, exc.start, exc.end,
+                                     f"{item}: {exc.reason}") from exc
+        if not isinstance(data, dict):
+            raise TypeError(f"JSON root must be an object: {item}")
+        results.append(data)
+    return results if isinstance(path, list) else results[0]
 
 
 def save_json_file(path: str, data: Dict[str, Any]) -> None:
@@ -238,3 +248,48 @@ def select_json_file(
         if 0 <= index < len(files):
             return os.path.abspath(os.path.join(json_dir, files[index]))
         print("Invalid selection.")
+
+
+def validate_json_schema(data: dict | list[dict], schema_path: Union[str, Path],
+                         label: str = "Configuration", report_success: bool = True) -> dict | list[dict]:
+    """Validate an external schema and return the original data unchanged.
+
+    Schema paths use load_json's normal relative-path convention.
+    """
+    from jsonschema import exceptions, validators
+
+    try:
+        path = Path(schema_path).expanduser()
+        try:
+            schema = load_json(path)
+            if not isinstance(schema, (dict, bool)):
+                raise ValueError("schema must be an object or boolean")
+            validator_class = validators.validator_for(schema)
+            validator_class.check_schema(schema)
+        except exceptions.SchemaError as exc:
+            raise ValueError(f"invalid schema {schema_path}: {exc.message}") from None
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"invalid schema {schema_path}: {exc}") from None
+        validator = validator_class(schema)
+        configs = data if isinstance(data, list) else [data]
+        for index, item in enumerate(configs):
+            errors = list(validator.iter_errors(item))
+            if errors:
+                messages = []
+                for error in errors:
+                    property_path = (f"$[{index}]" if isinstance(data, list) else "$") + "".join(
+                        f"[{part}]" if isinstance(part, int) else f".{part}"
+                        for part in error.absolute_path
+                    )
+                    messages.append(f"{property_path}: {error.message}")
+                raise ValueError("; ".join(dict.fromkeys(messages)))
+    except (OSError, ValueError, TypeError) as exc:
+        message = f"{label}: {exc}"
+        print(f"[FAILED] {message}")
+        error = ValueError(message)
+        # The pipeline records this exception without printing the same error again.
+        error.reported = True
+        raise error from None
+    if report_success:
+        print(f"[OK] {label} schema validated successfully.")
+    return data

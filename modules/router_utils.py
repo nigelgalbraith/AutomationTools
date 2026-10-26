@@ -6,22 +6,19 @@ import subprocess
 import tarfile
 import tempfile
 from pathlib import Path
+from modules.json_utils import load_json
 from modules.router_encryption_utils import (
-    SUPPORTED_HASHES,
     decrypt_aes_128_cbc_field,
     encrypt_aes_128_cbc_field,
     crypt_aes_256_cbc_fixed_key,
     crypt_aes_256_cbc,
     crypt_technicolor_thenc,
-    validate_legacy_key_specs,
     interpret_password_credentials,
-    validate_device_key_specs,
     load_device_key_credentials,
 )
 from modules.router_config_utils import (
     safe_relative,
     validate_xml_declaration,
-    parse_xml_field_selector,
     xml_field_values,
     view_key_value_values,
     edit_key_value_values,
@@ -88,246 +85,6 @@ CONFIG_EDIT_HANDLERS = {
     "xml": update_xml_fields,
 }
 
-ROUTER_SPEC_SCHEMA = {
-    "model": str, "firmware": str, "hardware": str,
-    "encryption": str, "encoding": str, "salted": bool,
-    "password_base": str, "password_hash": str, "key_derivation": str,
-    "config_fields": {"file": str, "wifi_2g_ssid": str, "wifi_2g_password": str,
-                      "wifi_5g_ssid": str, "wifi_5g_password": str},
-    "password_required": bool, "key_derivation_digest": str,
-    "backup_format": {
-        "type": str, "header_lines": int, "preserve_header": bool,
-        "payload_line_length": int, "newline": str,
-        "checksum": {"algorithm": str, "scope": str, "encoding": str,
-                     "after_payload_lines": int,
-                     "prefix": {"encoding": str, "random_bytes": int}},
-        "trailer": {"character": str, "repeat": int},
-        "iv_length": int, "signature_length": int, "preamble": str,
-        "backup_version": str, "header_terminator": str,
-    },
-    "archive": {"format": str, "compression": str},
-    "configuration_format": str,
-    "encryption_settings": {"key_hex": str, "iv_hex": str},
-    "signature": {"algorithm": str, "modulus_hex": str, "exponent": int, "private_exponent_hex": str},
-    "field_encryption": {"algorithm": str, "key_hex": str, "iv_hex": str, "fields": list},
-}
-
-
-# ---------------------------------------------------------------------
-# VALIDATION
-# ---------------------------------------------------------------------
-
-def validate_model_specs(specs: dict) -> None:
-    """Validate the complete schema and the selected mechanism settings."""
-    validate_spec_schema(specs)
-    field_settings = specs["field_encryption"]
-    algorithm = field_settings["algorithm"]
-    if algorithm is None:
-        require_null_settings(field_settings, tuple(field_settings), "field_encryption")
-    else:
-        require_setting(algorithm, "field_encryption.algorithm", algorithm in FIELD_DECRYPT_HANDLERS and algorithm in FIELD_ENCRYPT_HANDLERS)
-        require_setting(specs["configuration_format"], "configuration_format", specs["configuration_format"] == "xml")
-        for key in ("key_hex", "iv_hex"):
-            value = field_settings[key]
-            require_setting(value, f"field_encryption.{key}", isinstance(value, str) and len(value) == 32 and all(c in "0123456789abcdefABCDEF" for c in value))
-        fields = field_settings["fields"]
-        require_setting(fields, "field_encryption.fields", isinstance(fields, list) and bool(fields) and all(isinstance(label, str) and label != "file" and specs["config_fields"].get(label) is not None for label in fields))
-        require_setting(fields, "field_encryption.fields", len(set(fields)) == len(fields))
-    for key in ("model", "firmware", "hardware", "encryption", "encoding", "key_derivation"):
-        value = specs[key]
-        require_setting(value, key, isinstance(value, str) and bool(value.strip()) and not any(c in value for c in "\r\n\x00"))
-    mechanism = (specs["encryption"], specs["key_derivation"])
-    if mechanism not in ENCRYPTION_HANDLERS:
-        raise ValueError(f"Unsupported encryption mechanism: {mechanism}")
-    if specs["key_derivation"] != "fixed-key":
-        require_null_settings(specs["encryption_settings"], ("key_hex", "iv_hex"), "encryption_settings")
-        require_null_settings(specs["signature"], ("algorithm", "modulus_hex", "exponent", "private_exponent_hex"), "signature")
-    if specs["key_derivation"] == "openssl-legacy":
-        validate_legacy_key_specs(specs)
-    elif specs["key_derivation"] == "device-key":
-        validate_device_key_specs(specs)
-    elif specs["key_derivation"] == "fixed-key":
-        for key, size in (("key_hex", 64), ("iv_hex", 32)):
-            value = specs["encryption_settings"][key]
-            require_setting(value, f"encryption_settings.{key}", isinstance(value, str) and len(value) == size and all(c in "0123456789abcdefABCDEF" for c in value))
-        require_null_settings(specs, ("password_base", "password_hash", "key_derivation_digest"))
-        for key in ("salted", "password_required"):
-            require_setting(specs[key], key, specs[key] is False)
-        signature = specs["signature"]
-        require_setting(signature["algorithm"], "signature.algorithm", signature["algorithm"] == "rsa-md5")
-        modulus = signature["modulus_hex"]
-        require_setting(modulus, "signature.modulus_hex", isinstance(modulus, str) and 128 <= len(modulus) <= 2048 and all(c in "0123456789abcdefABCDEF" for c in modulus))
-        value = signature["exponent"]
-        require_setting(value, "signature.exponent", isinstance(value, int) and 3 <= value <= 0xffffffff and value % 2 == 1)
-        require_setting(modulus, "signature.modulus_hex", int(modulus, 16) % 2 == 1 and int(modulus, 16).bit_length() >= 512)
-        private = signature["private_exponent_hex"]
-        if private is not None:
-            require_setting(private, "signature.private_exponent_hex", bool(private) and all(c in "0123456789abcdefABCDEF" for c in private) and 1 < int(private, 16) < int(modulus, 16))
-    if specs["encoding"] == "base64":
-        validate_base64_specs(specs)
-    elif specs["encoding"] != "binary":
-        raise ValueError(f'Unsupported encoding: {specs["encoding"]}')
-    fmt = specs["backup_format"]
-    if fmt["type"] not in ("line-wrapper", "technicolor-thenc", "encrypted-configuration"):
-        raise ValueError(f'Unsupported backup_format.type: {fmt["type"]}')
-    value = fmt["header_lines"]
-    require_setting(value, "backup_format.header_lines", isinstance(value, int) and value >= 0)
-    require_setting(fmt["preserve_header"], "backup_format.preserve_header", not value or fmt["preserve_header"])
-    if fmt["type"] == "line-wrapper":
-        validate_line_wrapper_specs(specs)
-    elif fmt["type"] == "encrypted-configuration":
-        require_setting(specs["configuration_format"], "configuration_format", specs["configuration_format"] == "xml")
-        require_setting(specs["encoding"], "encoding", specs["encoding"] == "binary")
-        require_setting(specs["key_derivation"], "key_derivation", specs["key_derivation"] == "fixed-key")
-        require_setting(fmt["header_lines"], "backup_format.header_lines", fmt["header_lines"] == 0)
-        require_setting(fmt["preserve_header"], "backup_format.preserve_header", fmt["preserve_header"] is False)
-        require_setting(fmt["iv_length"], "backup_format.iv_length", fmt["iv_length"] == 16)
-        require_setting(fmt["signature_length"], "backup_format.signature_length", fmt["signature_length"] == (int(specs["signature"]["modulus_hex"], 16).bit_length() + 7) // 8)
-        require_setting(fmt["preamble"], "backup_format.preamble", isinstance(fmt["preamble"], str) and fmt["preamble"].startswith("<?xml") and fmt["preamble"].isascii())
-        require_null_settings(fmt, ("payload_line_length", "newline", "backup_version", "header_terminator"), "backup_format")
-        require_null_settings(fmt["checksum"], ("algorithm", "scope", "encoding", "after_payload_lines"), "backup_format.checksum")
-        require_null_settings(fmt["checksum"]["prefix"], ("encoding", "random_bytes"), "backup_format.checksum.prefix")
-        require_null_settings(fmt["trailer"], ("character", "repeat"), "backup_format.trailer")
-    else:
-        # Binary wrappers use JSON-defined boundaries rather than line checksums.
-        require_setting(specs["encoding"], "encoding", specs["encoding"] == "binary")
-        require_null_settings(fmt, ("payload_line_length", "newline"), "backup_format")
-        require_null_settings(fmt["checksum"], ("algorithm", "scope", "encoding", "after_payload_lines"), "backup_format.checksum")
-        require_null_settings(fmt["checksum"]["prefix"], ("encoding", "random_bytes"), "backup_format.checksum.prefix")
-        require_null_settings(fmt["trailer"], ("character", "repeat"), "backup_format.trailer")
-        for key in ("iv_length", "signature_length"):
-            value = fmt[key]
-            require_setting(value, f"backup_format.{key}", isinstance(value, int) and value > 0)
-        for key in ("preamble", "backup_version"):
-            value = fmt[key]
-            require_setting(value, f"backup_format.{key}", isinstance(value, str) and bool(value.strip()) and all(32 <= ord(c) <= 126 for c in value))
-        value = fmt["header_terminator"]
-        require_setting(value, "backup_format.header_terminator", isinstance(value, str) and bool(value) and all(c in "\r\n" or 32 <= ord(c) <= 126 for c in value))
-    if specs["archive"]["format"] is None:
-        require_null_settings(specs["archive"], ("compression",), "archive")
-    elif specs["archive"]["format"] == "single-file":
-        require_setting(specs["archive"]["compression"], "archive.compression", specs["archive"]["compression"] == "zlib")
-    else:
-        validate_tar_specs(specs)
-    if specs["configuration_format"] is None:
-        require_null_settings(specs["config_fields"], tuple(specs["config_fields"]), "config_fields")
-        if specs["archive"]["format"] is not None:
-            raise ValueError("archive.format must be null when configuration_format is unknown")
-    elif specs["configuration_format"] == "key-value":
-        validate_key_value_specs(specs)
-        require_setting(specs["archive"]["format"], "archive.format", True)
-    elif specs["configuration_format"] == "xml":
-        require_setting(specs["archive"]["format"], "archive.format", specs["archive"]["format"] == "single-file")
-        require_setting(fmt["type"], "backup_format.type", fmt["type"] == "encrypted-configuration")
-        path = specs["config_fields"]["file"]
-        require_setting(path, "config_fields.file", isinstance(path, str) and bool(path.strip()))
-        safe_relative(path)
-        for label, selector in specs["config_fields"].items():
-            if label != "file" and selector is not None:
-                parse_xml_field_selector(selector, label)
-    else:
-        raise ValueError(f'Unsupported configuration_format: {specs["configuration_format"]}')
-
-
-def validate_line_wrapper_specs(specs: dict) -> None:
-    """Validate the established line layout and its applicable fields."""
-    fmt = specs["backup_format"]
-    require_setting(specs["encoding"], "encoding", specs["encoding"] == "base64")
-    require_null_settings(fmt, ("iv_length", "signature_length", "preamble", "backup_version",
-                               "header_terminator"), "backup_format")
-    for key in ("payload_line_length", "newline"):
-        require_setting(fmt[key], f"backup_format.{key}", True)
-    require_setting(fmt["newline"], "backup_format.newline", fmt["newline"] == "\n")
-    require_setting(fmt["payload_line_length"], "backup_format.payload_line_length", fmt["payload_line_length"] > 0 and fmt["payload_line_length"] % 4 == 0)
-    checksum = fmt["checksum"]
-    for key, allowed in (("algorithm", SUPPORTED_HASHES), ("scope", ("encoded-payload-with-newlines",)), ("encoding", ("hex-lower",))):
-        require_setting(checksum[key], f"backup_format.checksum.{key}", checksum[key] in allowed)
-    value = checksum["after_payload_lines"]
-    require_setting(value, "backup_format.checksum.after_payload_lines", isinstance(value, int) and value >= 0)
-    prefix = checksum["prefix"]
-    require_setting(prefix["encoding"], "backup_format.checksum.prefix.encoding", prefix["encoding"] == "base64")
-    value = prefix["random_bytes"]
-    require_setting(value, "backup_format.checksum.prefix.random_bytes", isinstance(value, int) and value >= 0)
-    trailer = fmt["trailer"]
-    value = trailer["character"]
-    require_setting(value, "backup_format.trailer.character", isinstance(value, str) and len(value) == 1 and value.isascii() and value not in "\r\n")
-    value = trailer["repeat"]
-    require_setting(value, "backup_format.trailer.repeat", isinstance(value, int) and value > 0)
-
-
-def validate_base64_specs(specs: dict) -> None:
-    """Require the line width used by the existing Base64 encoder."""
-    width = specs["backup_format"]["payload_line_length"]
-    require_setting(width, "backup_format.payload_line_length", isinstance(width, int) and width > 0 and width % 4 == 0)
-
-
-def validate_tar_specs(specs: dict) -> None:
-    """Require the implemented TAR/GZIP compression."""
-    if specs["archive"]["format"] != "tar":
-        raise ValueError(f'Unsupported archive.format: {specs["archive"]["format"]}')
-    require_setting(specs["archive"]["compression"], "archive.compression", specs["archive"]["compression"] == "gzip")
-
-
-def validate_key_value_specs(specs: dict) -> None:
-    """Validate populated mappings while allowing unused fields to be null."""
-    fields = specs["config_fields"]
-    value = fields["file"]
-    require_setting(value, "config_fields.file", isinstance(value, str) and bool(value.strip()))
-    try:
-        safe_relative(value)
-    except ValueError:
-        raise ValueError("Invalid JSON key: config_fields.file; unsafe relative path") from None
-    require_setting(value, "config_fields.file", not any(c in value for c in "\r\n\x00"))
-    seen = set()
-    for label, key in fields.items():
-        if label == "file" or key is None:
-            continue
-        require_setting(key, f"config_fields.{label}", bool(key.strip()) and not any(c in key for c in "=\r\n\x00"))
-        if key in seen:
-            raise ValueError(f"Duplicate configuration mapping: config_fields.{label}")
-        seen.add(key)
-
-
-def validate_settings(settings: dict, allowed: tuple, category: str) -> None:
-    """Reject undeclared keys, retaining the existing validation helper API."""
-    for key in settings:
-        if key not in allowed:
-            path = f"{category}.{key}" if category else key
-            raise ValueError(f"Unexpected JSON key: {path}")
-
-
-def validate_spec_schema(settings: dict, schema: dict = ROUTER_SPEC_SCHEMA, prefix: str = "") -> None:
-    """Check complete keys and nullable types independently of mechanisms."""
-    if type(settings) is not dict:
-        raise ValueError(f"Invalid JSON object: {prefix or 'model specifications'}")
-    for key in schema:
-        path = f"{prefix}.{key}" if prefix else key
-        if key not in settings:
-            raise ValueError(f"Missing JSON key: {path}")
-    validate_settings(settings, tuple(schema), prefix)
-    for key, kind in schema.items():
-        path = f"{prefix}.{key}" if prefix else key
-        value = settings[key]
-        if isinstance(kind, dict):
-            validate_spec_schema(value, kind, path)
-        elif value is not None and type(value) is not kind:
-            raise ValueError(f"Invalid JSON key: {path}; expected {kind.__name__} or null")
-
-
-def require_setting(value, path: str, condition: bool) -> None:
-    """Report the exact key whose mechanism-specific value is invalid."""
-    if value is None or not condition:
-        raise ValueError(f"Missing or invalid JSON key: {path}")
-
-
-def require_null_settings(settings: dict, keys: tuple, prefix: str = "") -> None:
-    """Reject settings which the selected mechanism cannot use."""
-    for key in keys:
-        if settings[key] is not None:
-            path = f"{prefix}.{key}" if prefix else key
-            raise ValueError(f"Non-applicable JSON key must be null: {path}")
-
-
 # ---------------------------------------------------------------------
 # DISPATCHER FUNCTIONS
 # ---------------------------------------------------------------------
@@ -349,10 +106,7 @@ def read_router_credential(password_path: str, specs: dict) -> str | bytes:
 
 def decrypt_router_payload(data: bytes, password: str, model_specs: dict, wrapper: dict | None = None, device_key: bytes | None = None, device_key_path: str | None = None) -> bytes:
     """Decrypt using the encryption method defined in the router specification."""
-    validate_model_specs(model_specs)
     mechanism = (model_specs["encryption"], model_specs["key_derivation"])
-    if mechanism not in ENCRYPTION_HANDLERS:
-        raise ValueError(f"Unsupported encryption mechanism: {mechanism}")
     if model_specs["key_derivation"] == "device-key" and device_key is None:
         if not device_key_path:
             raise ValueError("THENC device key unavailable: device_key_path is required; an export password is not a device key")
@@ -364,10 +118,7 @@ def decrypt_router_payload(data: bytes, password: str, model_specs: dict, wrappe
 
 def encrypt_router_payload(data: bytes, password: str, model_specs: dict, device_key_path: str | None = None) -> bytes:
     """Encrypt using the encryption method defined in the router specification."""
-    validate_model_specs(model_specs)
     mechanism = (model_specs["encryption"], model_specs["key_derivation"])
-    if mechanism not in ENCRYPTION_HANDLERS:
-        raise ValueError(f"Unsupported encryption mechanism: {mechanism}")
     if model_specs["key_derivation"] == "device-key":
         if not device_key_path:
             raise ValueError("THENC device key unavailable: device_key_path is required; an export password is not a device key")
@@ -379,8 +130,7 @@ def encrypt_router_payload(data: bytes, password: str, model_specs: dict, device
 
 
 def parse_router_wrapper(data: bytes, model_specs: dict) -> dict:
-    """Validate specifications and parse the configured backup wrapper."""
-    validate_model_specs(model_specs)
+    """Parse the configured backup wrapper using loaded specifications."""
     if model_specs["backup_format"]["type"] == "line-wrapper":
         return parse_line_wrapper(data, model_specs)
     elif model_specs["backup_format"]["type"] == "technicolor-thenc":
@@ -391,8 +141,7 @@ def parse_router_wrapper(data: bytes, model_specs: dict) -> dict:
 
 
 def rebuild_router_wrapper(encoded: bytes, header: bytes, specs: dict) -> bytes:
-    """Validate specifications and rebuild the configured backup wrapper."""
-    validate_model_specs(specs)
+    """Rebuild the configured backup wrapper using loaded specifications."""
     if specs["backup_format"]["type"] == "line-wrapper":
         return rebuild_line_wrapper(encoded, header, specs)
     elif specs["backup_format"]["type"] == "technicolor-thenc":
@@ -406,22 +155,15 @@ def rebuild_router_wrapper(encoded: bytes, header: bytes, specs: dict) -> bytes:
 # ROUTER WORKFLOWS
 # ---------------------------------------------------------------------
 
-def load_router_model_specs(specs_path: str) -> dict | bool:
-    """Load and validate router model specifications from a JSON file."""
-    try:
-        path = Path(specs_path).expanduser()
-        if not path.is_file():
-            raise FileNotFoundError(f"Router model specifications not found: {path}")
-        if path.suffix.lower() != MODEL_SPECS_EXTENSION:
-            raise ValueError(f"Router model specifications must be a {MODEL_SPECS_EXTENSION} file")
-        with path.open("r", encoding="utf-8") as file:
-            specs = json.load(file)
-        validate_model_specs(specs)
-        print(f"Loaded router model specifications: {specs['model']}")
-        return specs
-    except (OSError, ValueError, TypeError, KeyError) as exc:
-        print(f"Failed to load router model specifications: {exc}")
-        return False
+def load_router_model_specs(specs_path: str) -> dict:
+    """Load a model dictionary; CHECK and derived-data preparation belong to PRE."""
+    path = Path(specs_path).expanduser()
+    if path.suffix.lower() != MODEL_SPECS_EXTENSION:
+        raise ValueError(f"Router model specifications must be a {MODEL_SPECS_EXTENSION} file")
+    specs = load_json(path)
+    if not isinstance(specs, dict):
+        raise ValueError(f"Router model specifications must be a JSON object: {path}")
+    return specs
 
 
 def decode_router_config(
@@ -560,7 +302,7 @@ def edit_router_config_fields(config_dir: str, edited_dir: str, model_specs: dic
             raise ValueError(f"Unsafe edited configuration symlink: {destination}")
         if source.resolve() == destination.resolve() or source.resolve() in destination.resolve().parents or destination.resolve() in source.resolve().parents:
             raise ValueError("Edited directory must be outside the decoded directory")
-        relative = Path(config_fields[CONFIG_FIELDS_FILE_KEY])
+        relative = safe_relative(config_fields[CONFIG_FIELDS_FILE_KEY])
         if relative.is_absolute() or ".." in relative.parts:
             raise ValueError("Invalid configuration file path")
         source_file = source / relative
@@ -630,7 +372,6 @@ def encode_router_config(
 ) -> str | bool:
     """Rebuild, encrypt and verify an edited backup without changing its source."""
     try:
-        validate_model_specs(model_specs)
         single_file = model_specs["archive"] == {"format": "single-file", "compression": "zlib"}
         directory = Path(edited_dir).expanduser()
         original = Path(original_cfg).expanduser()
@@ -768,7 +509,6 @@ def view_readme(data: dict | None, readme_path: str) -> bool:
 
 def validate_router_configuration(paths: dict, model_specs: dict) -> bool:
     """Validate configured inputs and distinct output locations for full automation."""
-    validate_model_specs(model_specs)
     if model_specs["configuration_format"] is not None and model_specs["configuration_format"] not in CONFIG_EDIT_HANDLERS:
         raise ValueError("Configuration editing is unsupported for this format")
     if model_specs["archive"]["format"] == "single-file" and model_specs["signature"]["private_exponent_hex"] is None:

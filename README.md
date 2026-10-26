@@ -163,6 +163,12 @@ Examples include:
 
 This separates implementation logic from configuration and execution management.
 
+The shared `modules/json_utils.py` provides `load_json()` for one file path or an ordered list of file paths, and `validate_json_schema()` for one configuration dictionary or a list of dictionaries. Validation rules come from external JSON Schema files whose paths are passed explicitly by constants. The validator checks the schema, applies the same schema to each supplied configuration, and returns the original data unchanged on success. Configured PRE steps retain loaded and validated configurations in the execution context for later use without unnecessary reloading or schema validation.
+
+`load_json()` propagates file errors and includes the file path in JSON and text decoding errors. Schema validation prints `[OK] <label> schema validated successfully.` by default. Invalid schemas or configurations print `[FAILED] <label>: ...` and raise `ValueError`; configuration errors identify property paths such as `$.field` or `$[0].field`. Validation stops at the first invalid configuration, reporting its schema errors. The pipeline records an already reported validation error without printing it again.
+
+AutomationTools additionally requires each JSON file loaded by `load_json()` to contain an object at its root and raises `TypeError` otherwise.
+
 ---
 
 ## Pipeline Execution Model
@@ -216,6 +222,10 @@ Supported pipeline phases include:
 - `post` — Post-execution processing
 
 The loader executes configured pipeline steps in order and stores their results in the execution context.
+
+PRE stops at the first exception. The loader records the failing step and error, reports missing files clearly, and returns to the menu when PRE fails instead of proceeding to execution. Exceptions from conditions and argument resolution are handled as step failures too. A truthy `success_key` cannot override recorded errors: success requires no recorded errors and, when present, a truthy success result. EXEC records exceptions and continues with later eligible steps; it does not apply PRE's stop-on-exception behaviour.
+
+AutomationTools retains its callback convention: a `None` return stored under a result key becomes `True`; TestingTools stores the returned value directly. Both loaders prevent PRE failures from reaching execution.
 
 ---
 
@@ -770,6 +780,7 @@ AutomationTools uses file-driven configuration processing. Router settings and p
 | File | Purpose |
 |---|---|
 | `constants/RouterConstants.py` | Router actions, validation, dependencies, and pipelines |
+| `schemas/RouterSchema.json` | Shared router model specification validation rules |
 | `config/RouterConfig.json` | Router configuration groups and file paths |
 | `config-sample/RouterConfig.json` | Example router configuration |
 | `doc/RouterDoc.json` | Configuration documentation |
@@ -787,6 +798,7 @@ The Router utility uses:
 
 - `openssl` — OpenSSL-based router backup encryption and decryption.
 - `python3-cryptography` — AES encryption and decryption through Python's cryptography library.
+- `python3-jsonschema` — shared validation against external JSON Schema files.
 
 Dependencies are declared in `constants/RouterConstants.py`.
 
@@ -832,7 +844,7 @@ The router utility separates workflow orchestration from processing implementati
 **`router_utils.py`** manages:
 
 - Router workflow execution.
-- Generic model specification validation.
+- Router input and output validation for automation.
 - Centralised processing dispatcher registrations.
 - Selection of processing mechanisms.
 - Coordination of decoding, viewing, editing, and encoding.
@@ -970,6 +982,8 @@ routers/model_specs/
 ```
 
 Each router uses the same JSON specification schema.
+
+Router configuration preparation follows **LOAD → CHECK → PLAN → EXECUTE**. `load_router_model_specs()` loads the JSON through shared `load_json()`; the configured PRE pipeline calls shared `validate_json_schema()` with `ROUTER_SCHEMA_PATH = "schemas/RouterSchema.json"`, then prepares derived XML selectors. The external schema checks the specification structure, supported mechanisms, and parameter combinations before processing; invalid or unsupported specification values and selector preparation errors prevent execution. Planning follows preparation where enabled by the action. Processing consumes the prepared model dictionary without reloading or repeating schema validation. Backup integrity and security checks, including signatures, archive safety, and local output verification where applicable, remain part of processing.
 
 **Every specification contains exactly the same keys and nested structure as the common specification template.**
 
@@ -1112,7 +1126,7 @@ The Router Configuration utility supports individual actions or the complete aut
 
 Load the selected router model specification.
 
-Validate the configured files, required parameters, supported mechanisms, and configuration settings.
+The PRE pipeline checks the model specification against the external schema and prepares XML selectors. The separate `validate_router_configuration()` execution step checks automation input files, credentials, replacement settings, output paths, and the backup wrapper; it does not perform model schema validation.
 
 #### 2. Decode
 

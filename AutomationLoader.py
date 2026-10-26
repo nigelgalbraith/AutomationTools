@@ -97,28 +97,40 @@ def run_pipeline_steps(
     label: str,
     success_key: str,
     ctx: Dict[str, Any],
-) -> None:
+) -> bool:
     """Run pipeline steps for a given phase, storing outputs in ctx."""
     ctx.setdefault("errors", [])
     phase = (phase or "").strip().lower()
     for step in pipeline:
         fn = step.get("fn")
-        if not callable(fn):
-            raise TypeError("Pipeline step missing callable 'fn'.")
-        step_phase = (step.get("phase") or "exec").strip().lower()
-        if step_phase != phase:
-            continue
-        if not check_when(step.get("when"), job, meta, ctx):
-            continue
-        args = [resolve_arg(a, job, meta, ctx) for a in step.get("args", [])]
+        step_name = getattr(fn, "__name__", "pipeline step")
         try:
+            if not callable(fn):
+                raise TypeError("Pipeline step missing callable 'fn'.")
+            step_phase = (step.get("phase") or "exec").strip().lower()
+            if step_phase != phase:
+                continue
+            if not check_when(step.get("when"), job, meta, ctx):
+                continue
+            args = [resolve_arg(a, job, meta, ctx) for a in step.get("args", [])]
             result = fn(*args)
+        except FileNotFoundError as e:
+            message = f"File not found: {e.filename}" if e.filename else str(e)
+            ctx["errors"].append({"step": step_name, "error": message})
+            print(f"[ERROR] {step_name} failed → {message}")
+            if phase == "pre":
+                break
+            continue
         except Exception as e:
-            ctx["errors"].append({"step": getattr(fn, "__name__", "unknown"), "error": str(e)})
-            print(f"[ERROR] {getattr(fn, '__name__', 'unknown')} failed → {e}")
+            ctx["errors"].append({"step": step_name, "error": str(e)})
+            if not getattr(e, "reported", False):
+                print(f"[ERROR] {step_name} failed → {e}")
+            if phase == "pre":
+                break
             continue
         rkey = step.get("result")
         if rkey is not None:
+            # Automation callbacks also use a void return to signal completion.
             ctx[rkey] = result if result is not None else True
     errors = ctx.get("errors") or []
     default_success = (len(errors) == 0)
@@ -126,7 +138,7 @@ def run_pipeline_steps(
     if success_key:
         if success_key in ctx:
             override_success = bool(ctx.get(success_key))
-    success = override_success if override_success is not None else default_success
+    success = default_success and (override_success if override_success is not None else True)
     extract_total = 0
     extract_failures = 0
     extract_results = ctx.get("extract_results")
@@ -138,9 +150,10 @@ def run_pipeline_steps(
         status = f"Partial ({extract_failures}/{extract_total} extract failures)"
     if phase == "pre":
         print(f"{label} (pre): {status}")
-        return
+        return success
     print(f"{label}: {status}")
     print()
+    return success
 
 
 # ---------------------------------------------------------------------
@@ -303,6 +316,7 @@ class StateMachine:
                     continue
                 required_fields = spec.get("required_job_fields") or {}
                 allow_empty = bool(spec.get("allow_empty", False))
+                dynamic_keys = bool(spec.get("dynamic_keys", False))
                 if not required_fields:
                     self.verification_outcomes[f"{group_name}: Secondary: {section_key} (no required_job_fields)"] = False
                     all_ok = False
@@ -313,6 +327,27 @@ class StateMachine:
                     all_ok = False
                     continue
                 if isinstance(section_val, dict):
+                    if dynamic_keys:
+                        if not section_val and not allow_empty:
+                            self.verification_outcomes[f"{group_name}: Secondary: {section_key} (empty not allowed)"] = False
+                            all_ok = False
+                            continue
+                        for item_key, item in section_val.items():
+                            if not isinstance(item, dict):
+                                self.verification_outcomes[f"{group_name}: Secondary: {section_key}.{item_key} (not a dict)"] = False
+                                all_ok = False
+                                continue
+                            for field, expected in required_fields.items():
+                                types = expected if isinstance(expected, tuple) else (expected,)
+                                expected_str = " or ".join(t.__name__ for t in types)
+                                if field not in item:
+                                    self.verification_outcomes[f"{group_name}: Secondary: {section_key}.{item_key}.{field} ({expected_str})"] = False
+                                    all_ok = False
+                                    continue
+                                ok = isinstance(item.get(field), types)
+                                self.verification_outcomes[f"{group_name}: Secondary: {section_key}.{item_key}.{field} ({expected_str})"] = ok
+                                all_ok = all_ok and ok
+                        continue
                     for field, expected in required_fields.items():
                         types = expected if isinstance(expected, tuple) else (expected,)
                         expected_str = " or ".join(t.__name__ for t in types)
@@ -477,7 +512,7 @@ class StateMachine:
         pipeline = spec.get("pipeline") or []
         label = spec.get("label", "DONE")
         success_key = spec.get("success_key", "ok")
-        pre_steps = [s for s in pipeline if (s or {}).get("phase", "pre") == "pre"]
+        pre_steps = [s for s in pipeline if (s.get("phase") or "exec").strip().lower() == "pre"]
         action_spec = self.actions.get(self.current_action_key or "", {})
         if not pre_steps:
             if self.plan_only:
@@ -489,11 +524,12 @@ class StateMachine:
             self.state = State.PREPARE_PLAN
             return
         group_names = self.selected_groups or list(self.cfg_groups.keys())
+        all_ok = True
         for group_name in group_names:
             group_cfg = self.cfg_groups[group_name]
             group_ctx = self.runtime_ctx["groups"].setdefault(group_name, {})
             print(f"\n  ==> Group: {group_name}")
-            run_pipeline_steps(
+            success = run_pipeline_steps(
                 group_name,
                 group_cfg,
                 pre_steps,
@@ -502,6 +538,11 @@ class StateMachine:
                 success_key=success_key,
                 ctx=group_ctx,
             )
+            all_ok = all_ok and success
+        if not all_ok:
+            self._pending_pipeline_spec = None
+            self.state = State.MENU_SELECTION
+            return
         if self.plan_only:
             self.state = State.PREPARE_PLAN
             return

@@ -4,6 +4,8 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from modules.display_utils import display_config_doc
+from modules.router_config_utils import prepare_xml_selectors
+from modules.json_utils import validate_json_schema
 from modules.router_utils import (
     load_router_model_specs,
     validate_router_configuration,
@@ -22,6 +24,7 @@ from modules.router_utils import (
 # CONFIG PATHS
 # ---------------------------------------------------------------------
 
+ROUTER_SCHEMA_PATH = "schemas/RouterSchema.json"
 CONFIG_PATH = "config/RouterConfig.json"
 TOOL_TYPE = "Router Configuration"
 CONFIG_DOC = "doc/RouterDoc.json"
@@ -84,7 +87,7 @@ REQUIRED_USER = "standard"
 # DEPENDENCIES
 # ---------------------------------------------------------------------
 
-DEPENDENCIES = ["openssl", "python3-cryptography"]
+DEPENDENCIES = ["openssl", "python3-cryptography", "python3-jsonschema"]
 
 
 # ---------------------------------------------------------------------
@@ -215,6 +218,19 @@ LOAD_MODEL_SPECS_PRE = [
         "fn": load_router_model_specs,
         "args": [MODEL_SPECS_PATH],
         "result": "model_specs",
+    },
+    {
+        "phase": "pre",
+        "fn": validate_json_schema,
+        "args": [lambda job, meta, ctx: ctx["model_specs"], ROUTER_SCHEMA_PATH,
+                 lambda job, meta, ctx: f"Router model {ctx['model_specs'].get('model', '<unknown>')}"],
+        "when": lambda job, meta, ctx: True,
+    },
+    {
+        "phase": "pre",
+        "fn": prepare_xml_selectors,
+        "args": [lambda job, meta, ctx: ctx["model_specs"]],
+        "when": lambda job, meta, ctx: True,
     },
 ]
 

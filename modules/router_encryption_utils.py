@@ -12,7 +12,6 @@ from pathlib import Path
 # ---------------------------------------------------------------------
 
 OPENSSL_HEADER = b"Salted__"
-SUPPORTED_HASHES = ("md5", "sha256", "sha512")
 
 
 # ---------------------------------------------------------------------
@@ -26,10 +25,8 @@ def derive_router_passphrase(password: str, model_specs: dict) -> str:
     algorithm = model_specs["password_hash"]
     if algorithm == "none":
         hashed = password
-    elif algorithm in SUPPORTED_HASHES:
-        hashed = hashlib.new(algorithm, password.encode("utf-8")).hexdigest()
     else:
-        raise ValueError(f"Unsupported password_hash: {algorithm}")
+        hashed = hashlib.new(algorithm, password.encode("utf-8")).hexdigest()
     passphrase = model_specs["password_base"] + hashed
     if any(c in passphrase for c in "\r\n\x00"):
         raise ValueError("Passphrase contains unsupported control characters")
@@ -47,42 +44,11 @@ def interpret_password_credentials(data: bytes) -> str:
     return password
 
 # ---------------------------------------------------------------------
-# VALIDATION
-# ---------------------------------------------------------------------
-
-def validate_legacy_key_specs(specs: dict) -> None:
-    """Validate text-password derivation without treating passwords as keys."""
-    required = {"salted": bool, "password_required": bool, "password_base": str,
-                "password_hash": str, "key_derivation_digest": str}
-    for key, kind in required.items():
-        if type(specs.get(key)) is not kind:
-            raise ValueError(f"Missing or invalid legacy key setting: {key}")
-    if specs["key_derivation_digest"] not in SUPPORTED_HASHES:
-        raise ValueError("Unsupported key_derivation_digest")
-    if specs["password_hash"] not in (*SUPPORTED_HASHES, "none"):
-        raise ValueError("Unsupported password_hash")
-    if any(c in specs["password_base"] for c in "\r\n\x00"):
-        raise ValueError("Invalid password_base")
-
-
-def validate_device_key_specs(specs: dict) -> None:
-    """Reject legacy password settings for the unverified device-key mechanism."""
-    for key in ("password_base", "password_hash", "key_derivation_digest"):
-        if specs[key] is not None:
-            raise ValueError(f"Non-applicable JSON key must be null: {key}")
-    for key in ("salted", "password_required"):
-        if specs[key] is not False:
-            raise ValueError(f"Missing or invalid JSON key: {key}; device-key requires false")
-
-# ---------------------------------------------------------------------
 # PRE STEPS
 # ---------------------------------------------------------------------
 
 def prepare_legacy_key(data: bytes, password: str, specs: dict, decrypt: bool) -> tuple[list, bytes]:
     """Prepare OpenSSL password derivation arguments and private stdin data."""
-    if (specs["encryption"], specs["key_derivation"]) != ("aes-256-cbc", "openssl-legacy"):
-        raise ValueError("Unsupported encryption mechanism for OpenSSL legacy AES-256-CBC")
-    validate_legacy_key_specs(specs)
     if decrypt and specs["salted"] and (not data.startswith(OPENSSL_HEADER) or len(data) < 32):
         raise ValueError("Missing or corrupt OpenSSL salted header")
     passphrase = derive_router_passphrase(password, specs)
@@ -142,14 +108,9 @@ def crypt_aes_256_cbc_fixed_key(data: bytes, password: str, model_specs: dict, d
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
     if not data or len(data) % 16:
         raise ValueError("AES-256-CBC input must contain complete 16-byte blocks")
-    try:
-        settings = model_specs["encryption_settings"]
-        key = bytes.fromhex(settings["key_hex"])
-        iv = bytes.fromhex(settings["iv_hex"])
-    except (ValueError, KeyError, TypeError):
-        raise ValueError("Invalid encryption_settings: expected hexadecimal key_hex and iv_hex") from None
-    if len(key) != 32 or len(iv) != 16:
-        raise ValueError("AES-256-CBC credentials require a 32-byte key and 16-byte IV")
+    settings = model_specs["encryption_settings"]
+    key = bytes.fromhex(settings["key_hex"])
+    iv = bytes.fromhex(settings["iv_hex"])
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
     operation = cipher.decryptor() if decrypt else cipher.encryptor()
     return operation.update(data) + operation.finalize()
@@ -160,6 +121,8 @@ def verify_rsa_md5_signature(signed: bytes, signature: bytes, specs: dict) -> No
     length = specs["backup_format"]["signature_length"]
     parameters = specs["signature"]
     modulus = int(parameters["modulus_hex"], 16)
+    if length != (modulus.bit_length() + 7) // 8:
+        raise ValueError("backup_format.signature_length: does not match RSA modulus size")
     value = int.from_bytes(signature, "big")
     if not 0 < value < modulus:
         raise ValueError("RSA/MD5 signature verification failed")
@@ -175,13 +138,9 @@ def verify_rsa_md5_signature(signed: bytes, signature: bytes, specs: dict) -> No
 def decrypt_aes_128_cbc_field(value: str, settings: dict) -> str:
     """Decrypt a Base64-encoded, zero-padded AES-128-CBC field without logging its value."""
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-    try:
-        key = bytes.fromhex(settings["key_hex"])
-        iv = bytes.fromhex(settings["iv_hex"])
-    except (ValueError, KeyError, TypeError):
-        raise ValueError("Invalid field_encryption key_hex or iv_hex") from None
-    if len(key) != 16 or len(iv) != 16:
-        raise ValueError("AES-128-CBC field encryption requires a 16-byte key and 16-byte IV")
+    key = bytes.fromhex(settings["key_hex"])
+    iv = bytes.fromhex(settings["iv_hex"])
+
     if not isinstance(value, str):
         raise ValueError("Field ciphertext must be a Base64 string")
     try:
@@ -207,13 +166,9 @@ def encrypt_aes_128_cbc_field(value: str, settings: dict) -> str:
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
     if not isinstance(value, str) or "\x00" in value:
         raise ValueError("Field plaintext must be a string without null characters")
-    try:
-        key = bytes.fromhex(settings["key_hex"])
-        iv = bytes.fromhex(settings["iv_hex"])
-    except (ValueError, KeyError, TypeError):
-        raise ValueError("Invalid field_encryption key_hex or iv_hex") from None
-    if len(key) != 16 or len(iv) != 16:
-        raise ValueError("AES-128-CBC field encryption requires a 16-byte key and 16-byte IV")
+    key = bytes.fromhex(settings["key_hex"])
+    iv = bytes.fromhex(settings["iv_hex"])
+
     try:
         data = value.encode("utf-8")
     except UnicodeEncodeError:
@@ -229,22 +184,20 @@ def encrypt_aes_128_cbc_field(value: str, settings: dict) -> str:
 
 def sign_rsa_md5_configuration(signed: bytes, specs: dict) -> bytes:
     """Sign a PKCS#1 v1.5 MD5 block using JSON parameters, then verify it."""
-    try:
-        parameters = specs["signature"]
-        length = specs["backup_format"]["signature_length"]
-        modulus = int(parameters["modulus_hex"], 16)
-        private_hex = parameters["private_exponent_hex"]
-        if not isinstance(private_hex, str) or not private_hex or any(c not in "0123456789abcdefABCDEF" for c in private_hex):
-            raise ValueError
-        private = int(private_hex, 16)
-        if parameters["algorithm"] != "rsa-md5" or type(length) is not int or length != (modulus.bit_length() + 7) // 8 or not 1 < private < modulus:
-            raise ValueError
-    except (KeyError, TypeError, ValueError):
-        raise ValueError("Invalid or missing RSA/MD5 signing parameters: signature.private_exponent_hex, modulus or signature length") from None
+    parameters = specs["signature"]
+    length = specs["backup_format"]["signature_length"]
+    modulus = int(parameters["modulus_hex"], 16)
+    private_hex = parameters["private_exponent_hex"]
+    # A public-key-only specification can decode, but cannot sign new data.
+    if private_hex is None:
+        raise ValueError("RSA/MD5 signing requires signature.private_exponent_hex")
+    private = int(private_hex, 16)
+    if not 1 < private < modulus:
+        raise ValueError("signature.private_exponent_hex: must be between 1 and the modulus")
+    if length != (modulus.bit_length() + 7) // 8:
+        raise ValueError("backup_format.signature_length: does not match RSA modulus size")
     digest_info = bytes.fromhex("3020300c06082a864886f70d020505000410") + hashlib.md5(signed).digest()
     padding_length = length - len(digest_info) - 3
-    if padding_length < 8:
-        raise ValueError("RSA modulus is too short for PKCS#1 v1.5 MD5 signing")
     block = b"\x00\x01" + b"\xff" * padding_length + b"\x00" + digest_info
     signature = pow(int.from_bytes(block, "big"), private, modulus).to_bytes(length, "big")
     try:

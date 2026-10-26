@@ -122,7 +122,7 @@ def print_dict_table(items, field_names, label):
     """Print a table for a list of dicts using multi-line cells where needed"""
     if not items:
         print(f"\n{label.upper()}: (None)")
-        return
+        return True
     col_widths = compute_col_widths(items, field_names)
     build_header(label, field_names, col_widths)
     for item in items:
@@ -401,3 +401,19 @@ def format_config_help(doc_path: str) -> list[str]:
         captured.pop(0)
     lines.extend(captured)
     return lines
+
+
+def display_readme(readme_path: str) -> bool:
+    """Display a README file in the terminal."""
+    from pathlib import Path
+    from pydoc import pager
+    path = Path(readme_path).expanduser()
+    if not path.is_file():
+        print(f"README not found: {path}")
+        return False
+    try:
+        pager(path.read_text(encoding="utf-8"))
+        return True
+    except OSError as exc:
+        print(f"Failed to display README: {exc}")
+        return False

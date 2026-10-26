@@ -199,3 +199,14 @@ def print_functions_summary(job: str, fn_docs: Dict[str, str]) -> None:
         for line in lines[1:]:
             print(f"{prefix}{line}")
         print()
+
+
+def get_function_status(modules: list, module_folder: str) -> list[dict]:
+    """Return readiness status for each configured Function utility module."""
+    return [
+        {
+            "module": module,
+            "ready": (_expand(module_folder) / module).is_file(),
+        }
+        for module in modules
+    ]

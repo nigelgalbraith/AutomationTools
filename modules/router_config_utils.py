@@ -37,8 +37,6 @@ def validate_directory(directory: Path) -> None:
 
 def parse_key_value_fields(contents: str, specs: dict) -> tuple[list, dict]:
     """Parse key-value lines and require unique configured keys."""
-    if specs["configuration_format"] != "key-value":
-        raise ValueError(f'Unsupported configuration_format: {specs["configuration_format"]}')
     lines = contents.splitlines(keepends=True)
     indices = {}
     for index, line in enumerate(lines):
@@ -53,6 +51,8 @@ def parse_key_value_fields(contents: str, specs: dict) -> tuple[list, dict]:
             continue
         if key not in indices:
             raise ValueError(f"Missing configuration field: {label} ({key})")
+        if any(mapped_key == key for mapped_key, _ in fields.values()):
+            raise ValueError("config_fields: duplicate configuration mapping")
         fields[label] = (key, indices[key])
     return lines, fields
 
@@ -110,21 +110,32 @@ def decode_xml_configuration(signed: bytes, specs: dict) -> bytes:
 
 
 def parse_xml_field_selector(selector: str, label: str) -> tuple[str, dict[str, str], str]:
-    """Validate element|attribute=value[|...]|attribute or child@attribute selectors."""
+    """Parse schema-checked selectors and reject ambiguous duplicate filters."""
+    # CHECK has already enforced the declarative selector grammar.
     path = f"config_fields.{label}"
-    if not isinstance(selector, str) or any(c in selector for c in "\r\n\x00"):
-        raise ValueError(f"Invalid XML field selector: {path}")
     parts = selector.split("|")
-    name_pattern = r"[A-Za-z_][\w.:-]*"
-    if len(parts) < 3 or not re.fullmatch(name_pattern, parts[0]) or not 1 <= len(parts[-1].split("@")) <= 2 or not all(re.fullmatch(name_pattern, name) for name in parts[-1].split("@")):
-        raise ValueError(f"Invalid XML field selector: {path}; expected element|attribute=value|attribute")
     filters = {}
     for condition in parts[1:-1]:
         name, separator, value = condition.partition("=")
-        if not separator or not re.fullmatch(name_pattern, name) or not value or name in filters:
+        if name in filters:
             raise ValueError(f"Invalid XML field selector condition: {path}: {condition!r}")
         filters[name] = value
     return parts[0], filters, parts[-1]
+
+
+def prepare_xml_selectors(specs: dict) -> dict:
+    """Prepare derived selectors after CHECK, before planning or backup processing.
+
+    The parser also rejects duplicate filter names, which a syntax pattern alone
+    cannot compare. No derived data is installed until all selectors parse.
+    """
+    selectors = {}
+    if specs["configuration_format"] == "xml":
+        for label, selector in specs["config_fields"].items():
+            if label != "file" and selector is not None:
+                selectors[label] = parse_xml_field_selector(selector, label)
+    specs["_xml_selectors"] = selectors
+    return selectors
 
 
 def _xml_tag_matches(contents: str, element: str, start: int = 0):
@@ -176,7 +187,7 @@ def xml_field_selections(contents: str, specs: dict) -> dict:
     for label, selector in specs["config_fields"].items():
         if label == "file" or selector is None:
             continue
-        element, filters, target = parse_xml_field_selector(selector, label)
+        element, filters, target = specs["_xml_selectors"][label]
         parents = []
         for match in _xml_tag_matches(contents, element):
             if match.group("closing"):

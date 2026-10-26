@@ -22,8 +22,6 @@ from modules.router_encryption_utils import calculate_payload_checksum, verify_r
 
 def encode_base64_payload(data: bytes, specs: dict) -> bytes:
     """Produce Base64 with the configured wrapping and trailing newline."""
-    if specs["encoding"] != "base64":
-        raise ValueError("Unsupported encoding")
     encoded = base64.b64encode(data)
     width = specs["backup_format"]["payload_line_length"]
     return b"".join(encoded[i:i + width] + b"\n" for i in range(0, len(encoded), width))
@@ -31,8 +29,6 @@ def encode_base64_payload(data: bytes, specs: dict) -> bytes:
 
 def decode_base64_payload(data: bytes, specs: dict) -> bytes:
     """Decode the transport separately from encryption and wrapper handling."""
-    if specs["encoding"] != "base64":
-        raise ValueError("Unsupported encoding")
     return base64.b64decode(data.replace(b"\n", b""), validate=True)
 
 
@@ -40,18 +36,14 @@ def encode_router_payload(data: bytes, specs: dict) -> bytes:
     """Encode using the configured transport format."""
     if specs["encoding"] == "base64":
         return encode_base64_payload(data, specs)
-    if specs["encoding"] == "binary":
-        return data
-    raise ValueError(f'Unsupported encoding: {specs["encoding"]}')
+    return data
 
 
 def decode_router_payload(data: bytes, specs: dict) -> bytes:
     """Decode using the configured transport format."""
     if specs["encoding"] == "base64":
         return decode_base64_payload(data, specs)
-    if specs["encoding"] == "binary":
-        return data
-    raise ValueError(f'Unsupported encoding: {specs["encoding"]}')
+    return data
 
 
 def wrapper_trailer(fmt: dict) -> bytes:
@@ -161,16 +153,9 @@ def validate_archive(archive: tarfile.TarFile) -> list:
     return members
 
 
-def tar_gzip_mode(specs: dict, operation: str) -> str:
-    """Select supported archive and compression mechanisms."""
-    if specs["archive"].get("format") != "tar" or specs["archive"].get("compression") != "gzip":
-        raise ValueError("Unsupported archive format or compression")
-    return operation + ":gz"
-
-
 def read_tar_files(data: bytes, specs: dict) -> dict:
     """Read validated TAR members without extracting paths."""
-    with tarfile.open(fileobj=io.BytesIO(data), mode=tar_gzip_mode(specs, "r")) as archive:
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
         return {str(Path(member.name)): archive.extractfile(member).read()
                 for member in validate_archive(archive) if member.isfile()}
 
@@ -196,7 +181,7 @@ def replace_router_directory(staged: Path, destination: Path) -> None:
 
 def extract_tar_archive(archive_path: Path, output: Path, model_specs: dict) -> None:
     """Extract validated TAR files using staged directory replacement."""
-    with tarfile.open(archive_path, mode=tar_gzip_mode(model_specs, "r")) as archive:
+    with tarfile.open(archive_path, mode="r:gz") as archive:
         members = validate_archive(archive)
         if not members:
             raise ValueError("Decoded archive is empty")
@@ -232,7 +217,7 @@ def rebuild_tar_archive(original_archive: bytes, edited_dir: str, model_specs: d
         raise NotADirectoryError(f"Edited configuration directory not found: {directory}")
     validate_directory(directory)
     changes = []
-    with tarfile.open(fileobj=io.BytesIO(original_archive), mode=tar_gzip_mode(model_specs, "r")) as source:
+    with tarfile.open(fileobj=io.BytesIO(original_archive), mode="r:gz") as source:
         members = validate_archive(source)
         expected = {str(Path(m.name)) for m in members if m.isfile()}
         actual = {str(p.relative_to(directory)) for p in directory.rglob("*") if p.is_file()}
@@ -262,7 +247,7 @@ def rebuild_tar_archive(original_archive: bytes, edited_dir: str, model_specs: d
             return original_archive, changes
         buffer = io.BytesIO()
         archive_format = tarfile.PAX_FORMAT if any(member.pax_headers for member in members) else tarfile.GNU_FORMAT
-        with tarfile.open(fileobj=buffer, mode=tar_gzip_mode(model_specs, "w"), format=archive_format) as target:
+        with tarfile.open(fileobj=buffer, mode="w:gz", format=archive_format) as target:
             for member, content in zip(members, contents):
                 entry = copy.deepcopy(member)
                 entry.pax_headers.pop("size", None)
@@ -346,8 +331,6 @@ def extract_xml_configuration(archive_path: Path, output: Path, model_specs: dic
 
 def encode_signed_configuration(xml: bytes, specs: dict) -> bytes:
     """Build signed zlib data with AES zero padding, preserving every XML byte."""
-    if specs["archive"] != {"format": "single-file", "compression": "zlib"}:
-        raise ValueError("Unsupported signed configuration archive format or compression")
     validate_xml_declaration(xml, specs)
     if b"\x00" in xml:
         raise ValueError("XML configuration contains an embedded null byte")
