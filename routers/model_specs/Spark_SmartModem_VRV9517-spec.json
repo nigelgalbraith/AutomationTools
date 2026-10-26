@@ -47,5 +47,21 @@
         "format": "tar",
         "compression": "gzip"
     },
-    "configuration_format": "key-value"
+    "configuration_format": "key-value",
+    "encryption_settings": {
+        "key_hex": null,
+        "iv_hex": null
+    },
+    "signature": {
+        "algorithm": null,
+        "modulus_hex": null,
+        "exponent": null,
+        "private_exponent_hex": null
+    },
+    "field_encryption": {
+        "algorithm": null,
+        "key_hex": null,
+        "iv_hex": null,
+        "fields": null
+    }
 }

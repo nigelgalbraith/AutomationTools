@@ -24,5 +24,16 @@
         "decoded_config_archive_path": "~/Documents/AutomationToolsData/routers/decoded/router_two_decoded.tar.gz",
         "edited_config_path": "~/Documents/AutomationToolsData/routers/edited/router_two_edited",
         "encoded_config_path": "~/Documents/AutomationToolsData/routers/encoded/router_two_encoded.cfg"
+    },
+    "Vodafone_HG659": {
+        "model_specs_path": "routers/model_specs/Vodafone_HG659-spec.json",
+        "model_specs_readme_path": "routers/model_specs/ModelSpecsReadMe.md",
+        "template_config_path": "~/Documents/AutomationToolsData/routers/templates/Vodafone_HG659-template.conf",
+        "router_details_path": "~/Documents/AutomationToolsData/routers/details/Vodafone_HG659-details.json",
+        "router_details_readme_path": "routers/details/RouterDetailsReadMe.md",
+        "decoded_config_path": "~/Documents/AutomationToolsData/routers/decoded/Vodafone_HG659-decoded",
+        "decoded_config_archive_path": "~/Documents/AutomationToolsData/routers/decoded/Vodafone_HG659-decoded.xml",
+        "edited_config_path": "~/Documents/AutomationToolsData/routers/edited/Vodafone_HG659-edited",
+        "encoded_config_path": "~/Documents/AutomationToolsData/routers/encoded/Vodafone_HG659-encoded.conf"
     }
 }

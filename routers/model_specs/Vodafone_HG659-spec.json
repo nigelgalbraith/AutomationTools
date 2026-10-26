@@ -1,0 +1,70 @@
+{
+    "model": "HG659",
+    "firmware": "V100R001C206B020",
+    "hardware": "HG659",
+    "encryption": "aes-256-cbc",
+    "encoding": "binary",
+    "salted": false,
+    "password_base": null,
+    "password_hash": null,
+    "key_derivation": "fixed-key",
+    "encryption_settings": {
+        "key_hex": "1AAAB4A730B23E1FC8A1D59C79283A228B78410ECC46FA4F48EB1456E24C5B89",
+        "iv_hex": "D1FE7512325C5713D362D332AFA3644C"
+    },
+    "config_fields": {
+        "file": "config.xml",
+        "wifi_2g_ssid": "WLANConfigurationInstance|X_OperatingFrequencyBand=2.4GHz|X_Is_Guest_Network=0|SSID",
+        "wifi_2g_password": "WLANConfigurationInstance|X_OperatingFrequencyBand=2.4GHz|X_Is_Guest_Network=0|PreSharedKeyInstance@KeyPassphrase",
+        "wifi_5g_ssid": "WLANConfigurationInstance|X_OperatingFrequencyBand=5GHz|X_Is_Guest_Network=0|SSID",
+        "wifi_5g_password": "WLANConfigurationInstance|X_OperatingFrequencyBand=5GHz|X_Is_Guest_Network=0|PreSharedKeyInstance@KeyPassphrase"
+    },
+    "password_required": false,
+    "key_derivation_digest": null,
+    "backup_format": {
+        "type": "encrypted-configuration",
+        "header_lines": 0,
+        "preserve_header": false,
+        "payload_line_length": null,
+        "newline": null,
+        "checksum": {
+            "algorithm": null,
+            "scope": null,
+            "encoding": null,
+            "after_payload_lines": null,
+            "prefix": {
+                "encoding": null,
+                "random_bytes": null
+            }
+        },
+        "trailer": {
+            "character": null,
+            "repeat": null
+        },
+        "iv_length": 16,
+        "signature_length": 128,
+        "preamble": "<?xml",
+        "backup_version": null,
+        "header_terminator": null
+    },
+    "archive": {
+        "format": "single-file",
+        "compression": "zlib"
+    },
+    "configuration_format": "xml",
+    "signature": {
+        "algorithm": "rsa-md5",
+        "modulus_hex": "B597A54F66CA6332972D9986AB87F741B9BBA24A130612C01620EAE53DD0F9939E9F53440549ED7B7FC2B739B33A7735E42A1FC90F6A9C17E4A7A57EDF7336245A4F67DFD757820782264D7CBA8DA0676E5661968EF8510BB88FEF7E2320A657CCB5A75E28C1ACE7FC0B3DD15C0051FCA343B42464935A0B31D2C2F904767CE3",
+        "exponent": 65537,
+        "private_exponent_hex": "ABADA5BCEE9A32B45696E6C99A0B9E6845F72D94486DFA761DB59B3D8576B72DA7CE4B434898BEEB7E3B114C7CB4AE958593899F6572CE060CC7AE3FC7733DE002AE9F2164765C3260DBB3F1D9920BDBBB235E96036864C05695B86950CAB6C9E3524583A537239335381AD8240FB311AFDD3DCAF1F68112D556964ECB568421"
+    },
+    "field_encryption": {
+        "algorithm": "aes-128-cbc-zero-padded-base64",
+        "key_hex": "DBAF3361E81DA0EF5358A1929FC90A80",
+        "iv_hex": "629EA150533376741BE36F3C819E77BA",
+        "fields": [
+            "wifi_2g_password",
+            "wifi_5g_password"
+        ]
+    }
+}

@@ -84,7 +84,7 @@ REQUIRED_USER = "standard"
 # DEPENDENCIES
 # ---------------------------------------------------------------------
 
-DEPENDENCIES = ["openssl"]
+DEPENDENCIES = ["openssl", "python3-cryptography"]
 
 
 # ---------------------------------------------------------------------

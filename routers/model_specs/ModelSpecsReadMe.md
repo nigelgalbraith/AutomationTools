@@ -1,7 +1,12 @@
 # Router Model Specifications
 
-Both projects use the same canonical JSON schema and the same direct mechanism selections.
-The only router modules are `modules/router_utils.py` and `modules/router_encryption_utils.py`.
+AutomationTools uses one common JSON schema across its supplied models and direct mechanism selections.
+The shared HG659 processing mechanisms and specification structure follow TestingTools;
+AutomationTools retains its own workflows and file-based Spark credentials.
+`modules/router_utils.py` coordinates workflows, credentials and specification validation.
+`modules/router_format_utils.py` implements transport encoding, backup wrappers and archive processing.
+`modules/router_config_utils.py` implements configuration parsing, transformations and path checks.
+`modules/router_encryption_utils.py` implements encryption and cryptographic checksums.
 
 ## Adding a Router Model
 
@@ -11,7 +16,8 @@ canonical key and nested object; its null values are placeholders, not a runnabl
 router configuration. Existing Spark and Vodafone specifications are complete examples.
 
 Every specification must contain exactly the canonical keys, including all keys inside
-`config_fields`, `backup_format`, `checksum`, `prefix`, `trailer`, and `archive`.
+`config_fields`, `backup_format`, `checksum`, `prefix`, `trailer`, `archive`,
+`encryption_settings`, `signature`, and `field_encryption`.
 Do not omit inactive fields: use JSON `null`. Empty strings and the string `"unknown"`
 are not placeholders for unknown or non-applicable values.
 
@@ -31,34 +37,36 @@ and all specifications, rather than adding a one-off JSON key for one router.
 
 `router_utils.py` selects encryption using one complete `ENCRYPTION_HANDLERS`
 dictionary keyed by `(encryption, key_derivation)`. Its values are imported callables.
-Validation and encryption entry points use the same dictionary. Other processing
-uses ordinary `if` / `elif` checks. There are no registration calls, function-name
+Validation and encryption entry points use the same central dictionaries.
+`CONFIG_VIEW_HANDLERS`/`CONFIG_EDIT_HANDLERS` select configuration processing;
+`FIELD_DECRYPT_HANDLERS`/`FIELD_ENCRYPT_HANDLERS` select protected-field processing. Other processing uses ordinary `if` / `elif` checks. There are no registration calls, function-name
 lookup systems, or router-model branches.
 
 | JSON setting | Supported mechanisms |
 |---|---|
-| `encryption` + `key_derivation` | `aes-256-cbc` + `openssl-legacy`; `aes-256-cbc` + `device-key` (explicitly unavailable) |
+| `encryption` + `key_derivation` | `aes-256-cbc` + `openssl-legacy`; `aes-256-cbc` + `device-key` (explicitly unavailable); `aes-256-cbc` + `fixed-key` |
 | `encoding` | `base64`, `binary` |
-| `backup_format.type` | `line-wrapper`, `technicolor-thenc` (structural parsing only) |
-| `archive.format` + `archive.compression` | `tar` + `gzip` |
-| `configuration_format` | `key-value` |
+| `backup_format.type` | `line-wrapper`, `technicolor-thenc` (structural parsing only), `encrypted-configuration` |
+| `archive.format` + `archive.compression` | `tar` + `gzip`; `single-file` + `zlib` |
+| `configuration_format` | `key-value`; `xml` (viewing, targeted attribute editing and signed encoding) |
 
 `encrypt_router_payload` and `decrypt_router_payload` select and call the imported
-`crypt_aes_256_cbc` or `crypt_technicolor_thenc` directly. The actual algorithms,
+`crypt_aes_256_cbc`, `crypt_technicolor_thenc` or `crypt_aes_256_cbc_fixed_key` directly. The actual algorithms,
 key preparation, credential interpretation and unsupported THENC errors remain in
-`router_encryption_utils.py`. File paths and user interaction stay in `router_utils.py`.
+`router_encryption_utils.py`. Workflow path selection and user interaction stay in `router_utils.py`; archive file processing lives in the format module.
 
-Encoding and wrapper entry points select their implementations directly. Archive
+Encoding and wrapper entry points select processing mechanisms from the specification.
+Their implementations live in `router_format_utils.py`, independently of the orchestrator. Archive
 workflows call `read_tar_files`, `extract_tar_archive`, and `rebuild_tar_archive`;
 `tar_gzip_mode` validates the configured format/compression and supplies the mode.
-Configuration workflows call `parse_key_value_fields`, `key_value_values`,
+Configuration workflows call `router_config_utils.py` functions `parse_key_value_fields`, `key_value_values`,
 `update_key_value_fields`, and `normalize_key_value_fields` directly. Unsupported
 formats fail explicitly. Archive safety and editable-field integrity checks remain.
 
 A router using supported mechanisms requires its JSON specification and configuration
 entry/files. A new mechanism requires a substantive implementation and a corresponding
-entry in the encryption dictionary. Other new mechanisms use explicit selection branches;
-do not introduce additional registries or modules.
+entry in the relevant existing dispatcher. Other new mechanisms use explicit selection
+branches; do not introduce additional registries or modules.
 
 ## Spark Credentials and Processing
 
@@ -116,3 +124,93 @@ paths. Loading bytes does not implement or verify Vodafone cryptography. THENC
 `CIPHERKEY` and `SIGNATUREKEY` values are read from each backup header and preserved
 in wrapper metadata and original header bytes; `cipher_key_id` and `signature_key_id`
 are no longer static model specification fields.
+
+
+## Vodafone HG659 V100R001C206B020
+
+The configured `Vodafone_HG659` job supports decoding, viewing, editing, encoding
+and **Run All Steps** through the existing actions and pipelines.
+Its binary `.conf` template uses the specification's fixed AES-256-CBC key and IV.
+The decrypted single-file zlib stream contains null-terminated XML followed by an
+RSA/MD5 PKCS#1 v1.5 signature. The complete signature block is verified before any
+configuration is saved. Invalid compression, signatures and AES zero padding fail.
+
+`decoded_config_archive_path` ends in `.xml`; `decoded_config_path` is the extracted
+directory containing the configured `config.xml`. The authenticated XML bytes are
+preserved exactly. Huawei's nonstandard XML syntax produces an advisory warning,
+without requiring full strict XML parsing or rewriting the document.
+
+The generic XML reader selects `element|attribute=value|output_attribute` or
+`element|attribute=value|child_element@output_attribute`. Multiple conditions must
+all match; exactly one parent and, when requested, one child must match. Child
+searches stay inside the selected parent. Comments and CDATA are ignored, and
+standard XML entities are decoded in displayed attributes. Null mappings are skipped.
+HG659 selects each main Wi-Fi network using both its frequency band and non-guest
+condition. Passwords come from the selected `PreSharedKeyInstance` child attribute.
+
+The common `field_encryption` object contains `algorithm`, `key_hex`, `iv_hex` and
+`fields`. The registered `aes-128-cbc-zero-padded-base64` handler strictly decodes
+Base64, applies AES-128-CBC, strips trailing zero padding and returns UTF-8 for the
+listed password fields. SSIDs remain unchanged. The existing viewer displays these
+readable passwords; viewing never modifies configuration files.
+
+All keys, IVs and RSA verification/signing parameters come from the specification, including the
+separate inner field encryption settings. HG659 has no password-file or device-key
+entry and does not read external credentials. Spark and Ultra Hub retain their
+existing settings; their unused common encryption/signature/field settings are null.
+HG659's AES functions use `python3-cryptography`, declared alongside `openssl` in
+the existing router dependency list.
+
+XML attribute editing now uses the existing file-driven operation. The configured
+`router_details_path` supplies label/value replacements; omitted fields retain their
+stored values. Current SSIDs, decrypted passwords and change summaries are displayed
+in plaintext. No interactive field prompts or password masking are added. Existing
+action confirmation and automation sequencing remain unchanged.
+
+The shared XML selector locates each configured parent/child attribute uniquely.
+Only selected value spans change; replacements are escaped, protected fields are
+encrypted with the existing AES-128-CBC settings, and all unrelated XML bytes and
+guest-network settings must remain identical. Both proposed and staged edited XML
+are validated before directory replacement. The original decoded input is preserved.
+
+Every specification and the template now includes `signature.private_exponent_hex`.
+It is null for unused models/template and contains the working TestingTools signing
+exponent for HG659. Verification-only specifications can omit a populated exponent,
+but signing and full automation fail explicitly when it is unavailable.
+
+The existing encoder validates edited XML against the authenticated original,
+appends NUL and a verified RSA/MD5 PKCS#1 v1.5 signature, compresses with zlib level 9,
+adds 1–16 zero padding bytes and encrypts through the fixed-key AES-256-CBC dispatcher.
+The decoder accepts the reference encoder's full padding block when already aligned.
+The staged output is decoded again and must recover exactly the edited XML before
+atomic publication. Output paths cannot overwrite the original backup or edited input.
+The existing `.conf` output and other configured paths remain unchanged; no signing-key,
+password or device-key file is used for HG659.
+
+Spark TAR/GZIP editing and encoding retain their existing processing. Technicolor
+THENC derivation/authentication/signing remain unavailable and continue to fail
+explicitly. Local cryptographic round trips do not establish router acceptance;
+no hardware upload or restore is performed.
+
+
+## Central registrations and processing callbacks
+
+All five handler dictionaries are together under `DISPATCHER HANDLERS` at the top
+of `modules/router_utils.py`: `ENCRYPTION_HANDLERS`, `FIELD_ENCRYPT_HANDLERS`,
+`FIELD_DECRYPT_HANDLERS`, `CONFIG_VIEW_HANDLERS` and `CONFIG_EDIT_HANDLERS`.
+Implementations remain in their specialised encryption, configuration and format
+modules, which do not import the orchestrator or contain handler registrations.
+
+The orchestrator selects field callbacks from `field_encryption.algorithm` and
+passes them explicitly. `xml_field_values` and the key-value view adapter accept
+an optional `decrypt_handler`; `update_xml_fields` and the key-value edit adapter
+accept an optional `encrypt_handler`. `validate_xml_field_changes` and
+`validate_edited_xml` accept both. Protected fields require the selected callbacks;
+there is no hidden registry or fallback in configuration processing. The key-value
+adapters accept the same optional arguments without changing their parsing/editing.
+Public router workflow signatures are unchanged, and either dependency import order
+works without circular imports.
+
+To add a mechanism, implement it in its specialised utility, register it once in
+`router_utils.py`, and select it through the common specification. No model-name
+checks, new loaders, credential files or separate workflows are needed.
