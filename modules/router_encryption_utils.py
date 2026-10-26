@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import os
 import hashlib
 import base64
 import hmac
@@ -205,3 +207,125 @@ def sign_rsa_md5_configuration(signed: bytes, specs: dict) -> bytes:
     except (KeyError, TypeError, ValueError, OverflowError):
         raise ValueError("Generated RSA/MD5 signature failed verification; check signing parameters") from None
     return signature
+
+# ---------------------------------------------------------------------
+# ENCODING AND WRAPPERS
+# ---------------------------------------------------------------------
+
+def encode_base64_payload(data: bytes, specs: dict) -> bytes:
+    """Produce Base64 with the configured wrapping and trailing newline."""
+    encoded = base64.b64encode(data)
+    width = specs["backup_format"]["payload_line_length"]
+    return b"".join(encoded[i:i + width] + b"\n" for i in range(0, len(encoded), width))
+
+
+def decode_base64_payload(data: bytes, specs: dict) -> bytes:
+    """Decode the transport separately from encryption and wrapper handling."""
+    return base64.b64decode(data.replace(b"\n", b""), validate=True)
+
+
+def encode_router_payload(data: bytes, specs: dict) -> bytes:
+    """Encode using the configured transport format."""
+    if specs["encoding"] == "base64":
+        return encode_base64_payload(data, specs)
+    return data
+
+
+def decode_router_payload(data: bytes, specs: dict) -> bytes:
+    """Decode using the configured transport format."""
+    if specs["encoding"] == "base64":
+        return decode_base64_payload(data, specs)
+    return data
+
+
+def wrapper_trailer(fmt: dict) -> bytes:
+    """Construct the configured final line."""
+    return (fmt["trailer"]["character"] * fmt["trailer"]["repeat"] + fmt["newline"]).encode("ascii")
+
+
+def parse_line_wrapper(data: bytes, model_specs: dict) -> dict:
+    """Validate the exact wrapper and checksum before decoding the payload."""
+    fmt = model_specs["backup_format"]
+    checksum = fmt["checksum"]
+    lines = data.splitlines(keepends=True)
+    count = fmt["header_lines"]
+    position = count + checksum["after_payload_lines"]
+    if len(lines) <= position + 1 or lines[-1] != wrapper_trailer(fmt):
+        raise ValueError("Invalid backup wrapper or trailer")
+    if any(not line.endswith(b"\n") or b"\r" in line for line in lines):
+        raise ValueError("Invalid wrapper newline")
+    special = lines[position][:-1]
+    prefix_size = checksum["prefix"]["random_bytes"]
+    prefix_length = 4 * ((prefix_size + 2) // 3)
+    prefix = special[:prefix_length]
+    if len(base64.b64decode(prefix, validate=True)) != prefix_size:
+        raise ValueError("Invalid checksum random prefix")
+    encoded = b"".join(lines[count:position] + lines[position + 1:-1])
+    expected = calculate_payload_checksum(encoded, checksum["algorithm"])
+    if special[prefix_length:] != expected:
+        raise ValueError("Backup encrypted payload checksum mismatch")
+    encrypted = decode_router_payload(encoded, model_specs)
+    if encode_router_payload(encrypted, model_specs) != encoded:
+        raise ValueError("Invalid encoded payload line layout")
+    return {"header": b"".join(lines[:count]), "encoded": encoded,
+            "encrypted": encrypted, "checksum": expected}
+
+
+def parse_technicolor_wrapper(data: bytes, model_specs: dict) -> dict:
+    """Split THENC header, IV, ciphertext and signature; do not authenticate."""
+    fmt = model_specs["backup_format"]
+    header, separator, payload = data.partition(fmt["header_terminator"].encode("ascii"))
+    lines = header.split(b"\n")
+    names = ("PREAMBLE", "BACKUPVERSION", "BOARDMNEMONIC", "PRODUCTNAME",
+             "SERIALNUMBER", "MAC", "BUILDVERSION", "CIPHERKEY", "SIGNATUREKEY")
+    if not separator or len(lines) != fmt["header_lines"] or len(lines) != len(names):
+        raise ValueError("Invalid or truncated THENC header")
+    values = {}
+    for name, line in zip(names, lines):
+        key, equal, value = line.partition(b"=")
+        if key != name.encode("ascii") or not equal or not value or any(c < 32 or c > 126 for c in value):
+            raise ValueError(f"Invalid THENC header field: {name}")
+        values[name] = value.decode("ascii")
+    expected = {"PREAMBLE": fmt["preamble"], "BACKUPVERSION": fmt["backup_version"],
+                "BOARDMNEMONIC": model_specs["hardware"]}
+    if any(values[k] != v for k, v in expected.items()):
+        raise ValueError("THENC header does not match configured values")
+    if not (values["BUILDVERSION"] == model_specs["firmware"] or
+            values["BUILDVERSION"].startswith(model_specs["firmware"] + "-")):
+        raise ValueError("THENC firmware does not match configured value")
+    iv_length, signature_length = fmt["iv_length"], fmt["signature_length"]
+    size = len(payload) - iv_length - signature_length
+    if size <= 0 or size % 16:
+        raise ValueError("Invalid or truncated THENC IV, ciphertext or signature boundaries")
+    return {"header": header + separator, "encoded": payload, "encrypted": payload[iv_length:-signature_length],
+            "checksum": b"", "iv": payload[:iv_length], "signature": payload[-signature_length:],
+            "cipher_key_id": values["CIPHERKEY"], "signature_key_id": values["SIGNATUREKEY"]}
+
+
+def rebuild_technicolor_wrapper(encoded: bytes, header: bytes, specs: dict) -> bytes:
+    """Never generate an unauthenticated device-key backup."""
+    raise ValueError("THENC rebuilding unavailable: device key and signature signing are not established")
+
+
+def rebuild_line_wrapper(encoded: bytes, header: bytes, specs: dict) -> bytes:
+    """Insert a fresh checksum and random prefix into the configured layout."""
+    fmt = specs["backup_format"]
+    checksum = fmt["checksum"]
+    lines = encoded.splitlines(keepends=True)
+    position = checksum["after_payload_lines"]
+    if len(lines) < position:
+        raise ValueError("Payload too short for configured checksum location")
+    if len(header.splitlines(keepends=True)) != fmt["header_lines"]:
+        raise ValueError("Original header does not match configured layout")
+    prefix = base64.b64encode(os.urandom(checksum["prefix"]["random_bytes"]))
+    special = prefix + calculate_payload_checksum(encoded, checksum["algorithm"]) + b"\n"
+    result = header + b"".join(lines[:position]) + special + b"".join(lines[position:]) + wrapper_trailer(fmt)
+    parse_line_wrapper(result, specs)
+    return result
+
+
+def parse_encrypted_configuration(data: bytes, model_specs: dict) -> dict:
+    """Check the block boundaries of a whole-file encrypted configuration."""
+    if not data or len(data) % 16:
+        raise ValueError("Invalid encrypted configuration block length")
+    return {"header": b"", "encoded": data, "encrypted": data, "checksum": b""}

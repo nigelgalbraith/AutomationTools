@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import zlib
 import os
 import shutil
 import subprocess
@@ -8,6 +9,14 @@ import tempfile
 from pathlib import Path
 from modules.json_utils import load_json
 from modules.router_encryption_utils import (
+    parse_encrypted_configuration,
+    parse_line_wrapper,
+    parse_technicolor_wrapper,
+    rebuild_technicolor_wrapper,
+    rebuild_line_wrapper,
+    encode_router_payload,
+    verify_rsa_md5_signature,
+    sign_rsa_md5_configuration,
     decrypt_aes_128_cbc_field,
     encrypt_aes_128_cbc_field,
     crypt_aes_256_cbc_fixed_key,
@@ -17,6 +26,14 @@ from modules.router_encryption_utils import (
     load_device_key_credentials,
 )
 from modules.router_config_utils import (
+    validate_tar_gzip_config,
+    extract_xml_configuration,
+    read_tar_files,
+    replace_router_directory,
+    extract_tar_archive,
+    rebuild_tar_archive,
+    validate_edited_fields,
+    decode_xml_configuration,
     safe_relative,
     validate_xml_declaration,
     xml_field_values,
@@ -29,23 +46,6 @@ from modules.router_config_utils import (
     parse_key_value_fields,
     key_value_values,
     update_key_value_fields,
-)
-from modules.router_format_utils import (
-    validate_tar_gzip_config,
-    parse_encrypted_configuration,
-    decode_signed_configuration,
-    encode_signed_configuration,
-    extract_xml_configuration,
-    parse_line_wrapper,
-    parse_technicolor_wrapper,
-    rebuild_technicolor_wrapper,
-    rebuild_line_wrapper,
-    read_tar_files,
-    replace_router_directory,
-    extract_tar_archive,
-    rebuild_tar_archive,
-    validate_edited_fields,
-    encode_router_payload,
 )
 
 # ---------------------------------------------------------------------
@@ -84,6 +84,81 @@ CONFIG_EDIT_HANDLERS = {
     "key-value": edit_key_value_values,
     "xml": update_xml_fields,
 }
+
+WRAPPER_PARSE_HANDLERS = {
+    "line-wrapper": parse_line_wrapper,
+    "technicolor-thenc": parse_technicolor_wrapper,
+    "encrypted-configuration": parse_encrypted_configuration,
+}
+
+WRAPPER_REBUILD_HANDLERS = {
+    "line-wrapper": rebuild_line_wrapper,
+    "technicolor-thenc": rebuild_technicolor_wrapper,
+}
+
+# ---------------------------------------------------------------------
+# SIGNED CONFIGURATION HELPERS
+# ---------------------------------------------------------------------
+
+def decode_signed_configuration(data: bytes, specs: dict) -> bytes:
+    """Decompress a signed single-file configuration and verify the complete RSA block."""
+    try:
+        decompressor = zlib.decompressobj()
+        # Bound authenticated output before allocating an arbitrarily large decompressed stream.
+        decoded = decompressor.decompress(data, 64 * 1024 * 1024 + 1)
+    except zlib.error:
+        raise ValueError("Invalid zlib configuration: incorrect key/IV or corrupt backup") from None
+    if len(decoded) > 64 * 1024 * 1024 or not decompressor.eof:
+        raise ValueError("Truncated or oversized zlib configuration")
+    trailing = decompressor.unused_data
+    if len(trailing) > 16 or any(trailing):
+        raise ValueError("Invalid trailing AES zero padding")
+    length = specs["backup_format"]["signature_length"]
+    if len(decoded) <= length:
+        raise ValueError("Missing signed configuration or RSA signature")
+    signed, signature = decoded[:-length], decoded[-length:]
+    verify_rsa_md5_signature(signed, signature, specs)
+    return decode_xml_configuration(signed, specs)
+
+
+def encode_signed_configuration(xml: bytes, specs: dict) -> bytes:
+    """Build signed zlib data with AES zero padding, preserving every XML byte."""
+    validate_xml_declaration(xml, specs)
+    if b"\x00" in xml:
+        raise ValueError("XML configuration contains an embedded null byte")
+    signed = xml + b"\x00"
+    signature = sign_rsa_md5_configuration(signed, specs)
+    compressed = zlib.compress(signed + signature, 9)
+    padded = compressed + b"\x00" * (16 - len(compressed) % 16)
+    if decode_signed_configuration(padded, specs) != xml:
+        raise ValueError("Rebuilt signed configuration failed verification")
+    return padded
+
+# ---------------------------------------------------------------------
+# ROUTER FORMAT HELPERS
+# ---------------------------------------------------------------------
+
+def parse_router_wrapper(data: bytes, model_specs: dict) -> dict:
+    """Parse the configured backup wrapper using loaded specifications."""
+    wrapper_type = model_specs["backup_format"]["type"]
+    try:
+        handler = WRAPPER_PARSE_HANDLERS[wrapper_type]
+    except KeyError:
+        raise ValueError(f"Unsupported router wrapper type: {wrapper_type}") from None
+    return handler(data, model_specs)
+
+
+def rebuild_router_wrapper(encoded: bytes, header: bytes, specs: dict) -> bytes:
+    """Rebuild the configured backup wrapper using loaded specifications."""
+    wrapper_type = specs["backup_format"]["type"]
+    if wrapper_type == "encrypted-configuration":
+        parse_encrypted_configuration(encoded, specs)
+        return encoded
+    try:
+        handler = WRAPPER_REBUILD_HANDLERS[wrapper_type]
+    except KeyError:
+        raise ValueError(f"Unsupported router wrapper type: {wrapper_type}") from None
+    return handler(encoded, header, specs)
 
 # ---------------------------------------------------------------------
 # DISPATCHER FUNCTIONS
@@ -128,28 +203,6 @@ def encrypt_router_payload(data: bytes, password: str, model_specs: dict, device
         return ENCRYPTION_HANDLERS[mechanism](data, password, model_specs, False, device_key=device_key)
     return ENCRYPTION_HANDLERS[mechanism](data, password, model_specs, False)
 
-
-def parse_router_wrapper(data: bytes, model_specs: dict) -> dict:
-    """Parse the configured backup wrapper using loaded specifications."""
-    if model_specs["backup_format"]["type"] == "line-wrapper":
-        return parse_line_wrapper(data, model_specs)
-    elif model_specs["backup_format"]["type"] == "technicolor-thenc":
-        return parse_technicolor_wrapper(data, model_specs)
-    elif model_specs["backup_format"]["type"] == "encrypted-configuration":
-        return parse_encrypted_configuration(data, model_specs)
-    raise ValueError(f'Unsupported backup_format.type: {model_specs["backup_format"]["type"]}')
-
-
-def rebuild_router_wrapper(encoded: bytes, header: bytes, specs: dict) -> bytes:
-    """Rebuild the configured backup wrapper using loaded specifications."""
-    if specs["backup_format"]["type"] == "line-wrapper":
-        return rebuild_line_wrapper(encoded, header, specs)
-    elif specs["backup_format"]["type"] == "technicolor-thenc":
-        return rebuild_technicolor_wrapper(encoded, header, specs)
-    elif specs["backup_format"]["type"] == "encrypted-configuration":
-        parse_encrypted_configuration(encoded, specs)
-        return encoded
-    raise ValueError(f'Unsupported backup_format.type: {specs["backup_format"]["type"]}')
 
 # ---------------------------------------------------------------------
 # ROUTER WORKFLOWS

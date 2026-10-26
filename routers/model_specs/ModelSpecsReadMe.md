@@ -4,7 +4,9 @@ AutomationTools uses one common JSON schema across its supplied models and direc
 The shared HG659 processing mechanisms and specification structure follow TestingTools;
 AutomationTools retains its own workflows and file-based Spark credentials.
 `modules/router_utils.py` coordinates workflows, credentials and specification validation.
-`modules/router_format_utils.py` implements transport encoding, backup wrappers and archive processing.
+`modules/router_encryption_utils.py` implements transport encoding and backup wrappers.
+`modules/router_config_utils.py` implements archive processing.
+`modules/router_utils.py` coordinates router format operations.
 `modules/router_config_utils.py` implements configuration parsing, transformations and path checks.
 `modules/router_encryption_utils.py` implements encryption and cryptographic checksums.
 
@@ -53,10 +55,11 @@ lookup systems, or router-model branches.
 `encrypt_router_payload` and `decrypt_router_payload` select and call the imported
 `crypt_aes_256_cbc`, `crypt_technicolor_thenc` or `crypt_aes_256_cbc_fixed_key` directly. The actual algorithms,
 key preparation, credential interpretation and unsupported THENC errors remain in
-`router_encryption_utils.py`. Workflow path selection and user interaction stay in `router_utils.py`; archive file processing lives in the format module.
+`router_encryption_utils.py`. Workflow path selection and user interaction stay in `router_utils.py`; archive file processing lives in `router_config_utils.py`.
 
 Encoding and wrapper entry points select processing mechanisms from the specification.
-Their implementations live in `router_format_utils.py`, independently of the orchestrator. Archive
+Their implementations live in the independent supporting modules: encoding and wrappers in
+`router_encryption_utils.py`, and configuration and archives in `router_config_utils.py`. Archive
 workflows call `read_tar_files`, `extract_tar_archive`, and `rebuild_tar_archive`;
 `tar_gzip_mode` validates the configured format/compression and supplies the mode.
 Configuration workflows call `router_config_utils.py` functions `parse_key_value_fields`, `key_value_values`,
