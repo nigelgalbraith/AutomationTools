@@ -8,14 +8,10 @@ import os
 import shutil
 import tarfile
 import tempfile
-
 from pathlib import Path
 from html import unescape, escape
 import re
 import xml.etree.ElementTree as ET
-
-
-
 
 # ---------------------------------------------------------------------
 # VALIDATION
