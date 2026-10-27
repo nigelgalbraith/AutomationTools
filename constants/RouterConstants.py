@@ -4,8 +4,6 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from modules.display_utils import display_config_doc
-from modules.router_config_utils import prepare_xml_selectors
-from modules.json_utils import validate_json_schema
 from modules.router_utils import (
     load_router_model_specs,
     validate_router_configuration,
@@ -216,22 +214,10 @@ LOAD_MODEL_SPECS_PRE = [
     {
         "phase": "pre",
         "fn": load_router_model_specs,
-        "args": [MODEL_SPECS_PATH],
+        "args": [MODEL_SPECS_PATH, ROUTER_SCHEMA_PATH],
         "result": "model_specs",
     },
-    {
-        "phase": "pre",
-        "fn": validate_json_schema,
-        "args": [lambda job, meta, ctx: ctx["model_specs"], ROUTER_SCHEMA_PATH,
-                 lambda job, meta, ctx: f"Router model {ctx['model_specs'].get('model', '<unknown>')}"],
-        "when": lambda job, meta, ctx: True,
-    },
-    {
-        "phase": "pre",
-        "fn": prepare_xml_selectors,
-        "args": [lambda job, meta, ctx: ctx["model_specs"]],
-        "when": lambda job, meta, ctx: True,
-    },
+
 ]
 
 
@@ -357,25 +343,25 @@ SHOW_CONFIG_DOC_EXEC = [
 
 PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
     "VALIDATE_CONFIG": {
-        "pipeline": [*LOAD_MODEL_SPECS_PRE, 
+        "pipeline": [*LOAD_MODEL_SPECS_PRE,
                      *VALIDATE_CONFIG_EXEC],
         "label": "VALIDATION_COMPLETE",
         "success_key": "validated",
     },
     "VIEW_MODEL_SPECS": {
-        "pipeline": [*LOAD_MODEL_SPECS_PRE, 
+        "pipeline": [*LOAD_MODEL_SPECS_PRE,
                      *VIEW_MODEL_SPECS_EXEC],
         "label": "VIEW_MODEL_SPECS_COMPLETE",
         "success_key": "viewed",
     },
     "VIEW_DECODED_CONFIG": {
-        "pipeline": [*LOAD_MODEL_SPECS_PRE, 
+        "pipeline": [*LOAD_MODEL_SPECS_PRE,
                      *VIEW_DECODED_CONFIG_EXEC],
         "label": "VIEW_DECODED_COMPLETE",
         "success_key": "viewed",
     },
     "VIEW_EDITED_CONFIG": {
-        "pipeline": [*LOAD_MODEL_SPECS_PRE, 
+        "pipeline": [*LOAD_MODEL_SPECS_PRE,
                      *VIEW_EDITED_CONFIG_EXEC],
         "label": "VIEW_EDITED_COMPLETE",
         "success_key": "viewed",
@@ -391,19 +377,19 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
         "success_key": "viewed",
     },
     "DECODE_CONFIG": {
-        "pipeline": [*LOAD_MODEL_SPECS_PRE, 
+        "pipeline": [*LOAD_MODEL_SPECS_PRE,
                      *DECODE_CONFIG_EXEC],
         "label": "DECODE_COMPLETE",
         "success_key": "decoded_directory",
     },
     "EDIT_CONFIG": {
-        "pipeline": [*LOAD_MODEL_SPECS_PRE, 
+        "pipeline": [*LOAD_MODEL_SPECS_PRE,
                      *EDIT_CONFIG_EXEC],
         "label": "EDIT_COMPLETE",
         "success_key": "edited_directory",
     },
     "ENCODE_CONFIG": {
-        "pipeline": [*LOAD_MODEL_SPECS_PRE, 
+        "pipeline": [*LOAD_MODEL_SPECS_PRE,
                      *ENCODE_CONFIG_EXEC],
         "label": "ENCODE_COMPLETE",
         "success_key": "encoded_config",

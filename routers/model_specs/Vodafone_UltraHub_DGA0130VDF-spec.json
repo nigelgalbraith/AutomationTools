@@ -1,67 +1,57 @@
 {
+  "router_specs": {
     "model": "DGA0130VDF",
     "firmware": "17.4.b.0380",
     "hardware": "VANT-9",
-    "encryption": "aes-256-cbc",
-    "encoding": "binary",
-    "salted": false,
-    "password_base": null,
-    "password_hash": null,
-    "key_derivation": "device-key",
-    "config_fields": {
-        "file": null,
-        "wifi_2g_ssid": null,
-        "wifi_2g_password": null,
-        "wifi_5g_ssid": null,
-        "wifi_5g_password": null
+    "codec": {
+      "encoding": null,
+      "encryption": "aes-256-cbc",
+      "key_derivation": "device-key",
+      "password_base": null,
+      "password_hash": null,
+      "key_derivation_digest": null,
+      "salted": null,
+      "password_required": null,
+      "encryption_settings": null,
+      "wrapper": "technicolor-thenc",
+      "archive": null,
+      "header_lines": 9,
+      "preserve_header": null,
+      "payload_line_length": null,
+      "newline": null,
+      "checksum": null,
+      "checksum_after_payload_lines": null,
+      "checksum_prefix_bytes": null,
+      "trailer_character": null,
+      "trailer_repeat": null,
+      "iv_length": 16,
+      "signature_length": 20,
+      "preamble": "THENC",
+      "backup_version": "1.00",
+      "header_terminator": "\n\n",
+      "signature": null,
+      "decode_order": null,
+      "encode_order": null
     },
-    "password_required": false,
-    "key_derivation_digest": null,
-    "backup_format": {
-        "type": "technicolor-thenc",
-        "header_lines": 9,
-        "preserve_header": true,
-        "payload_line_length": null,
-        "newline": null,
-        "checksum": {
-            "algorithm": null,
-            "scope": null,
-            "encoding": null,
-            "after_payload_lines": null,
-            "prefix": {
-                "encoding": null,
-                "random_bytes": null
-            }
-        },
-        "trailer": {
-            "character": null,
-            "repeat": null
-        },
-        "iv_length": 16,
-        "signature_length": 20,
-        "preamble": "THENC",
-        "backup_version": "1.00",
-        "header_terminator": "\n\n"
+    "encode": null,
+    "edit": null
+  },
+  "config_fields": [
+    {
+      "name": "wifi_2g_ssid",
+      "path": null
     },
-    "archive": {
-        "format": null,
-        "compression": null
+    {
+      "name": "wifi_2g_password",
+      "path": null
     },
-    "configuration_format": null,
-    "encryption_settings": {
-        "key_hex": null,
-        "iv_hex": null
+    {
+      "name": "wifi_5g_ssid",
+      "path": null
     },
-    "signature": {
-        "algorithm": null,
-        "modulus_hex": null,
-        "exponent": null,
-        "private_exponent_hex": null
-    },
-    "field_encryption": {
-        "algorithm": null,
-        "key_hex": null,
-        "iv_hex": null,
-        "fields": null
+    {
+      "name": "wifi_5g_password",
+      "path": null
     }
+  ]
 }

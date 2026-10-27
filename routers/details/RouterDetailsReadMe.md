@@ -32,23 +32,25 @@ The JSON can be extended with additional settings as required.
 
 Each setting in the router details JSON must match an entry in the model specifications' `config_fields`.
 
-For example:
+For example (section excerpt; retain the relevant codec, encode and edit settings from the template):
 
 ```json
-"config_fields": {
-    "file": "config/.glbcfg",
-    "wifi_2g_ssid": "ARC_WLAN_24G_SSID_0_ESSID",
-    "wifi_2g_password": "ARC_WLAN_24G_SSID_0_WPA_Passphrase",
-    "wifi_5g_ssid": "ARC_WLAN_5G_SSID_0_ESSID",
-    "wifi_5g_password": "ARC_WLAN_5G_SSID_0_WPA_Passphrase"
-}
+"router_specs": {
+    "edit": {"configuration_file": "config/.glbcfg", "configuration_format": "key-value"}
+},
+"config_fields": [
+    {"name": "wifi_2g_ssid", "path": "ARC_WLAN_24G_SSID_0_ESSID"},
+    {"name": "wifi_2g_password", "path": "ARC_WLAN_24G_SSID_0_WPA_Passphrase"},
+    {"name": "wifi_5g_ssid", "path": "ARC_WLAN_5G_SSID_0_ESSID"},
+    {"name": "wifi_5g_password", "path": "ARC_WLAN_5G_SSID_0_WPA_Passphrase"}
+]
 ```
 
-The left-hand names identify the settings used in the router details JSON.
+The `name` values identify the settings used in the router details JSON.
 
-The right-hand values identify the actual configuration keys inside the router backup.
+The `path` values identify the actual configuration keys inside the router backup.
 
-The `file` entry specifies the configuration file inside the decoded archive and must not be included in the router details JSON.
+`router_specs.edit.configuration_file` specifies the configuration file inside the decoded archive and must not be included in the router details JSON.
 
 ## Adding Additional Settings
 
@@ -65,7 +67,7 @@ For example, to add a primary DNS setting:
 **Model specifications:**
 
 ```json
-"dns_primary": "ACTUAL_ROUTER_DNS_KEY"
+{"name": "dns_primary", "path": "ACTUAL_ROUTER_DNS_KEY"}
 ```
 
 **Router details:**
@@ -86,7 +88,7 @@ Additional ordinary key-value settings do not require changes to Python code.
 - Missing configuration fields cause errors.
 - All configuration values are loaded automatically from JSON.
 - No manual setting entry is required.
-- Existing output files and directories are not overwritten.
+- Existing output files and directories may be replaced, preserving the original template.
 - The original router template remains unchanged.
 
 ## Viewing Router Details

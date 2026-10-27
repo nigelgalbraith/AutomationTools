@@ -1,140 +1,33 @@
-"""Backup transport encoding, wrapper processing and archive operations."""
+"""Portable backup wrappers, transport, archives and signed compression."""
+
+
+# ---------------------------------------------------------------------
+# IMPORTS
+# ---------------------------------------------------------------------
 
 from __future__ import annotations
 
+from pathlib import Path
 import base64
 import copy
 import io
 import os
-from pathlib import Path
 import shutil
 import tarfile
 import tempfile
+import xml.etree.ElementTree as ET
 import zlib
-from modules.router_config_utils import (safe_relative, validate_directory, parse_key_value_fields, normalize_key_value_fields, decode_xml_configuration, validate_xml_declaration)
-from modules.router_encryption_utils import calculate_payload_checksum, verify_rsa_md5_signature, sign_rsa_md5_configuration
 
 
 
 # ---------------------------------------------------------------------
-# ENCODING AND WRAPPERS
+# HELPERS
 # ---------------------------------------------------------------------
-
-def encode_base64_payload(data: bytes, specs: dict) -> bytes:
-    """Produce Base64 with the configured wrapping and trailing newline."""
-    encoded = base64.b64encode(data)
-    width = specs["backup_format"]["payload_line_length"]
-    return b"".join(encoded[i:i + width] + b"\n" for i in range(0, len(encoded), width))
-
-
-def decode_base64_payload(data: bytes, specs: dict) -> bytes:
-    """Decode the transport separately from encryption and wrapper handling."""
-    return base64.b64decode(data.replace(b"\n", b""), validate=True)
-
-
-def encode_router_payload(data: bytes, specs: dict) -> bytes:
-    """Encode using the configured transport format."""
-    if specs["encoding"] == "base64":
-        return encode_base64_payload(data, specs)
-    return data
-
-
-def decode_router_payload(data: bytes, specs: dict) -> bytes:
-    """Decode using the configured transport format."""
-    if specs["encoding"] == "base64":
-        return decode_base64_payload(data, specs)
-    return data
-
 
 def wrapper_trailer(fmt: dict) -> bytes:
     """Construct the configured final line."""
-    return (fmt["trailer"]["character"] * fmt["trailer"]["repeat"] + fmt["newline"]).encode("ascii")
+    return (fmt["trailer_character"] * fmt["trailer_repeat"] + fmt["newline"]).encode("ascii")
 
-
-def parse_line_wrapper(data: bytes, model_specs: dict) -> dict:
-    """Validate the exact wrapper and checksum before decoding the payload."""
-    fmt = model_specs["backup_format"]
-    checksum = fmt["checksum"]
-    lines = data.splitlines(keepends=True)
-    count = fmt["header_lines"]
-    position = count + checksum["after_payload_lines"]
-    if len(lines) <= position + 1 or lines[-1] != wrapper_trailer(fmt):
-        raise ValueError("Invalid backup wrapper or trailer")
-    if any(not line.endswith(b"\n") or b"\r" in line for line in lines):
-        raise ValueError("Invalid wrapper newline")
-    special = lines[position][:-1]
-    prefix_size = checksum["prefix"]["random_bytes"]
-    prefix_length = 4 * ((prefix_size + 2) // 3)
-    prefix = special[:prefix_length]
-    if len(base64.b64decode(prefix, validate=True)) != prefix_size:
-        raise ValueError("Invalid checksum random prefix")
-    encoded = b"".join(lines[count:position] + lines[position + 1:-1])
-    expected = calculate_payload_checksum(encoded, checksum["algorithm"])
-    if special[prefix_length:] != expected:
-        raise ValueError("Backup encrypted payload checksum mismatch")
-    encrypted = decode_router_payload(encoded, model_specs)
-    if encode_router_payload(encrypted, model_specs) != encoded:
-        raise ValueError("Invalid encoded payload line layout")
-    return {"header": b"".join(lines[:count]), "encoded": encoded,
-            "encrypted": encrypted, "checksum": expected}
-
-
-def parse_technicolor_wrapper(data: bytes, model_specs: dict) -> dict:
-    """Split THENC header, IV, ciphertext and signature; do not authenticate."""
-    fmt = model_specs["backup_format"]
-    header, separator, payload = data.partition(fmt["header_terminator"].encode("ascii"))
-    lines = header.split(b"\n")
-    names = ("PREAMBLE", "BACKUPVERSION", "BOARDMNEMONIC", "PRODUCTNAME",
-             "SERIALNUMBER", "MAC", "BUILDVERSION", "CIPHERKEY", "SIGNATUREKEY")
-    if not separator or len(lines) != fmt["header_lines"] or len(lines) != len(names):
-        raise ValueError("Invalid or truncated THENC header")
-    values = {}
-    for name, line in zip(names, lines):
-        key, equal, value = line.partition(b"=")
-        if key != name.encode("ascii") or not equal or not value or any(c < 32 or c > 126 for c in value):
-            raise ValueError(f"Invalid THENC header field: {name}")
-        values[name] = value.decode("ascii")
-    expected = {"PREAMBLE": fmt["preamble"], "BACKUPVERSION": fmt["backup_version"],
-                "BOARDMNEMONIC": model_specs["hardware"]}
-    if any(values[k] != v for k, v in expected.items()):
-        raise ValueError("THENC header does not match configured values")
-    if not (values["BUILDVERSION"] == model_specs["firmware"] or
-            values["BUILDVERSION"].startswith(model_specs["firmware"] + "-")):
-        raise ValueError("THENC firmware does not match configured value")
-    iv_length, signature_length = fmt["iv_length"], fmt["signature_length"]
-    size = len(payload) - iv_length - signature_length
-    if size <= 0 or size % 16:
-        raise ValueError("Invalid or truncated THENC IV, ciphertext or signature boundaries")
-    return {"header": header + separator, "encoded": payload, "encrypted": payload[iv_length:-signature_length],
-            "checksum": b"", "iv": payload[:iv_length], "signature": payload[-signature_length:],
-            "cipher_key_id": values["CIPHERKEY"], "signature_key_id": values["SIGNATUREKEY"]}
-
-
-def rebuild_technicolor_wrapper(encoded: bytes, header: bytes, specs: dict) -> bytes:
-    """Never generate an unauthenticated device-key backup."""
-    raise ValueError("THENC rebuilding unavailable: device key and signature signing are not established")
-
-
-def rebuild_line_wrapper(encoded: bytes, header: bytes, specs: dict) -> bytes:
-    """Insert a fresh checksum and random prefix into the configured layout."""
-    fmt = specs["backup_format"]
-    checksum = fmt["checksum"]
-    lines = encoded.splitlines(keepends=True)
-    position = checksum["after_payload_lines"]
-    if len(lines) < position:
-        raise ValueError("Payload too short for configured checksum location")
-    if len(header.splitlines(keepends=True)) != fmt["header_lines"]:
-        raise ValueError("Original header does not match configured layout")
-    prefix = base64.b64encode(os.urandom(checksum["prefix"]["random_bytes"]))
-    special = prefix + calculate_payload_checksum(encoded, checksum["algorithm"]) + b"\n"
-    result = header + b"".join(lines[:position]) + special + b"".join(lines[position:]) + wrapper_trailer(fmt)
-    parse_line_wrapper(result, specs)
-    return result
-
-
-# ---------------------------------------------------------------------
-# ARCHIVE OPERATIONS
-# ---------------------------------------------------------------------
 
 def validate_archive(archive: tarfile.TarFile) -> list:
     """Validate all entries before any extraction or edited-file reads."""
@@ -153,7 +46,164 @@ def validate_archive(archive: tarfile.TarFile) -> list:
     return members
 
 
-def read_tar_files(data: bytes, specs: dict) -> dict:
+# ---------------------------------------------------------------------
+# WORKFLOW
+# ---------------------------------------------------------------------
+
+def safe_relative(name: str) -> Path:
+    """Reject absolute paths and traversal."""
+    path = Path(name)
+    if not name or path.is_absolute() or ".." in path.parts:
+        raise ValueError(f"Unsafe relative path: {name}")
+    return path
+
+
+def validate_directory(directory: Path) -> None:
+    """Reject symlinks and special files, including symlink ancestors."""
+    if any(path.is_symlink() for path in (directory, *directory.parents)):
+        raise ValueError("Unsafe directory symlink")
+    for path in directory.rglob("*"):
+        if path.is_symlink() or not (path.is_file() or path.is_dir()):
+            raise ValueError(f"Unsafe configuration entry: {path}")
+
+
+def encode_base64_payload(data: bytes, backup_format: dict) -> bytes:
+    """Produce Base64 with the configured wrapping and trailing newline."""
+    encoded = base64.b64encode(data)
+    width = backup_format["payload_line_length"]
+    return b"".join(encoded[i:i + width] + b"\n" for i in range(0, len(encoded), width))
+
+
+def decode_base64_payload(data: bytes) -> bytes:
+    """Decode the transport separately from encryption and wrapper handling."""
+    return base64.b64decode(data.replace(b"\n", b""), validate=True)
+
+
+def split_line_wrapper(data: bytes, backup_format: dict) -> dict:
+    """Validate wrapper layout and return the stored checksum without authenticating it."""
+    fmt = backup_format
+    lines = data.splitlines(keepends=True)
+    count = fmt["header_lines"]
+    position = count + fmt["checksum_after_payload_lines"]
+    if len(lines) <= position + 1 or lines[-1] != wrapper_trailer(fmt):
+        raise ValueError("Invalid backup wrapper or trailer")
+    if any(not line.endswith(b"\n") or b"\r" in line for line in lines):
+        raise ValueError("Invalid wrapper newline")
+    special = lines[position][:-1]
+    prefix_size = fmt["checksum_prefix_bytes"]
+    prefix_length = 4 * ((prefix_size + 2) // 3)
+    prefix = special[:prefix_length]
+    if len(base64.b64decode(prefix, validate=True)) != prefix_size:
+        raise ValueError("Invalid checksum random prefix")
+    encoded = b"".join(lines[count:position] + lines[position + 1:-1])
+    return {"header": b"".join(lines[:count]), "encoded": encoded,
+            "checksum": special[prefix_length:]}
+
+
+def prepare_line_wrapper(encoded: bytes, header: bytes, backup_format: dict) -> tuple[bytes, bytes]:
+    """Prepare wrapper bytes before and after the checksum, including its random prefix."""
+    fmt = backup_format
+    lines = encoded.splitlines(keepends=True)
+    position = fmt["checksum_after_payload_lines"]
+    if len(lines) < position:
+        raise ValueError("Payload too short for configured checksum location")
+    if len(header.splitlines(keepends=True)) != fmt["header_lines"]:
+        raise ValueError("Original header does not match configured layout")
+    prefix = base64.b64encode(os.urandom(fmt["checksum_prefix_bytes"]))
+    return (header + b"".join(lines[:position]) + prefix,
+            b"\n" + b"".join(lines[position:]) + wrapper_trailer(fmt))
+
+
+def parse_technicolor_wrapper(data: bytes, backup_format: dict, hardware: str, firmware: str) -> dict:
+    """Split THENC header, IV, ciphertext and signature; do not authenticate."""
+    fmt = backup_format
+    header, separator, payload = data.partition(fmt["header_terminator"].encode("ascii"))
+    lines = header.split(b"\n")
+    names = ("PREAMBLE", "BACKUPVERSION", "BOARDMNEMONIC", "PRODUCTNAME",
+             "SERIALNUMBER", "MAC", "BUILDVERSION", "CIPHERKEY", "SIGNATUREKEY")
+    if not separator or len(lines) != fmt["header_lines"] or len(lines) != len(names):
+        raise ValueError("Invalid or truncated THENC header")
+    values = {}
+    for name, line in zip(names, lines):
+        key, equal, value = line.partition(b"=")
+        if key != name.encode("ascii") or not equal or not value or any(c < 32 or c > 126 for c in value):
+            raise ValueError(f"Invalid THENC header field: {name}")
+        values[name] = value.decode("ascii")
+    expected = {"PREAMBLE": fmt["preamble"], "BACKUPVERSION": fmt["backup_version"],
+                "BOARDMNEMONIC": hardware}
+    if any(values[k] != v for k, v in expected.items()):
+        raise ValueError("THENC header does not match configured values")
+    if not (values["BUILDVERSION"] == firmware or
+            values["BUILDVERSION"].startswith(firmware + "-")):
+        raise ValueError("THENC firmware does not match configured value")
+    iv_length, signature_length = fmt["iv_length"], fmt["signature_length"]
+    size = len(payload) - iv_length - signature_length
+    if size <= 0 or size % 16:
+        raise ValueError("Invalid or truncated THENC IV, ciphertext or signature boundaries")
+    return {"header": header + separator, "encoded": payload, "encrypted": payload[iv_length:-signature_length],
+            "checksum": b"", "iv": payload[:iv_length], "signature": payload[-signature_length:],
+            "cipher_key_id": values["CIPHERKEY"], "signature_key_id": values["SIGNATUREKEY"]}
+
+
+def rebuild_technicolor_wrapper(encoded: bytes, header: bytes, backup_format: dict, hardware: str, firmware: str) -> bytes:
+    """Never generate an unauthenticated device-key backup."""
+    raise ValueError("THENC rebuilding unavailable: device key and signature signing are not established")
+
+
+def parse_encrypted_configuration(data: bytes) -> dict:
+    """Check the block boundaries of a whole-file encrypted configuration."""
+    if not data or len(data) % 16:
+        raise ValueError("Invalid encrypted configuration block length")
+    return {"header": b"", "encoded": data, "encrypted": data, "checksum": b""}
+
+
+def decode_xml_configuration(signed: bytes, specs: dict) -> bytes:
+    """Remove the signed null terminator and preserve authenticated XML bytes unchanged."""
+    if not signed.endswith(b"\x00"):
+        raise ValueError("Signed configuration is missing its trailing null byte")
+    xml = signed[:-1]
+    if not xml.startswith(specs["preamble"].encode("ascii")) or b"\x00" in xml:
+        raise ValueError("Invalid XML configuration declaration or embedded null byte")
+    try:
+        ET.fromstring(xml)
+    except ET.ParseError as exc:
+        print(f"[WARN] Signature verified, but authenticated configuration is not well-formed XML: {exc}. Original bytes are preserved.")
+    return xml
+
+
+def validate_xml_declaration(data: bytes, specs: dict) -> None:
+    """Require the declaration configured for a saved XML configuration."""
+    if not data.startswith(specs["preamble"].encode("ascii")):
+        raise ValueError("Missing XML declaration")
+
+
+def unpack_signed_configuration(data: bytes, backup_format: dict) -> tuple[bytes, bytes]:
+    """Decompress padded configuration bytes and split the unverified signature."""
+    try:
+        decompressor = zlib.decompressobj()
+        # Bound authenticated output before allocating an arbitrarily large decompressed stream.
+        decoded = decompressor.decompress(data, 64 * 1024 * 1024 + 1)
+    except zlib.error:
+        raise ValueError("Invalid zlib configuration: incorrect key/IV or corrupt backup") from None
+    if len(decoded) > 64 * 1024 * 1024 or not decompressor.eof:
+        raise ValueError("Truncated or oversized zlib configuration")
+    trailing = decompressor.unused_data
+    if len(trailing) > 16 or any(trailing):
+        raise ValueError("Invalid trailing AES zero padding")
+    length = backup_format["signature_length"]
+    if len(decoded) <= length:
+        raise ValueError("Missing signed configuration or RSA signature")
+    signed, signature = decoded[:-length], decoded[-length:]
+    return signed, signature
+
+
+def pack_signed_configuration(signed: bytes, signature: bytes) -> bytes:
+    """Compress signed bytes and their signature with the established AES zero padding."""
+    compressed = zlib.compress(signed + signature, 9)
+    return compressed + b"\x00" * (16 - len(compressed) % 16)
+
+
+def read_tar_files(data: bytes) -> dict:
     """Read validated TAR members without extracting paths."""
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
         return {str(Path(member.name)): archive.extractfile(member).read()
@@ -169,17 +219,25 @@ def replace_router_directory(staged: Path, destination: Path) -> None:
         return
     if not destination.is_dir():
         raise NotADirectoryError(f"Expected output directory: {destination}")
-    with tempfile.TemporaryDirectory(dir=destination.parent, prefix=f".{destination.name}.backup.") as backup_dir:
-        backup = Path(backup_dir) / "original"
+    backup_dir = Path(tempfile.mkdtemp(dir=destination.parent, prefix=f".{destination.name}.backup."))
+    backup = backup_dir / "original"
+    installed = False
+    try:
         os.replace(destination, backup)
         try:
             os.replace(staged, destination)
+            installed = True
         except BaseException:
             os.replace(backup, destination)
             raise
+    finally:
+        if installed or not backup.exists():
+            shutil.rmtree(backup_dir)
+        else:
+            print(f"Original configuration retained at: {backup}")
 
 
-def extract_tar_archive(archive_path: Path, output: Path, model_specs: dict) -> None:
+def extract_tar_archive(archive_path: Path, output: Path) -> None:
     """Extract validated TAR files using staged directory replacement."""
     with tarfile.open(archive_path, mode="r:gz") as archive:
         members = validate_archive(archive)
@@ -210,7 +268,7 @@ def extract_tar_archive(archive_path: Path, output: Path, model_specs: dict) -> 
                 shutil.rmtree(staged)
 
 
-def rebuild_tar_archive(original_archive: bytes, edited_dir: str, model_specs: dict) -> tuple[bytes, list[str]]:
+def rebuild_tar_archive(original_archive: bytes, edited_dir: str) -> tuple[bytes, list[str]]:
     """Rebuild the original tar.gz archive using edited files."""
     directory = Path(edited_dir).expanduser()
     if not directory.is_dir():
@@ -257,87 +315,3 @@ def rebuild_tar_archive(original_archive: bytes, edited_dir: str, model_specs: d
                 else:
                     target.addfile(entry)
     return buffer.getvalue(), changes
-
-
-def validate_tar_gzip_config(decoded: bytes, model_specs: dict) -> None:
-    """Validate TAR/GZIP contents and the declared key-value configuration."""
-    files = read_tar_files(decoded, model_specs)
-    configured = str(safe_relative(model_specs["config_fields"]["file"]))
-    if configured not in files:
-        raise ValueError("Configured file missing from archive")
-    parse_key_value_fields(files[configured].decode("utf-8"), model_specs)
-
-
-def validate_edited_fields(original_archive: bytes, directory: Path, specs: dict) -> None:
-    """Match every original byte except values explicitly declared editable."""
-    config_path = safe_relative(specs["config_fields"]["file"])
-    found = False
-    files = read_tar_files(original_archive, specs)
-    for name, original in files.items():
-        edited = (directory / safe_relative(name)).read_bytes()
-        if Path(name) != config_path:
-            if original != edited:
-                raise ValueError(f"Original mismatch in uneditable file: {name}")
-            continue
-        found = True
-        if normalize_key_value_fields(original.decode("utf-8"), specs) != normalize_key_value_fields(edited.decode("utf-8"), specs):
-            raise ValueError("Edited configuration differs outside declared editable values")
-    if not found:
-        raise ValueError("Configured file missing from original archive")
-
-
-def parse_encrypted_configuration(data: bytes, model_specs: dict) -> dict:
-    """Check the block boundaries of a whole-file encrypted configuration."""
-    if not data or len(data) % 16:
-        raise ValueError("Invalid encrypted configuration block length")
-    return {"header": b"", "encoded": data, "encrypted": data, "checksum": b""}
-
-
-def decode_signed_configuration(data: bytes, specs: dict) -> bytes:
-    """Decompress a signed single-file configuration and verify the complete RSA block."""
-    try:
-        decompressor = zlib.decompressobj()
-        # Bound authenticated output before allocating an arbitrarily large decompressed stream.
-        decoded = decompressor.decompress(data, 64 * 1024 * 1024 + 1)
-    except zlib.error:
-        raise ValueError("Invalid zlib configuration: incorrect key/IV or corrupt backup") from None
-    if len(decoded) > 64 * 1024 * 1024 or not decompressor.eof:
-        raise ValueError("Truncated or oversized zlib configuration")
-    trailing = decompressor.unused_data
-    if len(trailing) > 16 or any(trailing):
-        raise ValueError("Invalid trailing AES zero padding")
-    length = specs["backup_format"]["signature_length"]
-    if len(decoded) <= length:
-        raise ValueError("Missing signed configuration or RSA signature")
-    signed, signature = decoded[:-length], decoded[-length:]
-    verify_rsa_md5_signature(signed, signature, specs)
-    return decode_xml_configuration(signed, specs)
-
-
-def extract_xml_configuration(archive_path: Path, output: Path, model_specs: dict) -> None:
-    """Stage the preserved XML bytes as a single configuration file and replace the destination."""
-    decoded = archive_path.read_bytes()
-    validate_xml_declaration(decoded, model_specs)
-    relative = safe_relative(model_specs["config_fields"]["file"])
-    output.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    with tempfile.TemporaryDirectory(dir=output.parent, prefix=f".{output.name}.") as directory:
-        prepared = Path(directory) / "configuration"
-        target = prepared / relative
-        target.parent.mkdir(parents=True, mode=0o700)
-        target.write_bytes(decoded)
-        target.chmod(0o600)
-        replace_router_directory(prepared, output)
-
-
-def encode_signed_configuration(xml: bytes, specs: dict) -> bytes:
-    """Build signed zlib data with AES zero padding, preserving every XML byte."""
-    validate_xml_declaration(xml, specs)
-    if b"\x00" in xml:
-        raise ValueError("XML configuration contains an embedded null byte")
-    signed = xml + b"\x00"
-    signature = sign_rsa_md5_configuration(signed, specs)
-    compressed = zlib.compress(signed + signature, 9)
-    padded = compressed + b"\x00" * (16 - len(compressed) % 16)
-    if decode_signed_configuration(padded, specs) != xml:
-        raise ValueError("Rebuilt signed configuration failed verification")
-    return padded

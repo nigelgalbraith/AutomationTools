@@ -1,219 +1,177 @@
 # Router Model Specifications
 
-AutomationTools uses one common JSON schema across its supplied models and direct mechanism selections.
-The shared HG659 processing mechanisms and specification structure follow TestingTools;
-AutomationTools retains its own workflows and file-based Spark credentials.
-`modules/router_utils.py` coordinates workflows, credentials and specification validation.
-`modules/router_encryption_utils.py` implements transport encoding and backup wrappers.
-`modules/router_config_utils.py` implements archive processing.
-`modules/router_utils.py` coordinates router format operations.
-`modules/router_config_utils.py` implements configuration parsing, transformations and path checks.
-`modules/router_encryption_utils.py` implements encryption and cryptographic checksums.
+Router model specifications describe the settings used to decode, inspect, edit, and encode router configuration backups. Each supported router has a JSON specification, allowing the shared processing functions to work with different backup formats without model-specific logic.
 
-## Adding a Router Model
+## Specification structure
 
-Copy `doc/RouterSpecificationTemplate.json`, or an existing model specification, and
-populate the settings supported by the exported backup. The template includes every
-canonical key and nested object; its null values are placeholders, not a runnable
-router configuration. Existing Spark and Vodafone specifications are complete examples.
+Every specification contains exactly two top-level properties:
 
-Every specification must contain exactly the canonical keys, including all keys inside
-`config_fields`, `backup_format`, `checksum`, `prefix`, `trailer`, `archive`,
-`encryption_settings`, `signature`, and `field_encryption`.
-Do not omit inactive fields: use JSON `null`. Empty strings and the string `"unknown"`
-are not placeholders for unknown or non-applicable values.
-
-`ROUTER_SPEC_SCHEMA` in `router_utils.py` defines the types and complete structure.
-Schema validation rejects missing keys, unexpected keys, incorrectly typed values, and
-booleans used as integers. Mechanism validators then require their applicable values.
-Errors identify the invalid JSON path. The same model has the same specification values
-in both projects, although the configured filenames retain each application's existing names.
-
-The canonical `config_fields` roles are `file`, `wifi_2g_ssid`, `wifi_2g_password`,
-`wifi_5g_ssid`, and `wifi_5g_password`. Set unused mappings to null; a known configuration
-format requires `file`. Configuration keys are router-specific values, not Python branches.
-A new semantic field would require a coordinated canonical-schema update in both projects
-and all specifications, rather than adding a one-off JSON key for one router.
-
-## Existing Mechanisms
-
-`router_utils.py` selects encryption using one complete `ENCRYPTION_HANDLERS`
-dictionary keyed by `(encryption, key_derivation)`. Its values are imported callables.
-Validation and encryption entry points use the same central dictionaries.
-`CONFIG_VIEW_HANDLERS`/`CONFIG_EDIT_HANDLERS` select configuration processing;
-`FIELD_DECRYPT_HANDLERS`/`FIELD_ENCRYPT_HANDLERS` select protected-field processing. Other processing uses ordinary `if` / `elif` checks. There are no registration calls, function-name
-lookup systems, or router-model branches.
-
-| JSON setting | Supported mechanisms |
+| Property | Description |
 |---|---|
-| `encryption` + `key_derivation` | `aes-256-cbc` + `openssl-legacy`; `aes-256-cbc` + `device-key` (explicitly unavailable); `aes-256-cbc` + `fixed-key` |
-| `encoding` | `base64`, `binary` |
-| `backup_format.type` | `line-wrapper`, `technicolor-thenc` (structural parsing only), `encrypted-configuration` |
-| `archive.format` + `archive.compression` | `tar` + `gzip`; `single-file` + `zlib` |
-| `configuration_format` | `key-value`; `xml` (viewing, targeted attribute editing and signed encoding) |
+| `router_specs` | Router identity and supported backup processing settings |
+| `config_fields` | Logical field names mapped to configuration keys or selectors |
 
-`encrypt_router_payload` and `decrypt_router_payload` select and call the imported
-`crypt_aes_256_cbc`, `crypt_technicolor_thenc` or `crypt_aes_256_cbc_fixed_key` directly. The actual algorithms,
-key preparation, credential interpretation and unsupported THENC errors remain in
-`router_encryption_utils.py`. Workflow path selection and user interaction stay in `router_utils.py`; archive file processing lives in `router_config_utils.py`.
+The `router_specs` object contains the router identity and the following sections as applicable:
 
-Encoding and wrapper entry points select processing mechanisms from the specification.
-Their implementations live in the independent supporting modules: encoding and wrappers in
-`router_encryption_utils.py`, and configuration and archives in `router_config_utils.py`. Archive
-workflows call `read_tar_files`, `extract_tar_archive`, and `rebuild_tar_archive`;
-`tar_gzip_mode` validates the configured format/compression and supplies the mode.
-Configuration workflows call `router_config_utils.py` functions `parse_key_value_fields`, `key_value_values`,
-`update_key_value_fields`, and `normalize_key_value_fields` directly. Unsupported
-formats fail explicitly. Archive safety and editable-field integrity checks remain.
+| Section | Description |
+|---|---|
+| `codec` | Shared decoding and encoding settings |
+| `encode` | Additional parameters required only for encoding |
+| `edit` | Configuration editing settings, where supported |
 
-A router using supported mechanisms requires its JSON specification and configuration
-entry/files. A new mechanism requires a substantive implementation and a corresponding
-entry in the relevant existing dispatcher. Other new mechanisms use explicit selection
-branches; do not introduce additional registries or modules.
+Omit unused optional sections and settings rather than adding `null` placeholders. The exception is an existing `config_fields` mapping whose `path` is `null` because the field location is unknown.
 
-## Spark Credentials and Processing
+### Example
 
-The existing factory Wi-Fi password, passphrase prefix, MD5 password hash, OpenSSL
-legacy derivation digest, salt behavior, Base64 layout, checksum, random prefix,
-TAR/GZIP archive, and configuration mappings are preserved. Passwords stay in the
-existing configured files, separate from model specifications. Login passwords,
-Wi-Fi settings being edited, and backup encryption credentials are distinct concepts.
+This example illustrates the structure and field mappings. It is **not** a complete working specification; required `codec` properties and identity fields depend on the router and the shared schema.
 
-## Vodafone THENC Limitations
+```json
+{
+  "router_specs": {
+    "codec": {},
+    "edit": {
+      "configuration_file": "config.xml"
+    }
+  },
+  "config_fields": [
+    {
+      "name": "wifi_ssid",
+      "path": "Wireless|Name=Main|SSID"
+    },
+    {
+      "name": "wifi_password",
+      "path": "Wireless|Name=Main|Password"
+    }
+  ]
+}
+```
 
-Both projects validate the supplied THENC specification and parse the existing header,
-16-byte IV, AES block-aligned ciphertext, and configured 20-byte signature boundary.
-Parsing establishes structure only; it does not verify the signature or decrypt data.
+The example selectors are illustrative. Use the actual paths found in the router's decoded configuration. For a complete starting specification, see `doc/RouterSpecificationTemplate.json`.
 
-`password_base`, `password_hash`, `key_derivation_digest`, unknown configuration mappings,
-unknown archive settings, and unknown configuration format are null. Non-applicable
-line-wrapper fields remain present with null values. The known `salted: false` and
-`password_required: false` values and all observed header/key identifiers are preserved.
+## Codec settings
 
-`CIPHERKEY` and `SIGNATUREKEY` are identifiers, not cryptographic keys. Configured device-key files can now be read as binary. Device-key derivation, signature
-verification, signing, and authenticated encryption/rebuilding remain unverified.
-Attempting actual cryptographic processing still fails explicitly; even
-an explicitly supplied key is rejected until derivation and authentication are verified.
-An export-password text file is never read as a binary device key. No router login or
-Wi-Fi password is substituted. Archive format and configuration fields remain unknown.
+`router_specs.codec` defines the shared mechanisms and parameters for decoding and encoding a backup. Depending on the router, these include:
 
-## AutomationTools Workflow
+- Encryption algorithms, keys, and initialization vectors (IVs)
+- Password derivation parameters
+- Backup wrappers, headers, trailers, and random prefixes
+- Checksum locations and line lengths
+- Compression and archive formats
+- Signature verification parameters
+- Decode and encode operation order
 
-Each top-level job in `config/RouterConfig.json` retains its existing paths:
-`model_specs_path`, `model_specs_readme_path`, `template_config_path`,
-`template_router_password_path`, `target_router_password_path`, `router_details_path`,
-`router_details_readme_path`, `decoded_config_archive_path`, `decoded_config_path`,
-`edited_config_path`, and `encoded_config_path`.
+Wrapper parameters are shared: decoding checks the same checksum location, line length, random prefix, and trailer that encoding writes. These parameters are flat properties of `codec`.
 
-RouterConstants and AutomationLoader keep their existing actions and state transitions.
-Run All validates the job, decodes the template, applies the declared router details,
-and rebuilds/encrypts the target backup. Template and target credentials are loaded
-from separate configured paths; automation never prompts for a password. Only populated
-field mappings can be edited. Existing staged replacement and failure handling remain.
-The result is verified locally by decrypting it with the target credential.
+Keys, IVs, and public signature parameters are included only for methods that require them.
 
-The existing pipeline generates a backup file. It has no implemented device-upload or
-router-side restore stage; this refactor does not add one or claim device deployment.
+The supported archive methods used by the supplied profiles are `tar.gz` and `signed-zlib`.
 
-## Optional Device-Key Files
+The supplied profiles use default processing orders. Where necessary, specify independent orders with:
 
-Jobs may include optional `template_device_key_path` and `target_device_key_path`.
-Decode appends the template path. Encode appends the template path then the target path
-(named `device_key_path`), after the existing six arguments. Target verification uses
-the target key. Existing password argument positions are unchanged.
+```text
+router_specs.codec.decode_order
+router_specs.codec.encode_order
+```
 
-Device-key models require a configured, nonempty binary key file. Spark ignores these
-paths. Loading bytes does not implement or verify Vodafone cryptography. THENC
-`CIPHERKEY` and `SIGNATUREKEY` values are read from each backup header and preserved
-in wrapper metadata and original header bytes; `cipher_key_id` and `signature_key_id`
-are no longer static model specification fields.
+## Encoding settings
 
+Use `router_specs.encode` only for encoding-specific parameters that are not shared with decoding.
 
-## Vodafone HG659 V100R001C206B020
+The Vodafone Huawei HG659 profile includes:
 
-The configured `Vodafone_HG659` job supports decoding, viewing, editing, encoding
-and **Run All Steps** through the existing actions and pipelines.
-Its binary `.conf` template uses the specification's fixed AES-256-CBC key and IV.
-The decrypted single-file zlib stream contains null-terminated XML followed by an
-RSA/MD5 PKCS#1 v1.5 signature. The complete signature block is verified before any
-configuration is saved. Invalid compression, signatures and AES zero padding fail.
+```text
+router_specs.encode.private_exponent_hex
+```
 
-`decoded_config_archive_path` ends in `.xml`; `decoded_config_path` is the extracted
-directory containing the configured `config.xml`. The authenticated XML bytes are
-preserved exactly. Huawei's nonstandard XML syntax produces an advisory warning,
-without requiring full strict XML parsing or rewriting the document.
+This is the private exponent used by its supported signing process. Public signature parameters remain in `codec` where required.
 
-The generic XML reader selects `element|attribute=value|output_attribute` or
-`element|attribute=value|child_element@output_attribute`. Multiple conditions must
-all match; exactly one parent and, when requested, one child must match. Child
-searches stay inside the selected parent. Comments and CDATA are ignored, and
-standard XML entities are decoded in displayed attributes. Null mappings are skipped.
-HG659 selects each main Wi-Fi network using both its frequency band and non-guest
-condition. Passwords come from the selected `PreSharedKeyInstance` child attribute.
+## Editing settings
 
-The common `field_encryption` object contains `algorithm`, `key_hex`, `iv_hex` and
-`fields`. The registered `aes-128-cbc-zero-padded-base64` handler strictly decodes
-Base64, applies AES-128-CBC, strips trailing zero padding and returns UTF-8 for the
-listed password fields. SSIDs remain unchanged. The existing viewer displays these
-readable passwords; viewing never modifies configuration files.
+Use `router_specs.edit` only when the decoded configuration format and editing mechanism are established.
 
-All keys, IVs and RSA verification/signing parameters come from the specification, including the
-separate inner field encryption settings. HG659 has no password-file or device-key
-entry and does not read external credentials. Spark and Ultra Hub retain their
-existing settings; their unused common encryption/signature/field settings are null.
-HG659's AES functions use `python3-cryptography`, declared alongside `openssl` in
-the existing router dependency list.
+The configuration file to edit is specified by:
 
-XML attribute editing now uses the existing file-driven operation. The configured
-`router_details_path` supplies label/value replacements; omitted fields retain their
-stored values. Current SSIDs, decrypted passwords and change summaries are displayed
-in plaintext. No interactive field prompts or password masking are added. Existing
-action confirmation and automation sequencing remain unchanged.
+```text
+router_specs.edit.configuration_file
+```
 
-The shared XML selector locates each configured parent/child attribute uniquely.
-Only selected value spans change; replacements are escaped, protected fields are
-encrypted with the existing AES-128-CBC settings, and all unrelated XML bytes and
-guest-network settings must remain identical. Both proposed and staged edited XML
-are validated before directory replacement. The original decoded input is preserved.
+Protected fields are listed under:
 
-Every specification and the template now includes `signature.private_exponent_hex`.
-It is null for unused models/template and contains the working TestingTools signing
-exponent for HG659. Verification-only specifications can omit a populated exponent,
-but signing and full automation fail explicitly when it is unavailable.
+```text
+router_specs.edit.field_encryption.fields
+```
 
-The existing encoder validates edited XML against the authenticated original,
-appends NUL and a verified RSA/MD5 PKCS#1 v1.5 signature, compresses with zlib level 9,
-adds 1–16 zero padding bytes and encrypts through the fixed-key AES-256-CBC dispatcher.
-The decoder accepts the reference encoder's full padding block when already aligned.
-The staged output is decoded again and must recover exactly the edited XML before
-atomic publication. Output paths cannot overwrite the original backup or edited input.
-The existing `.conf` output and other configured paths remain unchanged; no signing-key,
-password or device-key file is used for HG659.
+## Configuration field mappings
 
-Spark TAR/GZIP editing and encoding retain their existing processing. Technicolor
-THENC derivation/authentication/signing remain unavailable and continue to fail
-explicitly. Local cryptographic round trips do not establish router acceptance;
-no hardware upload or restore is performed.
+`config_fields` is a list of mappings between a logical name and a key or selector in the decoded configuration.
 
+Each entry has this form:
 
-## Central registrations and processing callbacks
+```json
+{
+  "name": "logical_name",
+  "path": "actual_key_or_selector"
+}
+```
 
-All five handler dictionaries are together under `DISPATCHER HANDLERS` at the top
-of `modules/router_utils.py`: `ENCRYPTION_HANDLERS`, `FIELD_ENCRYPT_HANDLERS`,
-`FIELD_DECRYPT_HANDLERS`, `CONFIG_VIEW_HANDLERS` and `CONFIG_EDIT_HANDLERS`.
-Implementations remain in their specialised encryption, configuration and format
-modules, which do not import the orchestrator or contain handler registrations.
+For example, an XML-backed configuration might use:
 
-The orchestrator selects field callbacks from `field_encryption.algorithm` and
-passes them explicitly. `xml_field_values` and the key-value view adapter accept
-an optional `decrypt_handler`; `update_xml_fields` and the key-value edit adapter
-accept an optional `encrypt_handler`. `validate_xml_field_changes` and
-`validate_edited_xml` accept both. Protected fields require the selected callbacks;
-there is no hidden registry or fallback in configuration processing. The key-value
-adapters accept the same optional arguments without changing their parsing/editing.
-Public router workflow signatures are unchanged, and either dependency import order
-works without circular imports.
+```json
+{
+  "config_fields": [
+    {
+      "name": "wifi_ssid",
+      "path": "Wireless|Name=Main|SSID"
+    },
+    {
+      "name": "wifi_password",
+      "path": "Wireless|Name=Main|Password"
+    }
+  ]
+}
+```
 
-To add a mechanism, implement it in its specialised utility, register it once in
-`router_utils.py`, and select it through the common specification. No model-name
-checks, new loaders, credential files or separate workflows are needed.
+These paths are examples, not confirmed selectors for any supplied router model.
+
+Supported XML selector forms include:
+
+| Form | Purpose |
+|---|---|
+| `element\|filter=value\|attribute` | Find an element by a filter and select an attribute |
+| `child@attribute` | Select an attribute on a child element |
+
+Add mappings as needed without changing Python processing functions. Some existing Ultra Hub mappings have a `null` path because the corresponding configuration location is not yet known; these fields are not currently editable.
+
+## Supplied router profiles
+
+| Router | Specification sections | Notes |
+|---|---|---|
+| Spark SmartModem VRV9517 | `codec`, `edit` | Complete Spark-format example supplied in the template |
+| Vodafone Huawei HG659 | `codec`, `encode`, `edit` | Includes `encode.private_exponent_hex` for signing |
+| Vodafone Ultra Hub | `codec` | Configuration format and required cryptographic mechanisms are not fully established |
+
+Supported operations depend on the router model, firmware, and available cryptographic material. A successful local encode/decode round trip does not establish compatibility with every hardware or firmware revision.
+
+## Adding a router model
+
+1. Copy `doc/RouterSpecificationTemplate.json` as a starting point.
+2. Set the router identity and supply the required `router_specs.codec` properties for its backup format.
+3. Add `router_specs.encode` only if the encoding process requires additional parameters.
+4. Add `router_specs.edit` only if configuration editing is supported; specify the configuration file and any protected fields.
+5. Add the required `config_fields` name/path mappings using keys or selectors from the decoded configuration.
+6. Omit unused optional sections and properties.
+7. Validate the specification with `load_router_model_specs(spec_path, schema_path)` using `schemas/RouterSchema.json`.
+8. Add the router entry and file paths to the application's `config/RouterConfig.json`, including input and credential files where required.
+9. Test the supported decode, inspect, edit, encode, and verification operations.
+
+`RouterSchema.json` uses JSON Schema Draft 2020-12. Required implementation parameters and compatible format combinations are also checked in Python.
+
+A router using already-supported processing methods requires a new specification and application configuration entry, not changes to the Python processing functions.
+
+## Related files
+
+| File | Purpose |
+|---|---|
+| `doc/RouterSpecificationTemplate.json` | Complete Spark-format specification example |
+| `schemas/RouterSchema.json` | Shared specification validation schema |
+| `config/RouterConfig.json` | Application router entries and input/output paths |

@@ -161,6 +161,116 @@ def _download_html_page(
         return False, None, repr(e)
 
 
+def _discover_download_links(
+    driver: Any,
+    search_urls: List[str],
+    follow_links: bool,
+    link_selector: str,
+    links_per_search: int,
+    delay_between_actions: float,
+    filename_from_url_regex: Optional[str],
+    skip_ids: Set[str],
+    url_must_contain: Optional[str],
+) -> Tuple[List[str], int]:
+    """Discover ordered download URLs and filter configured skip IDs."""
+    if follow_links:
+        all_links: List[str] = []
+        for idx, url in enumerate(search_urls, start=1):
+            print(f"[INFO] [{idx}/{len(search_urls)}] Loading search page: {url}")
+            links = _fetch_page_links(
+                driver=driver,
+                url=url,
+                limit=links_per_search,
+                link_selector=link_selector,
+                url_must_contain=url_must_contain,
+                skip_ids=skip_ids,
+                filename_from_url_regex=filename_from_url_regex,
+            )
+            print(f"[OK] Found {len(links)} link(s) on search page.")
+            all_links.extend(links)
+            time.sleep(delay_between_actions)
+        unique_links = sorted(set(all_links))
+        print(f"[INFO] Total unique scraped link(s): {len(unique_links)}")
+    else:
+        print("[INFO] follow_links=False -> downloading provided URLs directly.")
+        unique_links = sorted(set(u.strip() for u in search_urls if (u or "").strip()))
+        print(f"[INFO] Total provided URL(s): {len(unique_links)}")
+    filtered_links: List[str] = []
+    skipped_count = 0
+    for link in unique_links:
+        skip_id = extract_skip_id_from_url(link, filename_from_url_regex)
+        if skip_id and skip_id in skip_ids:
+            skipped_count += 1
+            print(f"[INFO] Skipping URL with skip ID '{skip_id}': {link}")
+            continue
+        filtered_links.append(link)
+    unique_links = filtered_links
+    return unique_links, skipped_count
+
+
+def _process_selenium_page(
+    driver: Any,
+    url: str,
+    current_depth: int,
+    domain: str,
+    terms: List[str],
+    delay: float,
+    depth: int,
+    results: List[Dict[str, str]],
+    result_seen: Set[Tuple[str, str]],
+    visited: Set[str],
+    queued: Set[str],
+    queue: List[Tuple[str, int, str]],
+    checkpoint_fn: Optional[Callable[[List[Dict[str, str]]], None]],
+) -> None:
+    """Match one rendered page and enqueue its unvisited in-domain links."""
+    from selenium.webdriver.common.by import By
+    driver.get(url)
+    if delay > 0:
+        time.sleep(delay)
+    body = driver.find_element(By.TAG_NAME, "body")
+    page_text = (body.text or "").casefold()
+    for term in terms:
+        if term.casefold() not in page_text:
+            continue
+        key = (term.casefold(), url)
+        if key in result_seen:
+            continue
+        result_seen.add(key)
+        results.append(
+            {
+                "term": term,
+                "url": url,
+                "source": "selenium",
+            },
+        )
+        print(f"[OK] Found '{term}': {url}")
+        if checkpoint_fn is not None:
+            try:
+                checkpoint_fn(results)
+            except Exception as e:
+                print(f"[ERROR] Checkpoint failed -> {e!r}")
+    if current_depth >= depth:
+        return
+    links = driver.find_elements(By.TAG_NAME, "a")
+    for link in links:
+        try:
+            href = (link.get_attribute("href") or "").strip()
+        except Exception:
+            continue
+        if not href.startswith(("http://", "https://")):
+            continue
+        parsed = urlparse(href)
+        target_domain = parsed.netloc.casefold()
+        if target_domain != domain and not target_domain.endswith(f".{domain}"):
+            continue
+        clean_url = parsed._replace(fragment="").geturl()
+        if clean_url in visited or clean_url in queued:
+            continue
+        queued.add(clean_url)
+        queue.append((clean_url, current_depth + 1, domain))
+
+
 # ---------------------------------------------------------------------
 # PRE STEPS
 # ---------------------------------------------------------------------
@@ -170,18 +280,22 @@ def setup_selenium_driver(headless: bool = False, minimized: bool = False):
     """Create a Chrome/Chromium webdriver with practical defaults."""
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.chrome.service import Service
     chrome_options = Options()
+    chrome_options.binary_location = "/usr/bin/chromium"
     chrome_options.add_argument("--window-size=1920,1080")
     chrome_options.add_argument("--start-maximized")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     if headless:
         chrome_options.add_argument("--headless=new")
-    driver = webdriver.Chrome(options=chrome_options)
+    driver = webdriver.Chrome(
+        service=Service("/usr/bin/chromedriver"),
+        options=chrome_options,
+    )
     if minimized and not headless:
         driver.minimize_window()
     return driver
-
 
 # ---------------------------------------------------------------------
 # BATCH RUNNERS
@@ -228,38 +342,10 @@ def download_html_pages(
     try:
         print(f"[INFO] Starting Selenium (headless={headless}, minimized={minimized})")
         driver = setup_selenium_driver(headless=headless, minimized=minimized)
-        if follow_links:
-            all_links: List[str] = []
-            for idx, url in enumerate(search_urls, start=1):
-                print(f"[INFO] [{idx}/{len(search_urls)}] Loading search page: {url}")
-                links = _fetch_page_links(
-                    driver=driver,
-                    url=url,
-                    limit=links_per_search,
-                    link_selector=link_selector,
-                    url_must_contain=url_must_contain,
-                    skip_ids=skip_ids,
-                    filename_from_url_regex=filename_from_url_regex,
-                )
-                print(f"[OK] Found {len(links)} link(s) on search page.")
-                all_links.extend(links)
-                time.sleep(delay_between_actions)
-            unique_links = sorted(set(all_links))
-            print(f"[INFO] Total unique scraped link(s): {len(unique_links)}")
-        else:
-            print("[INFO] follow_links=False -> downloading provided URLs directly.")
-            unique_links = sorted(set(u.strip() for u in search_urls if (u or "").strip()))
-            print(f"[INFO] Total provided URL(s): {len(unique_links)}")
-        filtered_links: List[str] = []
-        skipped_count = 0
-        for link in unique_links:
-            skip_id = extract_skip_id_from_url(link, filename_from_url_regex)
-            if skip_id and skip_id in skip_ids:
-                skipped_count += 1
-                print(f"[INFO] Skipping URL with skip ID '{skip_id}': {link}")
-                continue
-            filtered_links.append(link)
-        unique_links = filtered_links
+        unique_links, skipped_count = _discover_download_links(
+            driver, search_urls, follow_links, link_selector, links_per_search,
+            delay_between_actions, filename_from_url_regex, skip_ids, url_must_contain,
+        )
         results["total_links_found"] = len(unique_links)
         print(f"[INFO] Total link(s) after skip filtering: {len(unique_links)}")
         print(f"[INFO] Total skipped link(s): {skipped_count}")
@@ -346,50 +432,10 @@ def crawl_with_selenium(
             visited.add(url)
             print(f"[INFO] [{len(visited)}/{max_pages}] [Depth {current_depth}/{depth}] Selenium crawling: {url}")
             try:
-                driver.get(url)
-                if delay > 0:
-                    time.sleep(delay)
-                body = driver.find_element(By.TAG_NAME, "body")
-                page_text = (body.text or "").casefold()
-                for term in terms:
-                    if term.casefold() not in page_text:
-                        continue
-                    key = (term.casefold(), url)
-                    if key in result_seen:
-                        continue
-                    result_seen.add(key)
-                    results.append(
-                        {
-                            "term": term,
-                            "url": url,
-                            "source": "selenium",
-                        },
-                    )
-                    print(f"[OK] Found '{term}': {url}")
-                    if checkpoint_fn is not None:
-                        try:
-                            checkpoint_fn(results)
-                        except Exception as e:
-                            print(f"[ERROR] Checkpoint failed -> {e!r}")
-                if current_depth >= depth:
-                    continue
-                links = driver.find_elements(By.TAG_NAME, "a")
-                for link in links:
-                    try:
-                        href = (link.get_attribute("href") or "").strip()
-                    except Exception:
-                        continue
-                    if not href.startswith(("http://", "https://")):
-                        continue
-                    parsed = urlparse(href)
-                    target_domain = parsed.netloc.casefold()
-                    if target_domain != domain and not target_domain.endswith(f".{domain}"):
-                        continue
-                    clean_url = parsed._replace(fragment="").geturl()
-                    if clean_url in visited or clean_url in queued:
-                        continue
-                    queued.add(clean_url)
-                    queue.append((clean_url, current_depth + 1, domain))
+                _process_selenium_page(
+                    driver, url, current_depth, domain, terms, delay, depth,
+                    results, result_seen, visited, queued, queue, checkpoint_fn,
+                )
             except Exception as e:
                 print(f"[WARN] Selenium failed: {url} -> {e!r}")
     except Exception as e:

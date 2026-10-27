@@ -981,34 +981,43 @@ Router model specifications are stored in:
 routers/model_specs/
 ```
 
-Each router uses the same JSON specification schema.
+Each specification uses the shared JSON schema defined in:
 
-Router configuration preparation follows **LOAD → CHECK → PLAN → EXECUTE**. `load_router_model_specs()` loads the JSON through shared `load_json()`; the configured PRE pipeline calls shared `validate_json_schema()` with `ROUTER_SCHEMA_PATH = "schemas/RouterSchema.json"`, then prepares derived XML selectors. The external schema checks the specification structure, supported mechanisms, and parameter combinations before processing; invalid or unsupported specification values and selector preparation errors prevent execution. Planning follows preparation where enabled by the action. Processing consumes the prepared model dictionary without reloading or repeating schema validation. Backup integrity and security checks, including signatures, archive safety, and local output verification where applicable, remain part of processing.
+```text
+schemas/RouterSchema.json
+```
 
-**Every specification contains exactly the same keys and nested structure as the common specification template.**
+Specifications contain two top-level sections:
 
-Unused settings must be represented by JSON `null`.
+- `router_specs` — Router identity and supported processing mechanisms.
+- `config_fields` — Logical field names mapped to actual configuration keys or selectors.
 
-The specifications define:
+The `router_specs` section contains model, hardware, and firmware information, together with:
 
-- Router model, hardware, and firmware.
-- Backup encryption mechanisms.
-- Encryption keys and IVs.
-- Password handling and key derivation.
-- Salt and checksum requirements.
-- RSA signature parameters.
-- Configuration field encryption.
-- Backup headers, trailers, and wrappers.
-- Archive formats and compression.
-- Configuration file formats.
-- Supported editable configuration fields.
-- Configuration field selectors.
+- `codec` — Shared decoding and encoding settings, including encryption, wrappers, checksums, compression, and archive formats.
+- `encode` — Additional encoding settings, only when required.
+- `edit` — Configuration editing settings, only when supported.
 
-All model-specific parameters are stored in the specification JSON rather than hardcoded in processing functions.
+Unused optional settings and sections are omitted rather than represented by JSON `null`.
 
-Firmware-wide encryption and signing parameters are stored directly in the model specification.
+The `config_fields` section contains a list of mappings:
 
-Device-specific credentials, when required, remain separate.
+```json
+{
+  "name": "logical_field_name",
+  "path": "actual_key_or_selector"
+}
+```
+
+New field mappings can be added without modifying Python processing functions or other router model specifications.
+
+Router configuration preparation follows **LOAD → CHECK → PLAN → EXECUTE**.
+
+`load_router_model_specs()` loads the specification, and the PRE pipeline validates it against the external schema before preparing any required XML selectors. Additional implementation-specific parameter checks are performed in Python.
+
+Processing functions are selected through registered handlers using the mechanisms defined in the specification rather than router manufacturer or model names.
+
+Firmware-wide encryption and signing parameters are stored directly in the model specification. Device-specific credentials, when required, remain separate.
 
 For detailed information, see:
 
@@ -1286,20 +1295,25 @@ The loader's normal action confirmation is independent of output replacement.
 To add another router model:
 
 1. Obtain an original configuration backup from the router.
-2. Copy the common router specification template.
-3. Populate the model, hardware, firmware, and processing parameters.
-4. Set unused specification fields to `null`.
-5. Create a router details JSON containing the settings to change.
-6. Add a new configuration group to `RouterConfig.json`.
-7. Configure the required input and output paths.
-8. Configure password or device-key files only when required by the encryption mechanism.
-9. Reuse the existing registered processing functions.
-10. If a required mechanism is unsupported, implement a reusable function in the appropriate specialised utility module and register it in `router_utils.py`.
-11. Test decoding, viewing, editing, encoding, and local verification.
+2. Start with `doc/RouterSpecificationTemplate.json`.
+3. Populate the router identity and required `router_specs.codec` parameters.
+4. Add `router_specs.encode` only if additional encoding parameters are required.
+5. Add `router_specs.edit` only if configuration editing is supported.
+6. Define the required `config_fields` name/path mappings.
+7. Omit unused optional settings and sections.
+8. Create a router details JSON containing the replacement settings, where editing is supported.
+9. Add a new configuration group to `config/RouterConfig.json`.
+10. Configure the required input and output paths.
+11. Configure password or device-key files only when required by the encryption mechanism.
+12. Reuse existing registered processing functions.
+13. If a required mechanism is unsupported, implement a reusable function in the appropriate specialised utility module and register it in `router_utils.py`.
+14. Validate the specification and test decoding, viewing, editing, encoding, and local verification where supported.
 
-Router models using supported encryption, formatting, and configuration-processing mechanisms can be added through JSON specifications and configuration entries without changing the main router workflow.
+Router models using existing processing mechanisms can be added through JSON specifications and configuration entries without changing the main router workflow.
 
-All model specifications must continue using the same common JSON schema.
+All model specifications use the shared JSON schema, but optional sections and parameters depend on the selected router model.
+
+Additional `config_fields` mappings do not require modifications to the schema, template, or other router model specifications.
 
 ### Requirements
 

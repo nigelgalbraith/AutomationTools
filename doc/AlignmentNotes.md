@@ -1,116 +1,173 @@
-# Router schema consolidation
+# Router tools
 
-## LOAD → CHECK → PLAN → EXECUTE
+Each project contains its own independently usable router modules, specifications
+and schema. Application loaders, state machines, router constants and pipelines
+retain their existing interfaces and behaviour.
 
-Both projects' router constants now define these consecutive PRE operations:
+## Specification layout
 
-1. LOAD: load_router_model_specs reads the dictionary once.
-2. CHECK: validate_json_schema receives the dictionary, the constants-defined
-   ROUTER_SCHEMA_PATH string and a model label directly.
-3. PLAN preparation: prepare_xml_selectors parses the schema-checked selectors
-   into the existing _xml_selectors dictionary before plan display or execution.
-4. The existing loader builds/displays the execution plan when configured and
-   runs the selected operation. Actions that already skip plan display still
-   prepare selectors before execution.
+Every specification has exactly `router_specs` and `config_fields` at the top level.
+Within `router_specs`:
 
-TestingTools applies this order to both source and destination/migration models.
-AutomationTools applies it within its existing grouped workflow. PRE exceptions
-stop before planning/execution. No additional states or iteration framework were
-introduced. Each project retains its own identical RouterSchema.json and shared
-json_utils validator implementation, so neither project depends on the other.
+- `model` identifies the router; include `firmware` and `hardware` when known.
+- `codec` holds shared encoding/decoding settings. Unused methods and parameters
+  are omitted, with no null placeholders or empty objects.
+- `encode` is optional and contains only additional encoding settings. HG659 uses
+  `private_exponent_hex` here; its public RSA parameters remain in `codec.signature`.
+- `edit` is optional and holds `configuration_file`, `configuration_format` and,
+  when applicable, `field_encryption`. UltraHub has no established editable format,
+  so its specification has no edit section.
 
-## Declarative rules
+`config_fields` remains an expandable list of logical `name` and actual `path`
+mappings. Configuration paths live only in edit. Existing UltraHub mappings with
+null paths are retained to identify the four settings whose locations remain
+unknown; these are not unused codec parameters. Logical field names must be unique.
+XML paths retain `element|filter=value|attribute` and `child@attribute` syntax.
+Duplicate filters and ambiguous selections are rejected.
 
-The schema already defined required keys, types, supported encryption/derivation,
-backup/configuration formats, key/IV hexadecimal widths and conditional settings.
-Those rules remain. This consolidation adds:
+Shared wrapper settings are flat: `wrapper`, `header_lines`, `preserve_header`,
+`payload_line_length`, `newline`, `checksum`, `checksum_after_payload_lines`,
+`checksum_prefix_bytes`, `trailer_character` and `trailer_repeat`, where relevant.
+The line-wrapper format fixes checksum scope to encoded bytes including newlines,
+uses lowercase hexadecimal checksums and Base64 random prefixes. Decode validates
+these same settings, so they belong in codec rather than being duplicated in encode.
+Keys/IVs stay together in `encryption_settings`; public RSA parameters stay together
+in `signature`. Those small cryptographic objects are included only when used.
 
-- Configuration paths: reject absolute paths, .. path components, empty/whitespace
-  paths and embedded newline/null characters.
-- XML selector grammar: element|filter=value[|...]|attribute, optionally with a
-  child@attribute target; require valid names and populated filter values.
-- RSA modulus: hexadecimal representation, existing 128–2048 character bounds,
-  at least 512 significant bits and oddness, including leading-zero forms.
-  Although general arithmetic is unavailable in standard JSON Schema, these
-  specific properties are expressible as hexadecimal patterns: significant
-  length/first digit determines bit length, and the last digit determines parity.
-- Private exponent: retain null for decode-only specifications; otherwise require
-  nonempty hexadecimal text and reject numeric zero/one including leading zeros.
-  No arbitrary minimum RSA private-exponent bit length was imposed: the existing
-  supported rule is a number greater than one and smaller than the modulus.
+Archive names are `tar.gz` and `signed-zlib`. Defaults preserve the existing order:
+decode wrapper → transport encoding → encryption → archive validation/unpacking;
+encode prepared archive/XML → encryption → transport encoding → wrapper. Optional
+`decode_order` and `encode_order` lists in codec support existing independent order
+selection. Shipped profiles omit these lists because they use the defaults. Every
+active operation must appear in a supplied order. TAR rebuilding occurs in the
+existing file operation against the original archive before byte encoding.
 
-All three existing model specifications in each project continue to pass.
+All six shipped profiles preserve their original algorithm parameters, keys, IVs,
+public/private RSA values, identities, field mappings and format details. HG659's
+private exponent occurs only once. The old mirrored decode/encode sections,
+unused null settings and nested wrapper/checksum/trailer placeholders are removed.
 
-## Checks outside JSON Schema
+## Schema and validation
 
-These remain targeted checks at their point of use, rather than another general
-router configuration validator:
+`load_router_model_specs(specs_path, schema_path)` uses the caller's Draft 2020-12
+schema with jsonschema, then checks method availability and required settings.
+The schema checks structure, types, supported method names, nonempty sections,
+keys/IVs, safe configuration paths and RSA parameter syntax. It has no model-specific
+conditional chains. `validate_router_settings` performs the method-specific required
+parameter, compatible-format, ordering and mapping checks previously expressed in
+those chains. It is one ordinary validation function, not another validation system.
+Public-key-only HG659 profiles omit encode and can still decode/view; signing fails
+explicitly if the private exponent is unavailable.
 
-- sign_rsa_md5_configuration: require the private exponent for signing and check
-  1 < exponent < modulus before exponentiation. A public-key-only spec can decode.
-- sign_rsa_md5_configuration and verify_rsa_md5_signature: compare configured
-  signature size with the actual modulus size before constructing/recovering the
-  signature block. JSON Schema cannot compare these computed values.
-- parse_key_value_fields: reject duplicate mapping values across separately
-  named labels before using fields. JSON Schema uniqueItems does not apply to
-  values of separate object properties.
-- parse_xml_field_selector during PLAN preparation: reject duplicate filter names
-  before constructing the filter dictionary, avoiding silently overwritten filters.
-- safe_relative and existing filesystem/archive checks: retain normalized path,
-  traversal, symlink and archive-member safety at filesystem operations. Editing
-  now uses safe_relative for its configured file path as well.
+## Function selection
 
-Runtime checks on credentials, ciphertext alignment, salted headers, Base64,
-checksums, RSA integrity, compression, XML contents, archive safety, allowed edits
-and filesystem operations remain. Encryption algorithms and backup formats did
-not change. No actual backups were modified.
+`ROUTER_FUNCTIONS` is the one method dictionary in each router_utils module. All
+entries directly reference imported portable functions. It covers transport,
+legacy/fixed/device-key ciphers, wrapper split/build operations, archives, checksums,
+RSA signatures and configuration/field editing. Direction is passed explicitly to
+ciphers. There are no lambda wrappers, partials in the registry, parameter metadata,
+dynamic function-name lookup or secondary registries. The old generic
+`method_parameters` helper is removed; each call passes its actual required
+arguments. False, zero and empty strings retain their meanings.
 
-## Removed duplication and reporting
+The small field handler still binds key/IV arguments for the existing protected-field
+reader/editor interface. Composed wrapper and signed-configuration operations stay
+in router_utils because they coordinate format checks with cryptography. They are
+not forwarding wrappers: checksum verification precedes payload decoding, RSA
+verification precedes XML interpretation, and encoders verify the generated bytes.
+Their existing names/signatures remain available from router_utils.
 
-Removed validate_model_specs from both projects, its constants imports and its
-pipeline calls. No replacement general-purpose validator exists. Removed its
-schema-success reporting and the shared validator's report_success deferral flag.
-The shared validate_json_schema now owns all schema [OK]/[FAILED] messages and
-returns its original input unchanged. XML parsing no longer repeats the syntax
-rules that CHECK enforces. Preparation only derives selectors and checks filter
-ambiguity; it does not emit schema-validation messages. A preparation or crypto
-failure reports its actual error, separately from a successful schema check.
+## Portable responsibilities and public operations
 
-Email search pipeline definitions and processing were not changed by this task.
-Its use of the shared validator retains the same messages and behavior.
+- router_encryption_utils contains the unchanged encryption, hashing, checksum,
+  signature and credential-byte implementations.
+- router_config_utils parses and edits configuration fields while preserving
+  surrounding text. It validates XML selector grammar directly.
+- router_format_utils handles flat wrapper metadata, bounded signed compression,
+  padding, binary boundaries, archives and transactional directory installation.
 
-## Files changed for this consolidation
+None of these portable modules imports either sibling. router_utils coordinates
+work between them. All Python headings use the application's three-line uppercase
+IMPORTS, CONSTANTS, HELPERS and WORKFLOW convention.
 
-In both projects:
+TestingTools retains interactive editing, password prompts, before/after viewing,
+save/extract, same-model Run All, migration conversion in both directions and
+migration encoding. Its byte encoder is encode_router_config; its file encoder is
+encode_router_config_files. AutomationTools retains noninteractive details-file
+editing, separate source/target credentials, decoded/edited/specification/details
+views, validation and Run All. Its existing file encoder remains encode_router_config;
+its byte encoder remains encode_router_config_bytes. No loader or pipeline changed.
 
-- schemas/RouterSchema.json
-- constants/RouterConstants.py
-- modules/json_utils.py
-- modules/router_utils.py
-- modules/router_config_utils.py
-- modules/router_encryption_utils.py
-- tests/test_router_load_validation.py
-- tests/test_pipeline_validation.py
+File/directory staging, source-preservation checks, uneditable-data checks, rollback,
+symlink/traversal rejection and generated-backup verification are retained. These
+checks account for much of the remaining application code; they are not replaced
+with generic orchestration or a new filesystem abstraction.
 
-Additionally:
+## Adding a router
 
-- TestingTools/tests/test_validation_cleanup.py
-- AutomationTools/doc/AlignmentNotes.md
+Copy doc/RouterSpecificationTemplate.json, which is a complete Spark-format example
+using the existing format parameters. Set the actual identity and supported codec
+settings. Include only real edit mappings and any necessary signing addition. Supply
+both paths to load_router_model_specs, add the normal application RouterConfig
+entry/input files and run a regression backup test. A model using supported formats
+requires JSON only; new algorithms require their actual portable implementation
+and schema/registry support. Do not guess missing keys, IVs or router settings.
 
-## Verification and limitations
+## Verification and limits
 
-- TestingTools: python3 -m unittest discover -s tests -q — 41 passed.
-- AutomationTools: python3 -m unittest discover -s tests -q — 44 passed.
-- Compilation and each project's router CLI help passed.
+Run `python3 -m unittest discover -s tests -v` independently in each project.
+TestingTools has 21 router tests; AutomationTools has 20. Existing coverage for
+schema rejection, callable availability, credentials, independent order selection,
+Spark checksums/OpenSSL, HG659 RSA/zlib/AES, encrypted fields, editing, viewing,
+conversion, extraction/saving, TAR metadata, traversal and rollback remains.
+AutomationTools executes its existing Run All pipeline for both working formats.
+New coverage checks compact/nonempty settings, explicit false/zero/empty values,
+method-specific validation and adding a model with a JSON specification alone.
 
-Tests cover declarative encryption/key/IV/format rules, unsafe paths, selector
-syntax, RSA significant length/parity and private-exponent text; direct pipeline
-LOAD/CHECK/preparation ordering; one validation per operation; removed general
-validator; selector preparation only once; RSA range/size failures at crypto use;
-duplicate mappings/filters; real fixed-key and legacy round trips; corrupt and
-malicious backup rejection; email behavior and AutomationTools grouped workflows.
+The pre-change wrapper and signed-compression digest regressions remain unchanged.
+Separate old/new implementation checks cross-decoded synthetic Spark and HG659
+backups in both directions in both projects; HG659 backups were byte-identical.
+Spark encryption includes random salt/prefix bytes, so comparison uses decoded
+bytes and the existing fixed-prefix wrapper regression. No real backup fixtures
+were supplied. Full interactive application sessions and hardware restores were
+not run; these local checks do not establish acceptance by physical routers.
+UltraHub THENC device-key derivation, authentication and signing were already
+unimplemented and still fail explicitly.
 
-No Git operations, hardware access, package installation or live crawler/browser
-services were used. THENC device-key handling/signing remains unavailable as
-before. Direct low-level processing callers must supply schema-checked settings;
-there is no new provenance wrapper or generic validation layer.
+## Change inventory and size
+
+Changed in both projects: modules/router_utils.py, modules/router_config_utils.py,
+modules/router_format_utils.py, schemas/RouterSchema.json, all three existing
+routers/model_specs/*-spec.json profiles, doc/RouterSpecificationTemplate.json,
+routers/model_specs/ModelSpecsReadMe.md, doc/RouterDoc.json and
+tests/test_router_utils.py. TestingTools updates this report in doc/RouterRefactor.md;
+AutomationTools updates doc/AlignmentNotes.md and its existing
+routers/details/RouterDetailsReadMe.md. Encryption utilities, router constants,
+application loaders and pipelines were not changed.
+
+Physical lines, including comments/docstrings:
+
+| Module | TestingTools before → after | AutomationTools before → after |
+|---|---:|---:|
+| router_utils.py | 833 → 875 | 694 → 736 |
+| router_encryption_utils.py | 171 → 171 | 171 → 171 |
+| router_config_utils.py | 237 → 238 | 237 → 238 |
+| router_format_utils.py | 319 → 317 | 319 → 317 |
+
+Each schema changes from 1,552 to 321 lines; the three shipped model profiles
+change from 448 combined lines to 144. The Python coordinator grows because
+method-specific checks move out of model-specific schema chains into one explicit
+validation helper, and cipher/wrapper calls now pass their actual arguments. The
+registry and operation loops themselves are smaller and easier to inspect.
+
+Removed per project: five registry lambda wrappers, six registry cipher partials,
+all accepted/required parameter metadata, payload-selection metadata and the generic
+method_parameters helper. Required-setting checks remain as ordinary code.
+Existing composed checksum/signature helpers and the public text-edit entry point
+remain because they perform meaningful verification or preserve public interfaces.
+No recursive merging, new dispatcher, additional module or callback system is added.
+
+All shipped specifications have been migrated. External custom specification files
+using the former decode/encode structure must adopt codec as well; the loader does
+not silently translate old profiles or install derived settings. Python application
+entry-point signatures are unchanged.

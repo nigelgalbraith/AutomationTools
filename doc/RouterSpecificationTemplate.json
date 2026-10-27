@@ -1,67 +1,61 @@
 {
-    "model": null,
+  "router_specs": {
+    "model": "ExampleModel",
     "firmware": null,
     "hardware": null,
-    "encryption": null,
-    "encoding": null,
-    "salted": null,
-    "password_base": null,
-    "password_hash": null,
-    "key_derivation": null,
-    "config_fields": {
-        "file": null,
-        "wifi_2g_ssid": null,
-        "wifi_2g_password": null,
-        "wifi_5g_ssid": null,
-        "wifi_5g_password": null
+    "codec": {
+      "encoding": "base64",
+      "encryption": "aes-256-cbc",
+      "key_derivation": "openssl-legacy",
+      "password_base": "pIVWb7ovezIB0/5n5s4oLg==",
+      "password_hash": "md5",
+      "key_derivation_digest": "md5",
+      "salted": true,
+      "password_required": true,
+      "encryption_settings": null,
+      "wrapper": "line-wrapper",
+      "archive": "tar.gz",
+      "header_lines": 1,
+      "preserve_header": true,
+      "payload_line_length": 64,
+      "newline": "\n",
+      "checksum": "md5",
+      "checksum_after_payload_lines": 8,
+      "checksum_prefix_bytes": 24,
+      "trailer_character": "=",
+      "trailer_repeat": 64,
+      "iv_length": null,
+      "signature_length": null,
+      "preamble": null,
+      "backup_version": null,
+      "header_terminator": null,
+      "signature": null,
+      "decode_order": null,
+      "encode_order": null
     },
-    "password_required": null,
-    "key_derivation_digest": null,
-    "backup_format": {
-        "type": null,
-        "header_lines": null,
-        "preserve_header": null,
-        "payload_line_length": null,
-        "newline": null,
-        "checksum": {
-            "algorithm": null,
-            "scope": null,
-            "encoding": null,
-            "after_payload_lines": null,
-            "prefix": {
-                "encoding": null,
-                "random_bytes": null
-            }
-        },
-        "trailer": {
-            "character": null,
-            "repeat": null
-        },
-        "iv_length": null,
-        "signature_length": null,
-        "preamble": null,
-        "backup_version": null,
-        "header_terminator": null
-    },
-    "archive": {
-        "format": null,
-        "compression": null
-    },
-    "configuration_format": null,
-    "encryption_settings": {
-        "key_hex": null,
-        "iv_hex": null
-    },
-    "signature": {
-        "algorithm": null,
-        "modulus_hex": null,
-        "exponent": null,
-        "private_exponent_hex": null
-    },
-    "field_encryption": {
-        "algorithm": null,
-        "key_hex": null,
-        "iv_hex": null,
-        "fields": null
+    "encode": null,
+    "edit": {
+      "configuration_file": "config/.glbcfg",
+      "configuration_format": "key-value",
+      "field_encryption": null
     }
+  },
+  "config_fields": [
+    {
+      "name": "wifi_2g_ssid",
+      "path": "ARC_WLAN_24G_SSID_0_ESSID"
+    },
+    {
+      "name": "wifi_2g_password",
+      "path": "ARC_WLAN_24G_SSID_0_WPA_Passphrase"
+    },
+    {
+      "name": "wifi_5g_ssid",
+      "path": "ARC_WLAN_5G_SSID_0_ESSID"
+    },
+    {
+      "name": "wifi_5g_password",
+      "path": "ARC_WLAN_5G_SSID_0_WPA_Passphrase"
+    }
+  ]
 }
