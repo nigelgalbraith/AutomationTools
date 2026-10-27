@@ -453,19 +453,6 @@ def _save_encoded_backup(
 
 
 # ---------------------------------------------------------------------
-# ROUTER SPECIFICATIONS
-# ---------------------------------------------------------------------
-
-
-def load_router_model_specs(specs_path: str, schema_path: str) -> dict:
-    """Validate a common specification and the settings required by its selected methods."""
-    specs = load_json(Path(specs_path).expanduser())
-    jsonschema.validate(specs, load_json(Path(schema_path).expanduser()))
-    validate_router_settings(specs)
-    return specs
-
-
-# ---------------------------------------------------------------------
 # ROUTER CREDENTIALS
 # ---------------------------------------------------------------------
 

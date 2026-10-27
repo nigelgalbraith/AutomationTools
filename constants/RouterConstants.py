@@ -4,8 +4,8 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from modules.display_utils import display_config_doc
+from modules.json_utils import load_json, validate_json_schema
 from modules.router_utils import (
-    load_router_model_specs,
     validate_router_configuration,
     view_readme,
     view_router_details,
@@ -15,6 +15,7 @@ from modules.router_utils import (
     view_router_config_fields,
     edit_router_config_fields,
     encode_router_config,
+    validate_router_settings,
 )
 
 
@@ -213,11 +214,29 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
 LOAD_MODEL_SPECS_PRE = [
     {
         "phase": "pre",
-        "fn": load_router_model_specs,
-        "args": [MODEL_SPECS_PATH, ROUTER_SCHEMA_PATH],
+        "fn": load_json,
+        "args": [MODEL_SPECS_PATH],
         "result": "model_specs",
     },
-
+    {
+        "phase": "pre",
+        "fn": validate_json_schema,
+        "args": [
+            lambda job, meta, ctx: ctx["model_specs"],
+            ROUTER_SCHEMA_PATH,
+            "Router model specifications",
+        ],
+        "result": "model_specs",
+        "when": lambda job, meta, ctx: isinstance(ctx.get("model_specs"), dict),
+    },
+    {
+        "phase": "pre",
+        "fn": validate_router_settings,
+        "args": [
+            lambda job, meta, ctx: ctx["model_specs"],
+        ],
+        "when": lambda job, meta, ctx: isinstance(ctx.get("model_specs"), dict),
+    },
 ]
 
 
