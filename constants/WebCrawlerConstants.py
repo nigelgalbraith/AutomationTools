@@ -414,7 +414,6 @@ SHOW_CONFIG_DOC_EXEC = [
 ]
 
 
-# Workflow-specific steps retain their prerequisite conditions.
 DISPLAY_SEARCH_RESULTS_EXEC = [
     {
         'phase': 'exec',
