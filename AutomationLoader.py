@@ -26,7 +26,7 @@ from modules.state_machine_utils import (
     load_constants_from_module,
     parse_args_early,
     resolve_arg,
-    check_when,
+    run_pipeline_steps,
 )
 
 
@@ -86,78 +86,6 @@ class State(Enum):
 
 # ---------------------------------------------------------------------
 # PIPELINE EXECUTION
-# ---------------------------------------------------------------------
-
-def run_pipeline_steps(
-    job: Optional[str],
-    meta: Dict[str, Any],
-    pipeline: List[Dict[str, Any]],
-    *,
-    phase: str,
-    label: str,
-    success_key: str,
-    ctx: Dict[str, Any],
-) -> bool:
-    """Run pipeline steps for a given phase, storing outputs in ctx."""
-    ctx.setdefault("errors", [])
-    phase = (phase or "").strip().lower()
-    for step in pipeline:
-        fn = step.get("fn")
-        step_name = getattr(fn, "__name__", "pipeline step")
-        try:
-            if not callable(fn):
-                raise TypeError("Pipeline step missing callable 'fn'.")
-            step_phase = (step.get("phase") or "exec").strip().lower()
-            if step_phase != phase:
-                continue
-            if not check_when(step.get("when"), job, meta, ctx):
-                continue
-            args = [resolve_arg(a, job, meta, ctx) for a in step.get("args", [])]
-            result = fn(*args)
-        except FileNotFoundError as e:
-            message = f"File not found: {e.filename}" if e.filename else str(e)
-            ctx["errors"].append({"step": step_name, "error": message})
-            print(f"[ERROR] {step_name} failed → {message}")
-            if phase == "pre":
-                break
-            continue
-        except Exception as e:
-            ctx["errors"].append({"step": step_name, "error": str(e)})
-            if not getattr(e, "reported", False):
-                print(f"[ERROR] {step_name} failed → {e}")
-            if phase == "pre":
-                break
-            continue
-        rkey = step.get("result")
-        if rkey is not None:
-            # Automation callbacks also use a void return to signal completion.
-            ctx[rkey] = result if result is not None else True
-    errors = ctx.get("errors") or []
-    default_success = (len(errors) == 0)
-    override_success = None
-    if success_key:
-        if success_key in ctx:
-            override_success = bool(ctx.get(success_key))
-    success = default_success and (override_success if override_success is not None else True)
-    extract_total = 0
-    extract_failures = 0
-    extract_results = ctx.get("extract_results")
-    if isinstance(extract_results, list):
-        extract_total = len(extract_results)
-        extract_failures = sum(1 for r in extract_results if isinstance(r, dict) and r.get("__ok") == "0")
-    status = "Success" if success else "Failed"
-    if extract_total > 0 and success and extract_failures > 0:
-        status = f"Partial ({extract_failures}/{extract_total} extract failures)"
-    if phase == "pre":
-        print(f"{label} (pre): {status}")
-        return success
-    print(f"{label}: {status}")
-    print()
-    return success
-
-
-# ---------------------------------------------------------------------
-# STATE MACHINE
 # ---------------------------------------------------------------------
 
 class StateMachine:
@@ -463,7 +391,7 @@ class StateMachine:
             return
         pipeline = pipe_spec.get("pipeline")
         if not isinstance(pipeline, list):
-            self.finalize_msg = f"Pipeline for '{exec_key}' must be a list of steps (Option B)."
+            self.finalize_msg = f"Pipeline for '{exec_key}' must be a list of steps."
             self.state = State.FINALIZE
             return
         self._pending_pipeline_spec = pipe_spec
@@ -511,8 +439,7 @@ class StateMachine:
         spec = self._pending_pipeline_spec or {}
         pipeline = spec.get("pipeline") or []
         label = spec.get("label", "DONE")
-        success_key = spec.get("success_key", "ok")
-        pre_steps = [s for s in pipeline if (s.get("phase") or "exec").strip().lower() == "pre"]
+        pre_steps = [s for s in pipeline if s["phase"] == "pre"]
         action_spec = self.actions.get(self.current_action_key or "", {})
         if not pre_steps:
             if self.plan_only:
@@ -535,7 +462,6 @@ class StateMachine:
                 pre_steps,
                 phase="pre",
                 label=label,
-                success_key=success_key,
                 ctx=group_ctx,
             )
             all_ok = all_ok and success
@@ -571,7 +497,7 @@ class StateMachine:
                     row[k] = group_cfg[k]
             group_ctx = (self.runtime_ctx.get("groups") or {}).get(group_name, {})
             for rk, rv in (group_ctx or {}).items():
-                if rk in row:
+                if rk == "steps" or rk in row:
                     continue
                 row[rk] = rv
                 if rk not in columns:
@@ -609,7 +535,6 @@ class StateMachine:
         spec = self._pending_pipeline_spec or {}
         pipeline = spec.get("pipeline") or []
         label = spec.get("label", "DONE")
-        success_key = spec.get("success_key", "ok")
         action_spec = self.actions.get(self.current_action_key or "", {})
         post_state_name = action_spec.get("post_state") or "CONFIG_LOADING"
         group_names = self.selected_groups or list(self.cfg_groups.keys())
@@ -623,7 +548,6 @@ class StateMachine:
                 pipeline,
                 phase="exec",
                 label=label,
-                success_key=success_key,
                 ctx=group_ctx,
             )
         self._pending_pipeline_spec = None

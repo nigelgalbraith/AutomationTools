@@ -1,6 +1,8 @@
 # constants/WebCrawlerConstants.py
 from __future__ import annotations
 
+from modules.state_machine_utils import result_available
+
 from typing import Dict, Any
 
 from modules.system_utils import expand_path
@@ -262,7 +264,7 @@ CRAWL_PHOTON_EXEC = [
             ),
         ],
         "result": "photon_crawl",
-        "when": lambda job, meta, ctx: meta[CRAWL_KEYS_SECTION][PHOTON_ENABLED_KEY] and bool(ctx.get("search_results", [])),
+        "when": lambda job, meta, ctx: result_available(ctx, 'search_results') and (meta[CRAWL_KEYS_SECTION][PHOTON_ENABLED_KEY] and bool(ctx.get('search_results', []))),
     },
 ]
 
@@ -288,11 +290,7 @@ CRAWL_SELENIUM_FALLBACK_EXEC = [
             ),
         ],
         "result": "selenium_results",
-        "when": lambda job, meta, ctx: (
-            meta[CRAWL_KEYS_SECTION][SELENIUM_ENABLED_KEY]
-            and bool(ctx.get("search_results", []))
-            and (not meta[CRAWL_KEYS_SECTION][PHOTON_ENABLED_KEY] or bool(ctx.get("photon_crawl", {}).get("fallback_urls", [])))
-        ),
+        "when": lambda job, meta, ctx: result_available(ctx, 'search_results', 'photon_crawl') and (meta[CRAWL_KEYS_SECTION][SELENIUM_ENABLED_KEY] and bool(ctx.get('search_results', [])) and (not meta[CRAWL_KEYS_SECTION][PHOTON_ENABLED_KEY] or bool(ctx.get('photon_crawl', {}).get('fallback_urls', [])))),
     },
 ]
 
@@ -318,7 +316,7 @@ CRAWL_SELENIUM_ALL_EXEC = [
             ),
         ],
         "result": "selenium_results",
-        "when": lambda job, meta, ctx: meta[CRAWL_KEYS_SECTION][SELENIUM_ENABLED_KEY] and bool(ctx.get("search_results", [])),
+        "when": lambda job, meta, ctx: result_available(ctx, 'search_results') and (meta[CRAWL_KEYS_SECTION][SELENIUM_ENABLED_KEY] and bool(ctx.get('search_results', []))),
     },
 ]
 
@@ -340,6 +338,7 @@ OUTPUT_RESULTS_EXEC = [
             lambda job, meta, ctx: ctx.get("final_results", []),
         ],
         "result": "printed_results",
+        "when": lambda job, meta, ctx: result_available(ctx, 'final_results'),
     },
     {
         "phase": "exec",
@@ -349,6 +348,7 @@ OUTPUT_RESULTS_EXEC = [
             lambda job, meta, ctx: ctx.get("final_results", []),
         ],
         "result": "result_data",
+        "when": lambda job, meta, ctx: result_available(ctx, 'final_results'),
     },
     {
         "phase": "exec",
@@ -359,15 +359,7 @@ OUTPUT_RESULTS_EXEC = [
             lambda job, meta, ctx: job,
         ],
         "result": "saved_result",
-        "when": lambda job, meta, ctx: bool(ctx.get("final_results", [])),
-    },
-    {
-        "phase": "exec",
-        "fn": bool,
-        "args": [
-            lambda job, meta, ctx: bool(ctx.get("final_results")) and isinstance(ctx.get("saved_result"), str) and not ctx.get("errors"),
-        ],
-        "result": "crawl_success",
+        "when": lambda job, meta, ctx: result_available(ctx, 'final_results') and (result_available(ctx, 'result_data') and bool(ctx.get('final_results', []))),
     },
 ]
 
@@ -383,7 +375,7 @@ OPEN_RESULTS_EXEC = [
             lambda job, meta, ctx: VIEWER_PORT,
         ],
         "result": "viewer_opened",
-        "when": lambda job, meta, ctx: isinstance(ctx.get("saved_result"), str) and bool(ctx.get("saved_result")),
+        "when": lambda job, meta, ctx: result_available(ctx, 'saved_result') and (isinstance(ctx.get('saved_result'), str) and bool(ctx.get('saved_result'))),
     },
 ]
 
@@ -407,7 +399,7 @@ VIEW_RESULTS_EXEC = [
             lambda job, meta, ctx: VIEWER_PORT,
         ],
         "result": "viewer_opened",
-        "when": lambda job, meta, ctx: isinstance(ctx.get("selected_result"), str) and bool(ctx.get("selected_result")),
+        "when": lambda job, meta, ctx: result_available(ctx, 'selected_result') and (isinstance(ctx.get('selected_result'), str) and bool(ctx.get('selected_result'))),
     },
 ]
 
@@ -417,7 +409,19 @@ SHOW_CONFIG_DOC_EXEC = [
         "phase": "exec",
         "fn": display_config_doc,
         "args": [CONFIG_DOC],
-        "result": "ok",
+        "result": 'display_config_doc_result',
+    },
+]
+
+
+# Workflow-specific steps retain their prerequisite conditions.
+DISPLAY_SEARCH_RESULTS_EXEC = [
+    {
+        'phase': 'exec',
+        'fn': print_search_results,
+        'args': [lambda job, meta, ctx: ctx.get('search_results', [])],
+        'result': 'search_displayed',
+        'when': lambda job, meta, ctx: result_available(ctx, 'search_results'),
     },
 ]
 
@@ -430,17 +434,9 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
     "SEARCH_WEB": {
         "pipeline": [
             *SEARCH_WEB_EXEC,
-            {
-                "phase": "exec",
-                "fn": print_search_results,
-                "args": [
-                    lambda job, meta, ctx: ctx.get("search_results", []),
-                ],
-                "result": "search_displayed",
-            },
+            *DISPLAY_SEARCH_RESULTS_EXEC,
         ],
         "label": "SEARCH_WEB_COMPLETE",
-        "success_key": "search_displayed",
     },
     "CRAWL_PHOTON": {
         "pipeline": [
@@ -450,7 +446,6 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
             *OPEN_RESULTS_EXEC,
         ],
         "label": "CRAWL_PHOTON_COMPLETE",
-        "success_key": "crawl_success",
     },
     "CRAWL_SELENIUM": {
         "pipeline": [
@@ -460,7 +455,6 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
             *OPEN_RESULTS_EXEC,
         ],
         "label": "CRAWL_SELENIUM_COMPLETE",
-        "success_key": "crawl_success",
     },
     "RUN_ALL": {
         "pipeline": [
@@ -471,20 +465,17 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
             *OPEN_RESULTS_EXEC,
         ],
         "label": "ALL_STEPS_COMPLETE",
-        "success_key": "crawl_success",
     },
     "VIEW_RESULTS": {
         "pipeline": [
             *VIEW_RESULTS_EXEC,
         ],
         "label": "VIEW_RESULTS_COMPLETE",
-        "success_key": "viewer_opened",
     },
     "SHOW_CONFIG_DOC": {
         "pipeline": [
             *SHOW_CONFIG_DOC_EXEC,
         ],
         "label": "DONE",
-        "success_key": "ok",
     },
 }

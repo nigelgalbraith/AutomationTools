@@ -1,3 +1,4 @@
+
 services:
   ollama:
     image: ollama/ollama
@@ -17,6 +18,8 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
     volumes:
       - ../scripts/pull_ollama_models.sh:/pull_ollama_models.sh:ro
     entrypoint: ["/bin/bash", "/pull_ollama_models.sh"]

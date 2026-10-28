@@ -1,6 +1,8 @@
 # constants/TextCreatorConstants.py
 from __future__ import annotations
 
+from modules.state_machine_utils import result_available
+
 from typing import Dict, Any
 
 from modules.display_utils import (
@@ -289,7 +291,7 @@ EXTRACT_FIELDS_HTML_EXEC = [
             lambda job, meta, ctx: SHOW_SOURCE_ON_EXTRACTION,
         ],
         "result": "items",
-        "when": lambda job, meta, ctx: bool(ctx.get("sources")),
+        "when": lambda job, meta, ctx: result_available(ctx, 'sources') and (bool(ctx.get('sources'))),
     },
     {
         "phase": "exec",
@@ -300,7 +302,7 @@ EXTRACT_FIELDS_HTML_EXEC = [
             lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION].get(BASENAME_KEYS_KEY, []),
         ],
         "result": "saved_items_ok",
-        "when": lambda job, meta, ctx: bool(ctx.get("items")),
+        "when": lambda job, meta, ctx: result_available(ctx, 'items') and (bool(ctx.get('items'))),
     },
 ]
 
@@ -325,7 +327,7 @@ UPDATE_PROMPTS_EXEC = [
             lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION].get(BASENAME_KEYS_KEY, []),
         ],
         "result": "saved_prompts_count",
-        "when": lambda job, meta, ctx: bool(ctx.get("items")),
+        "when": lambda job, meta, ctx: result_available(ctx, 'items') and (bool(ctx.get('items'))),
     },
 ]
 
@@ -354,6 +356,12 @@ GENERATE_TEXT_EXEC = [
             lambda job, meta, ctx: float(TEMPERATURE),
         ],
         "result": "text_summary",
+        "when": lambda job, meta, ctx: (
+            (not any(s.get("result_key") == 'started_ollama_ok' for s in ctx.get("steps", []))
+                or (result_available(ctx, 'started_ollama_ok') and ctx['started_ollama_ok'] is True))
+            and (not any(s.get("result_key") == 'saved_prompts_count' for s in ctx.get("steps", []))
+                or (result_available(ctx, 'saved_prompts_count') and bool(ctx['saved_prompts_count'])))
+        ),
     },
 ]
 
@@ -375,7 +383,7 @@ SHOW_CONFIG_DOC_EXEC = [
         "phase": "exec",
         "fn": display_config_doc,
         "args": [CONFIG_DOC],
-        "result": "ok",
+        "result": 'display_config_doc_result',
     },
 ]
 
@@ -390,42 +398,36 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
             *DOWNLOAD_HTML_EXEC,
         ],
         "label": "DOWNLOAD_HTML_PAGES_COMPLETE",
-        "success_key": "download_results",
     },
     "EXTRACT_FIELDS_HTML": {
         "pipeline": [
             *EXTRACT_FIELDS_HTML_EXEC,
         ],
         "label": "EXTRACT_FIELDS_HTML_COMPLETE",
-        "success_key": "saved_items_ok",
     },
     "UPDATE_PROMPTS": {
         "pipeline": [
             *UPDATE_PROMPTS_EXEC,
         ],
         "label": "UPDATE_PROMPTS_COMPLETE",
-        "success_key": "saved_prompts_count",
     },
     "START_OLLAMA": {
         "pipeline": [
             *START_OLLAMA_EXEC,
         ],
         "label": "START_OLLAMA_COMPLETE",
-        "success_key": "started_ollama_ok",
     },
     "GENERATE_TEXT": {
         "pipeline": [
             *GENERATE_TEXT_EXEC,
         ],
         "label": "GENERATE_TEXT_COMPLETE",
-        "success_key": "text_summary",
     },
     "STOP_OLLAMA": {
         "pipeline": [
             *STOP_OLLAMA_EXEC,
         ],
         "label": "STOP_OLLAMA_COMPLETE",
-        "success_key": "stopped_ollama_ok",
     },
     "RUN_ALL": {
         "pipeline": [
@@ -437,13 +439,11 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
             *STOP_OLLAMA_EXEC,
         ],
         "label": "ALL_STEPS_COMPLETE",
-        "success_key": "stopped_ollama_ok",
     },
     "SHOW_CONFIG_DOC": {
         "pipeline": [
             *SHOW_CONFIG_DOC_EXEC,
         ],
         "label": "DONE",
-        "success_key": "ok",
     },
 }

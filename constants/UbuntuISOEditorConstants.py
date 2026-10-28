@@ -2,6 +2,8 @@
 # constants/UbuntuISOEditorConstants.py
 from __future__ import annotations
 
+from modules.state_machine_utils import result_available
+
 from typing import Dict, Any
 
 from modules.display_utils import display_config_doc
@@ -186,8 +188,7 @@ VALIDATE_ISO_EXEC = [
                 meta[ISO_KEYS_SECTION][SOURCE_ISO_KEY],
         ],
         "result": "iso_valid",
-        "when": lambda job, meta, ctx:
-            bool(ctx.get("paths_valid")) and not ctx.get("errors"),
+        "when": lambda job, meta, ctx: result_available(ctx, 'paths_valid') and (bool(ctx.get('paths_valid'))),
     },
 ]
 
@@ -209,6 +210,14 @@ CREATE_ISO_EXEC = [
                 meta[ISO_KEYS_SECTION][OUTPUT_ISO_KEY],
         ],
         "result": "iso_created",
+        "when": lambda job, meta, ctx: (
+            (not any(s.get("result_key") == 'yaml_valid' for s in ctx.get("steps", []))
+                or (result_available(ctx, 'yaml_valid') and ctx['yaml_valid'] is True))
+            and (not any(s.get("result_key") == 'paths_valid' for s in ctx.get("steps", []))
+                or (result_available(ctx, 'paths_valid') and ctx['paths_valid'] is True))
+            and (not any(s.get("result_key") == 'iso_valid' for s in ctx.get("steps", []))
+                or (result_available(ctx, 'iso_valid') and ctx['iso_valid'] is True))
+        ),
     },
 ]
 
@@ -222,7 +231,7 @@ SHOW_CONFIG_DOC_EXEC = [
         "phase": "exec",
         "fn": display_config_doc,
         "args": [CONFIG_DOC],
-        "result": "ok",
+        "result": 'display_config_doc_result',
     },
 ]
 
@@ -237,7 +246,6 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
             *VALIDATE_YAML_EXEC,
         ],
         "label": "VALIDATE_YAML_COMPLETE",
-        "success_key": "yaml_valid",
     },
 
     "VALIDATE_ISO": {
@@ -245,7 +253,6 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
             *VALIDATE_ISO_EXEC,
         ],
         "label": "VALIDATE_ISO_COMPLETE",
-        "success_key": "iso_valid",
     },
 
     "CREATE_UBUNTU_ISO": {
@@ -253,7 +260,6 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
             *CREATE_ISO_EXEC,
         ],
         "label": "CREATE_UBUNTU_ISO_COMPLETE",
-        "success_key": "iso_created",
     },
 
     "RUN_ALL": {
@@ -263,7 +269,6 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
             *CREATE_ISO_EXEC,
         ],
         "label": "ALL_STEPS_COMPLETE",
-        "success_key": "iso_created",
     },
 
     "SHOW_CONFIG_DOC": {
@@ -271,6 +276,5 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
             *SHOW_CONFIG_DOC_EXEC,
         ],
         "label": "DONE",
-        "success_key": "ok",
     },
 }
