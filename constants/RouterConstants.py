@@ -280,7 +280,7 @@ VIEW_ROUTER_DETAILS_HELP_EXEC = [
     {
         "phase": "exec",
         "fn": view_readme,
-        "args": [lambda job, meta, ctx: None, ROUTER_DETAILS_README_PATH],
+        "args": [None, ROUTER_DETAILS_README_PATH],
         "result": 'view_readme_result',
     },
 ]
