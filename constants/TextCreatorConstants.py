@@ -1,9 +1,12 @@
 # constants/TextCreatorConstants.py
 from __future__ import annotations
-
-from modules.state_machine_utils import result_available
-
 from typing import Dict, Any
+
+
+from modules.state_machine_utils import (
+    result_available,
+    meta_available,
+)
 
 from modules.display_utils import (
     display_config_doc,
@@ -28,7 +31,10 @@ from modules.docker_utils import (
     stop_ollama_compose,
 )
 from modules.web_download_utils import (
-    download_html_pages,
+    prepare_html_downloads,
+    discover_html_links,
+    download_html_files,
+    close_html_driver,
 )
 
 
@@ -253,6 +259,22 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+# ---------------------------------------------------------------------
+# PRE PHASE STEPS
+# ---------------------------------------------------------------------
+
+DOWNLOAD_HTML_PRE = [
+    {
+        "phase": "pre",
+        "fn": prepare_html_downloads,
+        "args": [
+            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][DL_URLS_KEY],
+            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][DOWNLOAD_LOC_KEY],
+            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][SKIP_LIST_FILE_KEY],
+        ],
+        "result": "download_setup",
+    },
+]
 
 # ---------------------------------------------------------------------
 # EXEC PHASE STEPS
@@ -261,10 +283,9 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
 DOWNLOAD_HTML_EXEC = [
     {
         "phase": "exec",
-        "fn": download_html_pages,
+        "fn": discover_html_links,
         "args": [
             lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][DL_URLS_KEY],
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][DOWNLOAD_LOC_KEY],
             lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION].get(FOLLOW_LINKS_KEY, True),
             lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][LINK_SELECTOR_KEY],
             lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][LINKS_PER_SEARCH_KEY],
@@ -272,10 +293,37 @@ DOWNLOAD_HTML_EXEC = [
             lambda job, meta, ctx: MINIMIZED_MODE,
             lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][DOWNLOAD_DELAY_KEY],
             lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][FILENAME_FROM_URL_REGEX_KEY],
+            lambda job, meta, ctx: ctx["download_setup"]["skip_ids"],
+        ],
+        "result": "download_discovery",
+        "when": lambda job, meta, ctx: (
+            result_available(ctx, "download_setup")
+            and meta_available(meta[DOWNLOAD_KEYS_SECTION], DL_URLS_KEY, require_nonempty=True)
+        ),
+    },
+    {
+        "phase": "exec",
+        "fn": download_html_files,
+        "args": [
+            lambda job, meta, ctx: ctx["download_discovery"],
+            lambda job, meta, ctx: ctx["download_setup"],
+            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][FILENAME_FROM_URL_REGEX_KEY],
             lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][TITLE_SELECTORS_KEY],
+            lambda job, meta, ctx: 2.0,
+            lambda job, meta, ctx: 4.0,
+            lambda job, meta, ctx: 5000,
             lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][SKIP_LIST_FILE_KEY],
         ],
         "result": "download_results",
+        "when": lambda job, meta, ctx: result_available(ctx, "download_discovery"),
+    },
+    {
+        "phase": "exec",
+        "fn": close_html_driver,
+        "args": [
+            lambda job, meta, ctx: ctx.get("download_discovery"),
+        ],
+        "result": "html_driver_cleanup",
     },
 ]
 
@@ -411,6 +459,7 @@ SHOW_CONFIG_DOC_EXEC = [
 PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
     "DOWNLOAD_HTML_PAGES": {
         "pipeline": [
+            *DOWNLOAD_HTML_PRE,
             *DOWNLOAD_HTML_EXEC,
         ],
         "label": "DOWNLOAD_HTML_PAGES_COMPLETE",
@@ -439,6 +488,12 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
         ],
         "label": "CHECK_OLLAMA_STATUS_COMPLETE",
     },
+    "STOP_OLLAMA": {
+        "pipeline": [
+            *STOP_OLLAMA_EXEC,
+        ],
+        "label": "STOP_OLLAMA_COMPLETE",
+    },
     "GENERATE_TEXT": {
         "pipeline": [
             *CHECK_OLLAMA_STATUS_EXEC,
@@ -448,6 +503,7 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
     },
     "RUN_ALL": {
         "pipeline": [
+            *DOWNLOAD_HTML_PRE,
             *DOWNLOAD_HTML_EXEC,
             *EXTRACT_FIELDS_HTML_EXEC,
             *UPDATE_PROMPTS_EXEC,

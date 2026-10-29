@@ -271,6 +271,20 @@ def _process_selenium_page(
         queue.append((clean_url, current_depth + 1, domain))
 
 
+def close_html_driver(discovery: Optional[Dict[str, Any]]) -> None:
+    """Close the Selenium driver if one was created."""
+    if not discovery:
+        return
+    driver = discovery.get("driver")
+    if driver is None:
+        return
+    print("[INFO] Closing Selenium driver...")
+    try:
+        driver.quit()
+    except Exception as e:
+        print(f"[WARN] Selenium cleanup failed: {e!r}")
+
+
 # ---------------------------------------------------------------------
 # PRE STEPS
 # ---------------------------------------------------------------------
@@ -297,98 +311,143 @@ def setup_selenium_driver(headless: bool = False, minimized: bool = False):
         driver.minimize_window()
     return driver
 
+
+def prepare_html_downloads(
+    search_urls: List[str],
+    download_dir: str,
+    skip_list_file: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Prepare the download directory and load existing skip IDs."""
+    download_dir = expand_path(download_dir)
+    skip_ids = load_skip_list(skip_list_file)
+
+    if not skip_list_file:
+        print("[INFO] Skip list disabled.")
+    else:
+        print(f"[INFO] Loaded {len(skip_ids)} skip IDs.")
+
+    if search_urls:
+        os.makedirs(download_dir, exist_ok=True)
+    else:
+        print("[INFO] No search URLs provided.")
+
+    return {
+        "download_dir": download_dir,
+        "skip_ids": skip_ids,
+    }
+
+
+def discover_html_links(
+    search_urls: List[str],
+    follow_links: bool,
+    link_selector: str,
+    links_per_search: int,
+    headless: bool,
+    minimized: bool,
+    delay_between_actions: float,
+    filename_from_url_regex: Optional[str],
+    skip_ids: Set[str],
+    url_must_contain: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Start Selenium and discover URLs to download."""
+    driver = setup_selenium_driver(
+        headless=headless,
+        minimized=minimized,
+    )
+    try:
+        links, skipped_count = _discover_download_links(
+            driver,
+            search_urls,
+            follow_links,
+            link_selector,
+            links_per_search,
+            delay_between_actions,
+            filename_from_url_regex,
+            skip_ids,
+            url_must_contain,
+        )
+        return {
+            "driver": driver,
+            "links": links,
+            "skipped_count": skipped_count,
+        }
+    except Exception:
+        close_html_driver({"driver": driver})
+        raise
+
 # ---------------------------------------------------------------------
 # BATCH RUNNERS
 # ---------------------------------------------------------------------
 
-
-def download_html_pages(
-    search_urls: List[str],
-    download_dir: str,
-    follow_links: bool,
-    link_selector: str,
-    links_per_search: int = 10,
-    headless: bool = False,
-    minimized: bool = False,
-    delay_between_actions: float = 3.0,
+def download_html_files(
+    discovery: Dict[str, Any],
+    download_setup: Dict[str, Any],
     filename_from_url_regex: Optional[str] = None,
     title_selectors: Optional[List[str]] = None,
-    skip_list_file: Optional[str] = None,
     min_delay_between_downloads_s: float = 2.0,
     max_delay_between_downloads_s: float = 4.0,
     min_html_size_bytes: int = 5000,
-    url_must_contain: Optional[str] = None,
+    skip_list_file: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Download HTML pages by scraping links from search URLs (or downloading URLs directly)."""
-    download_dir = expand_path(download_dir)
+    """Download discovered HTML pages using the existing Selenium driver."""
+    driver = discovery["driver"]
+    links = discovery["links"]
+    download_dir = download_setup["download_dir"]
+    skip_ids = download_setup["skip_ids"]
     results: Dict[str, Any] = {
         "success": False,
-        "total_links_found": 0,
+        "total_links_found": len(links),
         "downloads_attempted": 0,
         "downloads_succeeded": 0,
         "download_dir": download_dir,
         "errors": [],
     }
-    skip_ids = load_skip_list(skip_list_file)
-    if not skip_list_file:
-        print("[INFO] Skip list disabled.")
-    else:
-        print(f"[INFO] Loaded {len(skip_ids)} skip IDs.")
-    if not search_urls:
-        print("[INFO] No search URLs provided.")
-        return results
-    os.makedirs(download_dir, exist_ok=True)
-    driver: Optional[webdriver.Chrome] = None
-    try:
-        print(f"[INFO] Starting Selenium (headless={headless}, minimized={minimized})")
-        driver = setup_selenium_driver(headless=headless, minimized=minimized)
-        unique_links, skipped_count = _discover_download_links(
-            driver, search_urls, follow_links, link_selector, links_per_search,
-            delay_between_actions, filename_from_url_regex, skip_ids, url_must_contain,
+    for i, page_url in enumerate(links, start=1):
+        results["downloads_attempted"] += 1
+        print(f"[INFO] [{i}/{len(links)}] Downloading: {page_url}")
+        ok, filename, err = _download_html_page(
+            driver=driver,
+            page_url=page_url,
+            download_dir=download_dir,
+            min_html_size_bytes=min_html_size_bytes,
+            filename_from_url_regex=filename_from_url_regex,
+            title_selectors=title_selectors,
+            index=i,
         )
-        results["total_links_found"] = len(unique_links)
-        print(f"[INFO] Total link(s) after skip filtering: {len(unique_links)}")
-        print(f"[INFO] Total skipped link(s): {skipped_count}")
-        for i, page_url in enumerate(unique_links, start=1):
-            results["downloads_attempted"] += 1
-            print(f"[INFO] [{i}/{len(unique_links)}] Downloading: {page_url}")
-            ok, filename, err = _download_html_page(
-                driver=driver,
-                page_url=page_url,
-                download_dir=download_dir,
-                min_html_size_bytes=min_html_size_bytes,
-                filename_from_url_regex=filename_from_url_regex,
-                title_selectors=title_selectors,
-                index=i,
-            )
-            if ok:
-                results["downloads_succeeded"] += 1
-                print(f"    [OK] Saved: {filename}")
-                job_id = extract_skip_id_from_url(page_url, filename_from_url_regex)
-                append_skip_id(job_id, skip_list_file, skip_ids)
-            else:
-                results["errors"].append({"url": page_url, "error": err})
-                print(f"    [ERROR] Failed: {err}")
-            time.sleep(uniform(min_delay_between_downloads_s, max_delay_between_downloads_s))
-        results["success"] = results["downloads_succeeded"] > 0
-        print(
-            f"[SUMMARY] attempted={results['downloads_attempted']} "
-            f"saved={results['downloads_succeeded']} "
-            f"failed={results['downloads_attempted'] - results['downloads_succeeded']}",
-        )
-        return results
-    except Exception as e:
-        results["errors"].append({"general": repr(e)})
-        print(f"[ERROR] download_html_pages crashed -> {e!r}")
-        return results
-    finally:
-        if driver is not None:
-            print("[INFO] Closing Selenium driver...")
-            try:
-                driver.quit()
-            except Exception:
-                pass
+        if ok:
+            results["downloads_succeeded"] += 1
+            print(f"    [OK] Saved: {filename}")
 
+            job_id = extract_skip_id_from_url(
+                page_url,
+                filename_from_url_regex,
+            )
+            append_skip_id(
+                job_id,
+                skip_list_file,
+                skip_ids,
+            )
+        else:
+            results["errors"].append({
+                "url": page_url,
+                "error": err,
+            })
+            print(f"    [ERROR] Failed: {err}")
+        time.sleep(
+            uniform(
+                min_delay_between_downloads_s,
+                max_delay_between_downloads_s,
+            )
+        )
+    results["success"] = results["downloads_succeeded"] > 0
+    print(
+        f"[SUMMARY] attempted={results['downloads_attempted']} "
+        f"saved={results['downloads_succeeded']} "
+        f"failed={results['downloads_attempted'] - results['downloads_succeeded']}"
+    )
+    return results
+
+    
 
 def crawl_with_selenium(
     candidates: List[Dict[str, str]],

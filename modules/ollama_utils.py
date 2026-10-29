@@ -23,7 +23,6 @@ def check_ollama_status(base_url: str, timeout: float = 5.0) -> bool:
             if response.status == 200:
                 print("[OK] Ollama is running and responding.")
                 return True
-
             print(f"[WARN] Ollama returned HTTP {response.status}.")
             return False
     except HTTPError as e:
