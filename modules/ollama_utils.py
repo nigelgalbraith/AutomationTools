@@ -5,6 +5,37 @@ from glob import glob
 from typing import Dict, Optional
 import requests
 from modules.system_utils import expand_path
+from urllib.error import HTTPError, URLError
+from urllib.request import urlopen
+
+
+# ---------------------------------------------------------------------
+# STATUS
+# ---------------------------------------------------------------------
+
+
+def check_ollama_status(base_url: str, timeout: float = 5.0) -> bool:
+    """Check whether the Ollama API is reachable and print its status."""
+    url = f"{base_url.rstrip('/')}/api/tags"
+    print(f"\n[INFO] Checking Ollama API: {url}")
+    try:
+        with urlopen(url, timeout=timeout) as response:
+            if response.status == 200:
+                print("[OK] Ollama is running and responding.")
+                return True
+
+            print(f"[WARN] Ollama returned HTTP {response.status}.")
+            return False
+    except HTTPError as e:
+        print(f"[ERROR] Ollama returned HTTP {e.code}: {e.reason}")
+    except URLError as e:
+        print(f"[WARN] Cannot connect to Ollama: {e.reason}")
+    except TimeoutError:
+        print(f"[WARN] Ollama did not respond within {timeout} seconds.")
+    except (OSError, ValueError) as e:
+        print(f"[ERROR] Ollama status check failed: {e}")
+    print("[WARN] Ollama is not available.")
+    return False
 
 
 # ---------------------------------------------------------------------

@@ -208,7 +208,6 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
     },
 }
 
-
 # ---------------------------------------------------------------------
 # PRE PHASE STEPS
 # ---------------------------------------------------------------------
@@ -229,7 +228,9 @@ LOAD_MODEL_SPECS_PRE = [
             "Router model specifications",
         ],
         "result": "model_specs",
-        "when": lambda job, meta, ctx: result_available(ctx, 'model_specs') and (isinstance(ctx.get('model_specs'), dict)),
+        "when": lambda job, meta, ctx: result_available(
+            ctx, 'model_specs', require_type=dict
+        ),
     },
     {
         "phase": "pre",
@@ -237,7 +238,9 @@ LOAD_MODEL_SPECS_PRE = [
         "args": [
             lambda job, meta, ctx: ctx["model_specs"],
         ],
-        "when": lambda job, meta, ctx: result_available(ctx, 'model_specs') and (isinstance(ctx.get('model_specs'), dict)),
+        "when": lambda job, meta, ctx: result_available(
+            ctx, 'model_specs', require_type=dict
+        ),
         "result": "validate_router_settings_result",
     },
 ]
@@ -251,21 +254,33 @@ VALIDATE_CONFIG_EXEC = [
     {
         "phase": "exec",
         "fn": validate_router_configuration,
-        "args": [lambda job, meta, ctx: meta, lambda job, meta, ctx: ctx.get("model_specs")],
+        "args": [
+            lambda job, meta, ctx: meta,
+            lambda job, meta, ctx: ctx.get("model_specs"),
+        ],
         "result": "validated",
-        "when": lambda job, meta, ctx: result_available(ctx, 'model_specs') and (isinstance(ctx.get('model_specs'), dict)),
+        "when": lambda job, meta, ctx: result_available(
+            ctx, 'model_specs', require_type=dict
+        ),
     },
 ]
+
 
 VIEW_MODEL_SPECS_EXEC = [
     {
         "phase": "exec",
         "fn": view_readme,
-        "args": [lambda job, meta, ctx: ctx.get("model_specs"), MODEL_SPECS_README_PATH],
+        "args": [
+            lambda job, meta, ctx: ctx.get("model_specs"),
+            MODEL_SPECS_README_PATH,
+        ],
         "result": 'view_readme_result',
-        "when": lambda job, meta, ctx: result_available(ctx, 'model_specs') and (isinstance(ctx.get('model_specs'), dict)),
+        "when": lambda job, meta, ctx: result_available(
+            ctx, 'model_specs', require_type=dict
+        ),
     },
 ]
+
 
 VIEW_ROUTER_DETAILS_EXEC = [
     {
@@ -276,6 +291,7 @@ VIEW_ROUTER_DETAILS_EXEC = [
     },
 ]
 
+
 VIEW_ROUTER_DETAILS_HELP_EXEC = [
     {
         "phase": "exec",
@@ -285,91 +301,124 @@ VIEW_ROUTER_DETAILS_HELP_EXEC = [
     },
 ]
 
+
 VIEW_DECODED_CONFIG_EXEC = [
     {
         "phase": "exec",
         "fn": view_router_config_fields,
-        "args": [DECODED_CONFIG_PATH, lambda job, meta, ctx: ctx.get("model_specs")],
+        "args": [
+            DECODED_CONFIG_PATH,
+            lambda job, meta, ctx: ctx.get("model_specs"),
+        ],
         "result": 'view_router_config_fields_result',
-        "when": lambda job, meta, ctx: (
-            result_available(ctx, 'model_specs') and isinstance(ctx.get('model_specs'), dict)
-            and (not any(s.get("result_key") == 'decoded_directory' for s in ctx.get("steps", []))
-                or (result_available(ctx, 'decoded_directory')))
+        "when": lambda job, meta, ctx: result_available(
+            ctx, 'model_specs', require_type=dict
         ),
     },
 ]
+
 
 VIEW_EDITED_CONFIG_EXEC = [
     {
         "phase": "exec",
         "fn": view_router_config_fields,
-        "args": [EDITED_CONFIG_PATH, lambda job, meta, ctx: ctx.get("model_specs")],
+        "args": [
+            EDITED_CONFIG_PATH,
+            lambda job, meta, ctx: ctx.get("model_specs"),
+        ],
         "result": 'view_router_config_fields_result',
-        "when": lambda job, meta, ctx: (
-            result_available(ctx, 'model_specs') and isinstance(ctx.get('model_specs'), dict)
-            and (not any(s.get("result_key") == 'edited_directory' for s in ctx.get("steps", []))
-                or (result_available(ctx, 'edited_directory')))
+        "when": lambda job, meta, ctx: result_available(
+            ctx, 'model_specs', require_type=dict
         ),
     },
 ]
+
 
 DECODE_CONFIG_EXEC = [
     {
         "phase": "exec",
         "fn": decode_router_config,
-        "args": [TEMPLATE_CONFIG_PATH, lambda job, meta, ctx: ctx.get("model_specs"), lambda job, meta, ctx: meta.get(TEMPLATE_ROUTER_PASSWORD_PATH), lambda job, meta, ctx: meta.get(TEMPLATE_DEVICE_KEY_PATH)],
+        "args": [
+            TEMPLATE_CONFIG_PATH,
+            lambda job, meta, ctx: ctx.get("model_specs"),
+            lambda job, meta, ctx: meta.get(TEMPLATE_ROUTER_PASSWORD_PATH),
+            lambda job, meta, ctx: meta.get(TEMPLATE_DEVICE_KEY_PATH),
+        ],
         "result": "decoded_data",
-        "when": lambda job, meta, ctx: (
-            result_available(ctx, 'model_specs') and isinstance(ctx['model_specs'], dict)
-            and (not any(s.get("result_key") == 'validated' for s in ctx.get("steps", []))
-                or (result_available(ctx, 'validated') and ctx['validated'] is True))
+        "when": lambda job, meta, ctx: result_available(
+            ctx, 'model_specs', require_type=dict
         ),
     },
     {
         "phase": "exec",
         "fn": save_router_config,
-        "args": [lambda job, meta, ctx: ctx.get("decoded_data"), DECODED_CONFIG_ARCHIVE_PATH, lambda job, meta, ctx: ctx.get("model_specs")],
+        "args": [
+            lambda job, meta, ctx: ctx.get("decoded_data"),
+            DECODED_CONFIG_ARCHIVE_PATH,
+            lambda job, meta, ctx: ctx.get("model_specs"),
+        ],
         "result": "archive_saved",
-        "when": lambda job, meta, ctx: result_available(ctx, 'decoded_data', 'model_specs') and (isinstance(ctx.get('decoded_data'), bytes)),
+        "when": lambda job, meta, ctx: (
+            result_available(ctx, 'decoded_data', require_type=bytes)
+            and result_available(ctx, 'model_specs', require_type=dict)
+        ),
     },
     {
         "phase": "exec",
         "fn": extract_router_config,
-        "args": [DECODED_CONFIG_ARCHIVE_PATH, DECODED_CONFIG_PATH, lambda job, meta, ctx: ctx.get("model_specs")],
+        "args": [
+            DECODED_CONFIG_ARCHIVE_PATH,
+            DECODED_CONFIG_PATH,
+            lambda job, meta, ctx: ctx.get("model_specs"),
+        ],
         "result": "decoded_directory",
-        "when": lambda job, meta, ctx: result_available(ctx, 'archive_saved') and (result_available(ctx, 'model_specs') and ctx.get('archive_saved') is True),
+        "when": lambda job, meta, ctx: (
+            result_available(ctx, 'archive_saved', require_type=bool, require_value=True)
+            and result_available(ctx, 'model_specs', require_type=dict)
+        ),
     },
 ]
+
 
 EDIT_CONFIG_EXEC = [
     {
         "phase": "exec",
         "fn": edit_router_config_fields,
-        "args": [DECODED_CONFIG_PATH, EDITED_CONFIG_PATH, lambda job, meta, ctx: ctx.get("model_specs"), ROUTER_DETAILS_PATH],
+        "args": [
+            DECODED_CONFIG_PATH,
+            EDITED_CONFIG_PATH,
+            lambda job, meta, ctx: ctx.get("model_specs"),
+            ROUTER_DETAILS_PATH,
+        ],
         "result": "edited_directory",
-        "when": lambda job, meta, ctx: (
-            result_available(ctx, 'model_specs') and isinstance(ctx['model_specs'], dict)
-            and (not any(s.get("result_key") == 'decoded_data' for s in ctx.get("steps", []))
-                or result_available(ctx, 'decoded_data'))
-            and (not any(s.get("result_key") == 'decoded_directory' for s in ctx.get("steps", []))
-                or (result_available(ctx, 'decoded_directory') and bool(ctx['decoded_directory'])))
+        "when": lambda job, meta, ctx: result_available(
+            ctx, 'model_specs', require_type=dict
         ),
     },
 ]
+
 
 ENCODE_CONFIG_EXEC = [
     {
         "phase": "exec",
         "fn": encode_router_config,
-        "args": [EDITED_CONFIG_PATH, TEMPLATE_CONFIG_PATH, ENCODED_CONFIG_PATH, lambda job, meta, ctx: ctx.get("model_specs"), lambda job, meta, ctx: meta.get(TEMPLATE_ROUTER_PASSWORD_PATH), lambda job, meta, ctx: meta.get(TARGET_ROUTER_PASSWORD_PATH), lambda job, meta, ctx: meta.get(TEMPLATE_DEVICE_KEY_PATH), lambda job, meta, ctx: meta.get(TARGET_DEVICE_KEY_PATH)],
+        "args": [
+            EDITED_CONFIG_PATH,
+            TEMPLATE_CONFIG_PATH,
+            ENCODED_CONFIG_PATH,
+            lambda job, meta, ctx: ctx.get("model_specs"),
+            lambda job, meta, ctx: meta.get(TEMPLATE_ROUTER_PASSWORD_PATH),
+            lambda job, meta, ctx: meta.get(TARGET_ROUTER_PASSWORD_PATH),
+            lambda job, meta, ctx: meta.get(TEMPLATE_DEVICE_KEY_PATH),
+            lambda job, meta, ctx: meta.get(TARGET_DEVICE_KEY_PATH),
+        ],
         "result": "encoded_config",
-        "when": lambda job, meta, ctx: (
-            result_available(ctx, 'model_specs') and isinstance(ctx['model_specs'], dict)
-            and (not any(s.get("result_key") == 'edited_directory' for s in ctx.get("steps", []))
-                or (result_available(ctx, 'edited_directory') and bool(ctx['edited_directory'])))
+        "when": lambda job, meta, ctx: result_available(
+            ctx, 'model_specs', require_type=dict
         ),
     },
 ]
+
 
 SHOW_CONFIG_DOC_EXEC = [
     {

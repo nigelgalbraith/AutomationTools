@@ -21,6 +21,7 @@ from modules.prompt_utils import (
 )
 from modules.ollama_utils import (
     generate_text_from_prompts_dir,
+    check_ollama_status,
 )
 from modules.docker_utils import (
     start_ollama_compose,
@@ -201,7 +202,14 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
         "post_state": "MENU_SELECTION",
         "skip_prepare_plan": True,
         "skip_confirm": False,
-        "skip_group_select": True,
+    },
+    "Check Ollama status": {
+        "verb": "check_ollama_status",
+        "prompt": "Check whether Ollama is running? [y/n]: ",
+        "execute_state": "CHECK_OLLAMA_STATUS",
+        "post_state": "MENU_SELECTION",
+        "skip_prepare_plan": True,
+        "skip_confirm": False,
     },
     "Generate text": {
         "verb": "generate_text",
@@ -218,7 +226,6 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
         "post_state": "MENU_SELECTION",
         "skip_prepare_plan": True,
         "skip_confirm": False,
-        "skip_group_select": True,
     },
     "Run all steps": {
         "verb": "run_all",
@@ -291,7 +298,7 @@ EXTRACT_FIELDS_HTML_EXEC = [
             lambda job, meta, ctx: SHOW_SOURCE_ON_EXTRACTION,
         ],
         "result": "items",
-        "when": lambda job, meta, ctx: result_available(ctx, 'sources') and (bool(ctx.get('sources'))),
+        "when": lambda job, meta, ctx: result_available(ctx, 'sources', require_nonempty=True),
     },
     {
         "phase": "exec",
@@ -302,7 +309,7 @@ EXTRACT_FIELDS_HTML_EXEC = [
             lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION].get(BASENAME_KEYS_KEY, []),
         ],
         "result": "saved_items_ok",
-        "when": lambda job, meta, ctx: result_available(ctx, 'items') and (bool(ctx.get('items'))),
+        "when": lambda job, meta, ctx: result_available(ctx, 'items', require_nonempty=True),
     },
 ]
 
@@ -327,7 +334,7 @@ UPDATE_PROMPTS_EXEC = [
             lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION].get(BASENAME_KEYS_KEY, []),
         ],
         "result": "saved_prompts_count",
-        "when": lambda job, meta, ctx: result_available(ctx, 'items') and (bool(ctx.get('items'))),
+        "when": lambda job, meta, ctx: result_available(ctx, 'items', require_nonempty=True),
     },
 ]
 
@@ -344,6 +351,18 @@ START_OLLAMA_EXEC = [
 ]
 
 
+CHECK_OLLAMA_STATUS_EXEC = [
+    {
+        "phase": "exec",
+        "fn": check_ollama_status,
+        "args": [
+            lambda job, meta, ctx: BASE_URL,
+        ],
+        "result": "ollama_available",
+    },
+]
+
+
 GENERATE_TEXT_EXEC = [
     {
         "phase": "exec",
@@ -356,11 +375,8 @@ GENERATE_TEXT_EXEC = [
             lambda job, meta, ctx: float(TEMPERATURE),
         ],
         "result": "text_summary",
-        "when": lambda job, meta, ctx: (
-            (not any(s.get("result_key") == 'started_ollama_ok' for s in ctx.get("steps", []))
-                or (result_available(ctx, 'started_ollama_ok') and ctx['started_ollama_ok'] is True))
-            and (not any(s.get("result_key") == 'saved_prompts_count' for s in ctx.get("steps", []))
-                or (result_available(ctx, 'saved_prompts_count') and bool(ctx['saved_prompts_count'])))
+        "when": lambda job, meta, ctx: result_available(
+            ctx, 'ollama_available', require_type=bool, require_value=True
         ),
     },
 ]
@@ -417,17 +433,18 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
         ],
         "label": "START_OLLAMA_COMPLETE",
     },
+    "CHECK_OLLAMA_STATUS": {
+        "pipeline": [
+            *CHECK_OLLAMA_STATUS_EXEC,
+        ],
+        "label": "CHECK_OLLAMA_STATUS_COMPLETE",
+    },
     "GENERATE_TEXT": {
         "pipeline": [
+            *CHECK_OLLAMA_STATUS_EXEC,
             *GENERATE_TEXT_EXEC,
         ],
         "label": "GENERATE_TEXT_COMPLETE",
-    },
-    "STOP_OLLAMA": {
-        "pipeline": [
-            *STOP_OLLAMA_EXEC,
-        ],
-        "label": "STOP_OLLAMA_COMPLETE",
     },
     "RUN_ALL": {
         "pipeline": [
@@ -435,6 +452,7 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
             *EXTRACT_FIELDS_HTML_EXEC,
             *UPDATE_PROMPTS_EXEC,
             *START_OLLAMA_EXEC,
+            *CHECK_OLLAMA_STATUS_EXEC,
             *GENERATE_TEXT_EXEC,
             *STOP_OLLAMA_EXEC,
         ],

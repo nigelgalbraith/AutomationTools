@@ -116,15 +116,6 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
         "skip_confirm": False,
     },
 
-    "Run all steps": {
-        "verb": "run_all",
-        "prompt": "Validate YAML, validate ISO and create ISO? [y/n]: ",
-        "execute_state": "RUN_ALL",
-        "post_state": "MENU_SELECTION",
-        "skip_prepare_plan": False,
-        "skip_confirm": False,
-    },
-
     "Show config help": {
         "verb": "help",
         "prompt": "Show config help now? [y/n]: ",
@@ -143,6 +134,12 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
         "skip_prepare_plan": True,
     },
 }
+
+
+
+from modules.state_machine_utils import (
+    result_available,
+)
 
 
 # ---------------------------------------------------------------------
@@ -188,7 +185,9 @@ VALIDATE_ISO_EXEC = [
                 meta[ISO_KEYS_SECTION][SOURCE_ISO_KEY],
         ],
         "result": "iso_valid",
-        "when": lambda job, meta, ctx: result_available(ctx, 'paths_valid') and (bool(ctx.get('paths_valid'))),
+        "when": lambda job, meta, ctx: result_available(
+            ctx, 'paths_valid', require_type=bool, require_value=True
+        ),
     },
 ]
 
@@ -210,13 +209,13 @@ CREATE_ISO_EXEC = [
                 meta[ISO_KEYS_SECTION][OUTPUT_ISO_KEY],
         ],
         "result": "iso_created",
-        "when": lambda job, meta, ctx: (
-            (not any(s.get("result_key") == 'yaml_valid' for s in ctx.get("steps", []))
-                or (result_available(ctx, 'yaml_valid') and ctx['yaml_valid'] is True))
-            and (not any(s.get("result_key") == 'paths_valid' for s in ctx.get("steps", []))
-                or (result_available(ctx, 'paths_valid') and ctx['paths_valid'] is True))
-            and (not any(s.get("result_key") == 'iso_valid' for s in ctx.get("steps", []))
-                or (result_available(ctx, 'iso_valid') and ctx['iso_valid'] is True))
+        "when": lambda job, meta, ctx: result_available(
+            ctx,
+            'yaml_valid',
+            'paths_valid',
+            'iso_valid',
+            require_type=bool,
+            require_value=True,
         ),
     },
 ]
@@ -254,23 +253,14 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
         ],
         "label": "VALIDATE_ISO_COMPLETE",
     },
-
     "CREATE_UBUNTU_ISO": {
-        "pipeline": [
-            *CREATE_ISO_EXEC,
-        ],
-        "label": "CREATE_UBUNTU_ISO_COMPLETE",
-    },
-
-    "RUN_ALL": {
         "pipeline": [
             *VALIDATE_YAML_EXEC,
             *VALIDATE_ISO_EXEC,
             *CREATE_ISO_EXEC,
         ],
-        "label": "ALL_STEPS_COMPLETE",
+        "label": "CREATE_UBUNTU_ISO_COMPLETE",
     },
-
     "SHOW_CONFIG_DOC": {
         "pipeline": [
             *SHOW_CONFIG_DOC_EXEC,

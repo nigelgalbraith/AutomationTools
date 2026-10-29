@@ -227,6 +227,12 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
 }
 
 
+
+from modules.state_machine_utils import (
+    result_available,
+)
+
+
 # ---------------------------------------------------------------------
 # EXEC PHASE STEPS
 # ---------------------------------------------------------------------
@@ -241,6 +247,17 @@ SEARCH_WEB_EXEC = [
             lambda job, meta, ctx: meta[SEARCH_KEYS_SECTION][MAX_RESULTS_KEY],
         ],
         "result": "search_results",
+    },
+]
+
+
+DISPLAY_SEARCH_RESULTS_EXEC = [
+    {
+        'phase': 'exec',
+        'fn': print_search_results,
+        'args': [lambda job, meta, ctx: ctx.get('search_results', [])],
+        'result': 'search_displayed',
+        'when': lambda job, meta, ctx: result_available(ctx, 'search_results'),
     },
 ]
 
@@ -264,7 +281,10 @@ CRAWL_PHOTON_EXEC = [
             ),
         ],
         "result": "photon_crawl",
-        "when": lambda job, meta, ctx: result_available(ctx, 'search_results') and (meta[CRAWL_KEYS_SECTION][PHOTON_ENABLED_KEY] and bool(ctx.get('search_results', []))),
+        "when": lambda job, meta, ctx: (
+            meta[CRAWL_KEYS_SECTION][PHOTON_ENABLED_KEY]
+            and result_available(ctx, 'search_results', require_nonempty=True)
+        ),
     },
 ]
 
@@ -290,7 +310,17 @@ CRAWL_SELENIUM_FALLBACK_EXEC = [
             ),
         ],
         "result": "selenium_results",
-        "when": lambda job, meta, ctx: result_available(ctx, 'search_results', 'photon_crawl') and (meta[CRAWL_KEYS_SECTION][SELENIUM_ENABLED_KEY] and bool(ctx.get('search_results', [])) and (not meta[CRAWL_KEYS_SECTION][PHOTON_ENABLED_KEY] or bool(ctx.get('photon_crawl', {}).get('fallback_urls', [])))),
+        "when": lambda job, meta, ctx: (
+            meta[CRAWL_KEYS_SECTION][SELENIUM_ENABLED_KEY]
+            and result_available(ctx, 'search_results', require_nonempty=True)
+            and (
+                not meta[CRAWL_KEYS_SECTION][PHOTON_ENABLED_KEY]
+                or (
+                    result_available(ctx, 'photon_crawl', require_type=dict)
+                    and bool(ctx['photon_crawl'].get('fallback_urls', []))
+                )
+            )
+        ),
     },
 ]
 
@@ -316,7 +346,10 @@ CRAWL_SELENIUM_ALL_EXEC = [
             ),
         ],
         "result": "selenium_results",
-        "when": lambda job, meta, ctx: result_available(ctx, 'search_results') and (meta[CRAWL_KEYS_SECTION][SELENIUM_ENABLED_KEY] and bool(ctx.get('search_results', []))),
+        "when": lambda job, meta, ctx: (
+            meta[CRAWL_KEYS_SECTION][SELENIUM_ENABLED_KEY]
+            and result_available(ctx, 'search_results', require_nonempty=True)
+        ),
     },
 ]
 
@@ -359,7 +392,10 @@ OUTPUT_RESULTS_EXEC = [
             lambda job, meta, ctx: job,
         ],
         "result": "saved_result",
-        "when": lambda job, meta, ctx: result_available(ctx, 'final_results') and (result_available(ctx, 'result_data') and bool(ctx.get('final_results', []))),
+        "when": lambda job, meta, ctx: (
+            result_available(ctx, 'final_results', require_nonempty=True)
+            and result_available(ctx, 'result_data')
+        ),
     },
 ]
 
@@ -375,7 +411,9 @@ OPEN_RESULTS_EXEC = [
             lambda job, meta, ctx: VIEWER_PORT,
         ],
         "result": "viewer_opened",
-        "when": lambda job, meta, ctx: result_available(ctx, 'saved_result') and (isinstance(ctx.get('saved_result'), str) and bool(ctx.get('saved_result'))),
+        "when": lambda job, meta, ctx: result_available(
+            ctx, 'saved_result', require_type=str, require_nonempty=True
+        ),
     },
 ]
 
@@ -399,7 +437,9 @@ VIEW_RESULTS_EXEC = [
             lambda job, meta, ctx: VIEWER_PORT,
         ],
         "result": "viewer_opened",
-        "when": lambda job, meta, ctx: result_available(ctx, 'selected_result') and (isinstance(ctx.get('selected_result'), str) and bool(ctx.get('selected_result'))),
+        "when": lambda job, meta, ctx: result_available(
+            ctx, 'selected_result', require_type=str, require_nonempty=True
+        ),
     },
 ]
 
@@ -412,18 +452,6 @@ SHOW_CONFIG_DOC_EXEC = [
         "result": 'display_config_doc_result',
     },
 ]
-
-
-DISPLAY_SEARCH_RESULTS_EXEC = [
-    {
-        'phase': 'exec',
-        'fn': print_search_results,
-        'args': [lambda job, meta, ctx: ctx.get('search_results', [])],
-        'result': 'search_displayed',
-        'when': lambda job, meta, ctx: result_available(ctx, 'search_results'),
-    },
-]
-
 
 # ---------------------------------------------------------------------
 # PIPELINES

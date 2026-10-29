@@ -85,13 +85,15 @@ def check_when(cond: Any, job: str, meta: Dict[str, Any], ctx: Dict[str, Any]) -
     return bool(resolve_arg(cond, job, meta, ctx))
 
 
-def result_available(ctx: Dict[str, Any], *keys: str) -> bool:
+def result_available(ctx: Dict[str, Any], *keys: str, require_nonempty: bool = False, require_empty: bool = False, require_type: type | None = None, require_value: Any = None) -> bool:
     """Require stored inputs whose latest completed producer succeeded.
-
-    False, None and empty containers are available values. A failed/skipped
-    retry invalidates a dependency without destroying an earlier good value.
-    Seed values without a producer in this run are also accepted.
+    False, None and empty containers are available by default.
+    Optionally require truthy or falsy values, a specific type or value.
+    A failed/skipped retry invalidates a dependency without destroying
+    an earlier good value. Seed values without a producer are accepted.
     """
+    if require_nonempty and require_empty:
+        raise ValueError("require_nonempty and require_empty cannot both be True")
     for key in keys:
         if key not in ctx:
             return False
@@ -100,6 +102,28 @@ def result_available(ctx: Dict[str, Any], *keys: str) -> bool:
                        and s["status"] in ("success", "failed", "skipped")), None)
         if latest is not None and latest["status"] != "success":
             return False
+        if require_nonempty and not bool(ctx[key]):
+            return False
+        if require_empty and bool(ctx[key]):
+            return False
+        if require_type is not None and not isinstance(ctx[key], require_type):
+            return False
+        if require_value is not None and ctx[key] != require_value:
+            return False
+    return True
+
+
+
+def meta_available(meta, key, require_nonempty=False):
+    """Check that a metadata key exists and optionally has a truthy value.
+
+    False, None and empty containers are available by default.
+    Set require_nonempty=True to reject falsy values.
+    """
+    if key not in meta:
+        return False
+    if require_nonempty and not bool(meta[key]):
+        return False
     return True
 
 
