@@ -367,3 +367,30 @@ def make_checkpoint(source: str, domain: str, filename: str, results_dir: str, c
     except Exception as e:
         print(f"[ERROR] {source.capitalize()} live results initialization failed -> {e!r}")
     return checkpoint
+
+
+def save_crawl_results(
+    data: Dict[str, Any],
+    out_dir: str,
+    output_name: str,
+) -> Optional[str]:
+    """Save crawler results as JSON only when matches exist."""
+    if not data.get("results"):
+        print("[INFO] No crawl results to save.")
+        return None
+    if not output_name:
+        print("[ERROR] No output name provided.")
+        return None
+    try:
+        out_dir = expand_path(out_dir)
+        os.makedirs(out_dir, exist_ok=True)
+        safe_name = os.path.basename(output_name)
+        if not safe_name.lower().endswith(".json"):
+            safe_name = f"{safe_name}.json"
+        path = os.path.join(out_dir, safe_name)
+        save_json_file(path, data)
+        print(f"[INFO] Saved crawl results: {path}")
+        return path
+    except Exception as e:
+        print(f"[ERROR] Failed saving crawl results -> {e!r}")
+        return None

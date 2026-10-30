@@ -1,3 +1,4 @@
+
 {
   "Group-A": {
     "download_keys": {
@@ -8,7 +9,10 @@
       "follow_links": true,
       "link_selector": "a[href*='/item/']",
       "links_per_search": 10,
-      "download_delay": 3.0,
+      "search_page_delay": 3.0,
+      "min_job_page_delay": 2.0,
+      "max_job_page_delay": 4.0,
+      "min_html_size_bytes": 5000,
       "filename_from_url_regex": "/item/(\\d+)",
       "skip_list_file": "~/Documents/AutomationToolsData/textCreator/skipLists/MainSkipList.txt",
       "title_selectors": [
@@ -53,7 +57,6 @@
       ]
     }
   },
-
   "Group-B": {
     "download_keys": {
       "download_loc": "~/Documents/AutomationToolsData/textCreator/produced/Group-B/html",
@@ -63,7 +66,10 @@
       "follow_links": true,
       "link_selector": "a[href*='/item/']",
       "links_per_search": 10,
-      "download_delay": 3.0,
+      "search_page_delay": 3.0,
+      "min_job_page_delay": 2.0,
+      "max_job_page_delay": 4.0,
+      "min_html_size_bytes": 5000,
       "filename_from_url_regex": "/item/(\\d+)",
       "skip_list_file": "~/Documents/AutomationToolsData/textCreator/skipLists/MainSkipList.txt",
       "title_selectors": [

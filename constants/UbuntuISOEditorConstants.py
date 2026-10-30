@@ -2,8 +2,6 @@
 # constants/UbuntuISOEditorConstants.py
 from __future__ import annotations
 
-from modules.state_machine_utils import result_available
-
 from typing import Dict, Any
 
 from modules.display_utils import display_config_doc
@@ -136,12 +134,6 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
 }
 
 
-
-from modules.state_machine_utils import (
-    result_available,
-)
-
-
 # ---------------------------------------------------------------------
 # VALIDATE YAML STEPS
 # ---------------------------------------------------------------------
@@ -159,6 +151,8 @@ VALIDATE_YAML_EXEC = [
 ]
 
 
+
+
 # ---------------------------------------------------------------------
 # VALIDATE ISO STEPS
 # ---------------------------------------------------------------------
@@ -168,12 +162,9 @@ VALIDATE_ISO_EXEC = [
         "phase": "exec",
         "fn": validate_iso_paths,
         "args": [
-            lambda job, meta, ctx:
-                meta[ISO_KEYS_SECTION][SOURCE_ISO_KEY],
-            lambda job, meta, ctx:
-                meta[ISO_KEYS_SECTION][AUTOINSTALL_PATH_KEY],
-            lambda job, meta, ctx:
-                meta[ISO_KEYS_SECTION][OUTPUT_ISO_KEY],
+            lambda job, meta, ctx: meta[ISO_KEYS_SECTION][SOURCE_ISO_KEY],
+            lambda job, meta, ctx: meta[ISO_KEYS_SECTION][AUTOINSTALL_PATH_KEY],
+            lambda job, meta, ctx: meta[ISO_KEYS_SECTION][OUTPUT_ISO_KEY],
         ],
         "result": "paths_valid",
     },
@@ -181,13 +172,9 @@ VALIDATE_ISO_EXEC = [
         "phase": "exec",
         "fn": validate_ubuntu_iso,
         "args": [
-            lambda job, meta, ctx:
-                meta[ISO_KEYS_SECTION][SOURCE_ISO_KEY],
+            lambda job, meta, ctx: meta[ISO_KEYS_SECTION][SOURCE_ISO_KEY],
         ],
         "result": "iso_valid",
-        "when": lambda job, meta, ctx: result_available(
-            ctx, 'paths_valid', require_type=bool, require_value=True
-        ),
     },
 ]
 
@@ -201,24 +188,14 @@ CREATE_ISO_EXEC = [
         "phase": "exec",
         "fn": add_ubuntu_autoinstall,
         "args": [
-            lambda job, meta, ctx:
-                meta[ISO_KEYS_SECTION][SOURCE_ISO_KEY],
-            lambda job, meta, ctx:
-                meta[ISO_KEYS_SECTION][AUTOINSTALL_PATH_KEY],
-            lambda job, meta, ctx:
-                meta[ISO_KEYS_SECTION][OUTPUT_ISO_KEY],
+            lambda job, meta, ctx: meta[ISO_KEYS_SECTION][SOURCE_ISO_KEY],
+            lambda job, meta, ctx: meta[ISO_KEYS_SECTION][AUTOINSTALL_PATH_KEY],
+            lambda job, meta, ctx: meta[ISO_KEYS_SECTION][OUTPUT_ISO_KEY],
         ],
         "result": "iso_created",
-        "when": lambda job, meta, ctx: result_available(
-            ctx,
-            'yaml_valid',
-            'paths_valid',
-            'iso_valid',
-            require_type=bool,
-            require_value=True,
-        ),
     },
 ]
+
 
 
 # ---------------------------------------------------------------------

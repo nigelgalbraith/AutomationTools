@@ -1,8 +1,6 @@
 # constants/RouterConstants.py
 from __future__ import annotations
 
-from modules.state_machine_utils import result_available
-
 from typing import Any, Dict
 
 from modules.display_utils import display_config_doc
@@ -212,6 +210,7 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
 # PRE PHASE STEPS
 # ---------------------------------------------------------------------
 
+
 LOAD_MODEL_SPECS_PRE = [
     {
         "phase": "pre",
@@ -228,9 +227,7 @@ LOAD_MODEL_SPECS_PRE = [
             "Router model specifications",
         ],
         "result": "model_specs",
-        "when": lambda job, meta, ctx: result_available(
-            ctx, 'model_specs', require_type=dict
-        ),
+        "when": "model_specs",
     },
     {
         "phase": "pre",
@@ -238,9 +235,7 @@ LOAD_MODEL_SPECS_PRE = [
         "args": [
             lambda job, meta, ctx: ctx["model_specs"],
         ],
-        "when": lambda job, meta, ctx: result_available(
-            ctx, 'model_specs', require_type=dict
-        ),
+        "when": "model_specs",
         "result": "validate_router_settings_result",
     },
 ]
@@ -259,9 +254,6 @@ VALIDATE_CONFIG_EXEC = [
             lambda job, meta, ctx: ctx.get("model_specs"),
         ],
         "result": "validated",
-        "when": lambda job, meta, ctx: result_available(
-            ctx, 'model_specs', require_type=dict
-        ),
     },
 ]
 
@@ -274,10 +266,7 @@ VIEW_MODEL_SPECS_EXEC = [
             lambda job, meta, ctx: ctx.get("model_specs"),
             MODEL_SPECS_README_PATH,
         ],
-        "result": 'view_readme_result',
-        "when": lambda job, meta, ctx: result_available(
-            ctx, 'model_specs', require_type=dict
-        ),
+        "result": "view_readme_result",
     },
 ]
 
@@ -287,7 +276,7 @@ VIEW_ROUTER_DETAILS_EXEC = [
         "phase": "exec",
         "fn": view_router_details,
         "args": [ROUTER_DETAILS_PATH],
-        "result": 'view_router_details_result',
+        "result": "view_router_details_result",
     },
 ]
 
@@ -297,7 +286,7 @@ VIEW_ROUTER_DETAILS_HELP_EXEC = [
         "phase": "exec",
         "fn": view_readme,
         "args": [None, ROUTER_DETAILS_README_PATH],
-        "result": 'view_readme_result',
+        "result": "view_readme_result",
     },
 ]
 
@@ -310,10 +299,7 @@ VIEW_DECODED_CONFIG_EXEC = [
             DECODED_CONFIG_PATH,
             lambda job, meta, ctx: ctx.get("model_specs"),
         ],
-        "result": 'view_router_config_fields_result',
-        "when": lambda job, meta, ctx: result_available(
-            ctx, 'model_specs', require_type=dict
-        ),
+        "result": "view_router_config_fields_result",
     },
 ]
 
@@ -326,10 +312,7 @@ VIEW_EDITED_CONFIG_EXEC = [
             EDITED_CONFIG_PATH,
             lambda job, meta, ctx: ctx.get("model_specs"),
         ],
-        "result": 'view_router_config_fields_result',
-        "when": lambda job, meta, ctx: result_available(
-            ctx, 'model_specs', require_type=dict
-        ),
+        "result": "view_router_config_fields_result",
     },
 ]
 
@@ -345,9 +328,6 @@ DECODE_CONFIG_EXEC = [
             lambda job, meta, ctx: meta.get(TEMPLATE_DEVICE_KEY_PATH),
         ],
         "result": "decoded_data",
-        "when": lambda job, meta, ctx: result_available(
-            ctx, 'model_specs', require_type=dict
-        ),
     },
     {
         "phase": "exec",
@@ -358,10 +338,7 @@ DECODE_CONFIG_EXEC = [
             lambda job, meta, ctx: ctx.get("model_specs"),
         ],
         "result": "archive_saved",
-        "when": lambda job, meta, ctx: (
-            result_available(ctx, 'decoded_data', require_type=bytes)
-            and result_available(ctx, 'model_specs', require_type=dict)
-        ),
+        "when": "decoded_data",
     },
     {
         "phase": "exec",
@@ -372,10 +349,7 @@ DECODE_CONFIG_EXEC = [
             lambda job, meta, ctx: ctx.get("model_specs"),
         ],
         "result": "decoded_directory",
-        "when": lambda job, meta, ctx: (
-            result_available(ctx, 'archive_saved', require_type=bool, require_value=True)
-            and result_available(ctx, 'model_specs', require_type=dict)
-        ),
+        "when": "archive_saved",
     },
 ]
 
@@ -391,9 +365,6 @@ EDIT_CONFIG_EXEC = [
             ROUTER_DETAILS_PATH,
         ],
         "result": "edited_directory",
-        "when": lambda job, meta, ctx: result_available(
-            ctx, 'model_specs', require_type=dict
-        ),
     },
 ]
 
@@ -413,11 +384,9 @@ ENCODE_CONFIG_EXEC = [
             lambda job, meta, ctx: meta.get(TARGET_DEVICE_KEY_PATH),
         ],
         "result": "encoded_config",
-        "when": lambda job, meta, ctx: result_available(
-            ctx, 'model_specs', require_type=dict
-        ),
     },
 ]
+
 
 
 SHOW_CONFIG_DOC_EXEC = [

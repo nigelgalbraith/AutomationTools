@@ -2,12 +2,6 @@
 from __future__ import annotations
 from typing import Dict, Any
 
-
-from modules.state_machine_utils import (
-    result_available,
-    meta_available,
-)
-
 from modules.display_utils import (
     display_config_doc,
 )
@@ -86,7 +80,10 @@ DL_URLS_KEY = "download_urls"
 FOLLOW_LINKS_KEY = "follow_links"
 LINK_SELECTOR_KEY = "link_selector"
 LINKS_PER_SEARCH_KEY = "links_per_search"
-DOWNLOAD_DELAY_KEY = "download_delay"
+SEARCH_PAGE_DELAY_KEY = "search_page_delay"
+MIN_JOB_PAGE_DELAY_KEY = "min_job_page_delay"
+MAX_JOB_PAGE_DELAY_KEY = "max_job_page_delay"
+MIN_HTML_SIZE_BYTES_KEY = "min_html_size_bytes"
 FILENAME_FROM_URL_REGEX_KEY = "filename_from_url_regex"
 TITLE_SELECTORS_KEY = "title_selectors"
 SKIP_LIST_FILE_KEY = "skip_list_file"
@@ -116,7 +113,10 @@ SECONDARY_VALIDATION: Dict[str, Any] = {
             DL_URLS_KEY: list,
             LINK_SELECTOR_KEY: str,
             LINKS_PER_SEARCH_KEY: int,
-            DOWNLOAD_DELAY_KEY: float,
+            SEARCH_PAGE_DELAY_KEY: float,
+            MIN_JOB_PAGE_DELAY_KEY: float,
+            MAX_JOB_PAGE_DELAY_KEY: float,
+            MIN_HTML_SIZE_BYTES_KEY: int,
             FOLLOW_LINKS_KEY: bool,
             FILENAME_FROM_URL_REGEX_KEY: str,
             TITLE_SELECTORS_KEY: list,
@@ -259,6 +259,7 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+
 # ---------------------------------------------------------------------
 # PRE PHASE STEPS
 # ---------------------------------------------------------------------
@@ -276,9 +277,11 @@ DOWNLOAD_HTML_PRE = [
     },
 ]
 
+
 # ---------------------------------------------------------------------
 # EXEC PHASE STEPS
 # ---------------------------------------------------------------------
+
 
 DOWNLOAD_HTML_EXEC = [
     {
@@ -286,20 +289,16 @@ DOWNLOAD_HTML_EXEC = [
         "fn": discover_html_links,
         "args": [
             lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][DL_URLS_KEY],
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION].get(FOLLOW_LINKS_KEY, True),
+            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][FOLLOW_LINKS_KEY],
             lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][LINK_SELECTOR_KEY],
             lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][LINKS_PER_SEARCH_KEY],
             lambda job, meta, ctx: HEADLESS_MODE,
             lambda job, meta, ctx: MINIMIZED_MODE,
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][DOWNLOAD_DELAY_KEY],
+            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][SEARCH_PAGE_DELAY_KEY],
             lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][FILENAME_FROM_URL_REGEX_KEY],
             lambda job, meta, ctx: ctx["download_setup"]["skip_ids"],
         ],
         "result": "download_discovery",
-        "when": lambda job, meta, ctx: (
-            result_available(ctx, "download_setup")
-            and meta_available(meta[DOWNLOAD_KEYS_SECTION], DL_URLS_KEY, require_nonempty=True)
-        ),
     },
     {
         "phase": "exec",
@@ -309,13 +308,12 @@ DOWNLOAD_HTML_EXEC = [
             lambda job, meta, ctx: ctx["download_setup"],
             lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][FILENAME_FROM_URL_REGEX_KEY],
             lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][TITLE_SELECTORS_KEY],
-            lambda job, meta, ctx: 2.0,
-            lambda job, meta, ctx: 4.0,
-            lambda job, meta, ctx: 5000,
+            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][MIN_JOB_PAGE_DELAY_KEY],
+            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][MAX_JOB_PAGE_DELAY_KEY],
+            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][MIN_HTML_SIZE_BYTES_KEY],
             lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][SKIP_LIST_FILE_KEY],
         ],
         "result": "download_results",
-        "when": lambda job, meta, ctx: result_available(ctx, "download_discovery"),
     },
     {
         "phase": "exec",
@@ -326,6 +324,7 @@ DOWNLOAD_HTML_EXEC = [
         "result": "html_driver_cleanup",
     },
 ]
+
 
 
 EXTRACT_FIELDS_HTML_EXEC = [
@@ -346,7 +345,7 @@ EXTRACT_FIELDS_HTML_EXEC = [
             lambda job, meta, ctx: SHOW_SOURCE_ON_EXTRACTION,
         ],
         "result": "items",
-        "when": lambda job, meta, ctx: result_available(ctx, 'sources', require_nonempty=True),
+        "when": "sources",
     },
     {
         "phase": "exec",
@@ -357,7 +356,7 @@ EXTRACT_FIELDS_HTML_EXEC = [
             lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION].get(BASENAME_KEYS_KEY, []),
         ],
         "result": "saved_items_ok",
-        "when": lambda job, meta, ctx: result_available(ctx, 'items', require_nonempty=True),
+        "when": "items",
     },
 ]
 
@@ -382,7 +381,7 @@ UPDATE_PROMPTS_EXEC = [
             lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION].get(BASENAME_KEYS_KEY, []),
         ],
         "result": "saved_prompts_count",
-        "when": lambda job, meta, ctx: result_available(ctx, 'items', require_nonempty=True),
+        "when": "items",
     },
 ]
 
@@ -423,9 +422,7 @@ GENERATE_TEXT_EXEC = [
             lambda job, meta, ctx: float(TEMPERATURE),
         ],
         "result": "text_summary",
-        "when": lambda job, meta, ctx: result_available(
-            ctx, 'ollama_available', require_type=bool, require_value=True
-        ),
+        "when": "ollama_available",
     },
 ]
 
@@ -447,9 +444,10 @@ SHOW_CONFIG_DOC_EXEC = [
         "phase": "exec",
         "fn": display_config_doc,
         "args": [CONFIG_DOC],
-        "result": 'display_config_doc_result',
+        "result": "display_config_doc_result",
     },
 ]
+
 
 
 # ---------------------------------------------------------------------

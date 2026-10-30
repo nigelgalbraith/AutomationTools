@@ -1,8 +1,6 @@
 # FunctionConstants.py
 from __future__ import annotations
 
-from modules.state_machine_utils import result_available
-
 from typing import Dict, Any
 
 from modules.display_utils import (
@@ -129,6 +127,7 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
 # EXEC PHASE STEPS
 # ---------------------------------------------------------------------
 
+
 ANALYZE_FUNCTIONS_EXEC = [
     {
         "phase": "exec",
@@ -149,7 +148,7 @@ ANALYZE_FUNCTIONS_EXEC = [
             KEY_MODULE_FOLDER,
         ],
         "result": "scan_result",
-        "when": lambda job, meta, ctx: result_available(ctx, 'module_functions'),
+        "when": "module_functions",
     },
     {
         "phase": "exec",
@@ -158,7 +157,7 @@ ANALYZE_FUNCTIONS_EXEC = [
             lambda job, meta, ctx: job,
             lambda job, meta, ctx: ctx.get("scan_result", {}),
         ],
-        "when": lambda job, meta, ctx: result_available(ctx, 'scan_result', require_nonempty=True),
+        "when": "scan_result",
         "result": "print_usage_summary_result",
     },
 ]
@@ -181,10 +180,11 @@ SHOW_FUNCTIONS_EXEC = [
             lambda job, meta, ctx: job,
             lambda job, meta, ctx: ctx.get("fn_docs", {}),
         ],
-        "when": lambda job, meta, ctx: result_available(ctx, 'fn_docs'),
+        "when": "fn_docs",
         "result": "print_functions_summary_result",
     },
 ]
+
 
 
 

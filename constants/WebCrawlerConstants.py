@@ -1,8 +1,6 @@
 # constants/WebCrawlerConstants.py
 from __future__ import annotations
 
-from modules.state_machine_utils import result_available
-
 from typing import Dict, Any
 
 from modules.system_utils import expand_path
@@ -18,12 +16,12 @@ from modules.web_extract_utils import (
     print_crawl_results,
     build_crawl_results,
     make_checkpoint,
+    save_crawl_results,
 )
 from modules.web_download_utils import (
     crawl_with_selenium,
 )
 from modules.json_utils import (
-    save_named_json,
     select_json_file,
 )
 from modules.browser_utils import (
@@ -72,14 +70,10 @@ MINIMIZED_MODE = True
 SEARCH_KEYS_SECTION = "search_keys"
 CRAWL_KEYS_SECTION = "crawl_keys"
 OUTPUT_KEYS_SECTION = "output_keys"
-
 DOMAIN_KEY = "domain"
 TERMS_KEY = "terms"
 MAX_RESULTS_KEY = "max_results"
-
-PHOTON_ENABLED_KEY = "photon_enabled"
 PHOTON_DEPTH_KEY = "photon_depth"
-SELENIUM_ENABLED_KEY = "selenium_enabled"
 SELENIUM_DEPTH_KEY = "selenium_depth"
 SELENIUM_MAX_PAGES_KEY = "selenium_max_pages"
 DOWNLOAD_DELAY_KEY = "download_delay"
@@ -113,9 +107,7 @@ SECONDARY_VALIDATION: Dict[str, Any] = {
     },
     CRAWL_KEYS_SECTION: {
         "required_job_fields": {
-            PHOTON_ENABLED_KEY: bool,
             PHOTON_DEPTH_KEY: int,
-            SELENIUM_ENABLED_KEY: bool,
             SELENIUM_DEPTH_KEY: int,
             SELENIUM_MAX_PAGES_KEY: int,
             DOWNLOAD_DELAY_KEY: float,
@@ -227,12 +219,6 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
 }
 
 
-
-from modules.state_machine_utils import (
-    result_available,
-)
-
-
 # ---------------------------------------------------------------------
 # EXEC PHASE STEPS
 # ---------------------------------------------------------------------
@@ -253,11 +239,12 @@ SEARCH_WEB_EXEC = [
 
 DISPLAY_SEARCH_RESULTS_EXEC = [
     {
-        'phase': 'exec',
-        'fn': print_search_results,
-        'args': [lambda job, meta, ctx: ctx.get('search_results', [])],
-        'result': 'search_displayed',
-        'when': lambda job, meta, ctx: result_available(ctx, 'search_results'),
+        "phase": "exec",
+        "fn": print_search_results,
+        "args": [
+            lambda job, meta, ctx: ctx.get("search_results", []),
+        ],
+        "result": "search_displayed",
     },
 ]
 
@@ -281,10 +268,6 @@ CRAWL_PHOTON_EXEC = [
             ),
         ],
         "result": "photon_crawl",
-        "when": lambda job, meta, ctx: (
-            meta[CRAWL_KEYS_SECTION][PHOTON_ENABLED_KEY]
-            and result_available(ctx, 'search_results', require_nonempty=True)
-        ),
     },
 ]
 
@@ -294,7 +277,7 @@ CRAWL_SELENIUM_FALLBACK_EXEC = [
         "phase": "exec",
         "fn": crawl_with_selenium,
         "args": [
-            lambda job, meta, ctx: ctx.get("photon_crawl", {}).get("fallback_urls", []) if meta[CRAWL_KEYS_SECTION][PHOTON_ENABLED_KEY] else ctx.get("search_results", []),
+            lambda job, meta, ctx: ctx.get("photon_crawl", {}).get("fallback_urls", []),
             lambda job, meta, ctx: meta[SEARCH_KEYS_SECTION][TERMS_KEY],
             lambda job, meta, ctx: HEADLESS_MODE,
             lambda job, meta, ctx: MINIMIZED_MODE,
@@ -310,17 +293,6 @@ CRAWL_SELENIUM_FALLBACK_EXEC = [
             ),
         ],
         "result": "selenium_results",
-        "when": lambda job, meta, ctx: (
-            meta[CRAWL_KEYS_SECTION][SELENIUM_ENABLED_KEY]
-            and result_available(ctx, 'search_results', require_nonempty=True)
-            and (
-                not meta[CRAWL_KEYS_SECTION][PHOTON_ENABLED_KEY]
-                or (
-                    result_available(ctx, 'photon_crawl', require_type=dict)
-                    and bool(ctx['photon_crawl'].get('fallback_urls', []))
-                )
-            )
-        ),
     },
 ]
 
@@ -346,10 +318,6 @@ CRAWL_SELENIUM_ALL_EXEC = [
             ),
         ],
         "result": "selenium_results",
-        "when": lambda job, meta, ctx: (
-            meta[CRAWL_KEYS_SECTION][SELENIUM_ENABLED_KEY]
-            and result_available(ctx, 'search_results', require_nonempty=True)
-        ),
     },
 ]
 
@@ -371,7 +339,6 @@ OUTPUT_RESULTS_EXEC = [
             lambda job, meta, ctx: ctx.get("final_results", []),
         ],
         "result": "printed_results",
-        "when": lambda job, meta, ctx: result_available(ctx, 'final_results'),
     },
     {
         "phase": "exec",
@@ -381,21 +348,16 @@ OUTPUT_RESULTS_EXEC = [
             lambda job, meta, ctx: ctx.get("final_results", []),
         ],
         "result": "result_data",
-        "when": lambda job, meta, ctx: result_available(ctx, 'final_results'),
     },
     {
         "phase": "exec",
-        "fn": save_named_json,
+        "fn": save_crawl_results,
         "args": [
             lambda job, meta, ctx: ctx.get("result_data", {}),
             lambda job, meta, ctx: meta[OUTPUT_KEYS_SECTION][OUTPUT_DIR_KEY],
             lambda job, meta, ctx: job,
         ],
         "result": "saved_result",
-        "when": lambda job, meta, ctx: (
-            result_available(ctx, 'final_results', require_nonempty=True)
-            and result_available(ctx, 'result_data')
-        ),
     },
 ]
 
@@ -411,9 +373,6 @@ OPEN_RESULTS_EXEC = [
             lambda job, meta, ctx: VIEWER_PORT,
         ],
         "result": "viewer_opened",
-        "when": lambda job, meta, ctx: result_available(
-            ctx, 'saved_result', require_type=str, require_nonempty=True
-        ),
     },
 ]
 
@@ -437,9 +396,6 @@ VIEW_RESULTS_EXEC = [
             lambda job, meta, ctx: VIEWER_PORT,
         ],
         "result": "viewer_opened",
-        "when": lambda job, meta, ctx: result_available(
-            ctx, 'selected_result', require_type=str, require_nonempty=True
-        ),
     },
 ]
 
@@ -449,9 +405,10 @@ SHOW_CONFIG_DOC_EXEC = [
         "phase": "exec",
         "fn": display_config_doc,
         "args": [CONFIG_DOC],
-        "result": 'display_config_doc_result',
+        "result": "display_config_doc_result",
     },
 ]
+
 
 # ---------------------------------------------------------------------
 # PIPELINES

@@ -1,3 +1,4 @@
+
 {
   "EXAMPLE": {
     "Wikipedia-Albert-Einstein": {
@@ -9,9 +10,7 @@
         "max_results": 20
       },
       "crawl_keys": {
-        "photon_enabled": true,
         "photon_depth": 2,
-        "selenium_enabled": true,
         "selenium_depth": 2,
         "selenium_max_pages": 100,
         "download_delay": 2.0
@@ -29,9 +28,7 @@
         "max_results": 20
       },
       "crawl_keys": {
-        "photon_enabled": true,
         "photon_depth": 2,
-        "selenium_enabled": true,
         "selenium_depth": 2,
         "selenium_max_pages": 100,
         "download_delay": 2.0
@@ -51,9 +48,7 @@
         "max_results": 20
       },
       "crawl_keys": {
-        "photon_enabled": true,
         "photon_depth": 2,
-        "selenium_enabled": true,
         "selenium_depth": 2,
         "selenium_max_pages": 100,
         "download_delay": 2.0
@@ -69,14 +64,12 @@
     "<GROUP>.search_keys.domain": "Required. Domain to restrict search results to, for example 'wikipedia.org'.",
     "<GROUP>.search_keys.terms": "Required. List of terms to search for. Only terms actually found on pages are included in crawler results.",
     "<GROUP>.search_keys.max_results": "Required. Maximum number of search result URLs collected for each search term.",
-    "<GROUP>.crawl_keys": "Required. Controls Photon and Selenium crawling of the candidate URLs discovered by web search.",
-    "<GROUP>.crawl_keys.photon_enabled": "Required. If true, Photon crawling is enabled.",
+    "<GROUP>.crawl_keys": "Required. Configures Photon and Selenium crawl depth, page limits and delays. The selected menu action determines which crawler runs.",
     "<GROUP>.crawl_keys.photon_depth": "Required. Maximum Photon crawl depth from each discovered search result URL.",
-    "<GROUP>.crawl_keys.selenium_enabled": "Required. If true, Selenium processes Photon failures during Run all steps, or all search candidates when Photon is disabled.",
+    "<GROUP>.crawl_keys.selenium_depth": "Required. Maximum Selenium link depth from each candidate; zero checks only candidates.",
+    "<GROUP>.crawl_keys.selenium_max_pages": "Required. Maximum pages attempted across all Selenium candidates in one crawl.",
     "<GROUP>.crawl_keys.download_delay": "Required. Delay in seconds after Selenium loads a page before its rendered text is checked.",
     "<GROUP>.output_keys": "Required. Crawler output configuration block.",
-    "<GROUP>.output_keys.output_dir": "Required. Full output directory for this group. Supports ~ and is created if required. Result JSON filenames use the group name.",
-    "<GROUP>.crawl_keys.selenium_depth": "Required. Maximum Selenium link depth from each candidate; zero checks only candidates.",
-    "<GROUP>.crawl_keys.selenium_max_pages": "Required. Maximum pages attempted across all Selenium candidates in one crawl."
+    "<GROUP>.output_keys.output_dir": "Required. Full output directory for this group. Supports ~ and is created if required. Result JSON filenames use the group name."
   }
 }
