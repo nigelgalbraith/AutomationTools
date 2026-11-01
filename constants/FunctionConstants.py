@@ -123,79 +123,64 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
 
 
 
+
 # ---------------------------------------------------------------------
 # EXEC PHASE STEPS
 # ---------------------------------------------------------------------
-
 
 ANALYZE_FUNCTIONS_EXEC = [
     {
         "phase": "exec",
         "fn": load_module_functions,
-        "args": [
-            KEY_MODULE_FOLDER,
-            lambda job, meta, ctx: job,
-        ],
+        "args": [KEY_MODULE_FOLDER, "job"],
         "result": "module_functions",
     },
     {
         "phase": "exec",
         "fn": scan_function_usage,
         "args": [
-            lambda job, meta, ctx: ctx.get("module_functions", {}),
+            "module_functions",
             KEY_CHECK_FOLDERS,
             KEY_CHECK_FILES,
             KEY_MODULE_FOLDER,
         ],
-        "result": "scan_result",
         "when": "module_functions",
+        "result": "scan_result",
     },
     {
         "phase": "exec",
         "fn": print_usage_summary,
-        "args": [
-            lambda job, meta, ctx: job,
-            lambda job, meta, ctx: ctx.get("scan_result", {}),
-        ],
+        "args": ["job", "scan_result"],
         "when": "scan_result",
         "result": "print_usage_summary_result",
     },
 ]
 
-
 SHOW_FUNCTIONS_EXEC = [
     {
         "phase": "exec",
         "fn": load_module_function_docs,
-        "args": [
-            KEY_MODULE_FOLDER,
-            lambda job, meta, ctx: job,
-        ],
+        "args": [KEY_MODULE_FOLDER, "job"],
         "result": "fn_docs",
     },
     {
         "phase": "exec",
         "fn": print_functions_summary,
-        "args": [
-            lambda job, meta, ctx: job,
-            lambda job, meta, ctx: ctx.get("fn_docs", {}),
-        ],
+        "args": ["job", "fn_docs"],
         "when": "fn_docs",
         "result": "print_functions_summary_result",
     },
 ]
-
-
-
 
 SHOW_CONFIG_DOC_EXEC = [
     {
         "phase": "exec",
         "fn": display_config_doc,
         "args": [CONFIG_DOC],
-        "result": 'display_config_doc_result',
+        "result": "display_config_doc_result",
     },
 ]
+
 
 
 # ---------------------------------------------------------------------

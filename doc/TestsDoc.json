@@ -1,0 +1,26 @@
+
+{
+  "FIXED_FIELDS": [
+    "<GROUP>.Tests",
+    "<GROUP>.Tests[].pipeline"
+  ],
+  "EDITABLE_FIELDS": [
+    "<GROUP>",
+    "<GROUP>.Tests[].pipeline"
+  ],
+  "EXAMPLE": {
+    "constants/WebCrawlerConstants.py": {
+      "Tests": [
+        {"pipeline": "SEARCH_WEB"},
+        {"pipeline": "RUN_ALL"}
+      ]
+    }
+  },
+  "DESCRIPTION": {
+    "<GROUP>": "Path to an AutomationTools constants Python file. Each file is a selectable test group.",
+    "<GROUP>.Tests": "List of pipelines to validate in the selected constants file.",
+    "<GROUP>.Tests[].pipeline": "Exact pipeline name from that file's PIPELINE_STATES dictionary.",
+    "RUN_TESTS": "Loads selected pipelines, checks their functions, phases, arguments, results and static dependencies. Does not execute automation steps.",
+    "SHOW_CONFIG_DOC": "Displays this configuration guide."
+  }
+}

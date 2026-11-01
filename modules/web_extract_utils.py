@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 import tempfile
+import html
 from pathlib import Path
 from xml.etree import ElementTree
 from typing import Any, Dict, List, Optional, Union, Callable
@@ -11,7 +12,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 import requests
 from bs4 import BeautifulSoup
 from modules.system_utils import expand_path, load_skip_list
-from modules.json_utils import save_named_json
+from modules.json_utils import save_named_json, save_json_file
 
 
 # ---------------------------------------------------------------------
@@ -139,8 +140,10 @@ def list_html_files(html_dir: str) -> List[str]:
     return files
 
 
+
+
 def search_web(domain: str, terms: List[str], max_results: int) -> List[Dict[str, str]]:
-    """Search Bing's RSS results, limited to max_results URLs per term."""
+    """Search Bing RSS for relevant URLs within the requested domain."""
     host = (urlparse(domain if "://" in domain else f"https://{domain}").hostname or "").lower().rstrip(".")
     if not host or not terms or any(not isinstance(term, str) or not term.strip() for term in terms):
         raise ValueError("Search requires a domain and nonempty search terms.")
@@ -151,7 +154,11 @@ def search_web(domain: str, terms: List[str], max_results: int) -> List[Dict[str
         query = f'site:{host} "{term.replace(chr(34), " ")}"'
         print(f"[INFO] Web search (Bing RSS): {query}")
         try:
-            response = requests.get("https://www.bing.com/search", params={"q": query, "format": "rss", "count": max_results}, timeout=25)
+            response = requests.get(
+                "https://www.bing.com/search",
+                params={"q": query, "format": "rss", "count": max_results},
+                timeout=25,
+            )
             response.raise_for_status()
             root = ElementTree.fromstring(response.content)
             if root.tag != "rss" or root.find("channel") is None:
@@ -162,6 +169,11 @@ def search_web(domain: str, terms: List[str], max_results: int) -> List[Dict[str
                 parsed = urlparse(url)
                 target = (parsed.hostname or "").lower().rstrip(".")
                 if parsed.scheme not in ("http", "https") or not (target == host or target.endswith(f".{host}")):
+                    continue
+                title = item.findtext("title") or ""
+                description = item.findtext("description") or ""
+                searchable = f"{title} {description} {unquote(parsed.path)}".replace("_", " ").casefold()
+                if not all(word in searchable for word in term.casefold().split()):
                     continue
                 url = parsed._replace(fragment="").geturl()
                 if url in seen:
@@ -195,18 +207,20 @@ def page_contains_term(
     return term.casefold() in text.casefold()
 
 
+
+
 def run_photon(
     url: str,
     photon_python: str,
     photon_script: str,
     depth: int,
 ) -> List[str]:
-    """Run Photon and return URLs discovered by the crawl."""
+    """Run Photon and return cleaned, unique internal URLs."""
     python_path = Path(expand_path(photon_python))
     script_path = Path(expand_path(photon_script))
-    if not python_path.exists():
+    if not python_path.is_file():
         raise FileNotFoundError(f"Photon Python not found: {python_path}")
-    if not script_path.exists():
+    if not script_path.is_file():
         raise FileNotFoundError(f"Photon script not found: {script_path}")
     with tempfile.TemporaryDirectory(prefix="photon_") as output_dir:
         command = [
@@ -228,15 +242,18 @@ def run_photon(
         if result.returncode != 0:
             raise RuntimeError(result.stderr.strip() or f"Photon returned {result.returncode}")
         internal_file = Path(output_dir) / "internal.txt"
-        if not internal_file.exists():
+        if not internal_file.is_file():
             raise RuntimeError("Photon produced no internal.txt URL dataset.")
-        return list(
-            dict.fromkeys(
-                line.strip() for line in internal_file.read_text(encoding="utf-8").splitlines()
-                if line.strip().startswith(("http://", "https://"))
-            ),
-        )
-
+        urls = []
+        for line in internal_file.read_text(encoding="utf-8").splitlines():
+            candidate = html.unescape(line.strip())
+            parsed = urlparse(candidate)
+            if parsed.scheme not in ("http", "https") or not parsed.hostname:
+                continue
+            path = parsed.path.replace("/./", "/")
+            candidate = parsed._replace(path=path, fragment="").geturl()
+            urls.append(candidate)
+        return list(dict.fromkeys(urls))
 
 def crawl_with_photon(
     candidates: List[Dict[str, str]],

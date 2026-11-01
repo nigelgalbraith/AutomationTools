@@ -211,6 +211,11 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
 # ---------------------------------------------------------------------
 
 
+
+# ---------------------------------------------------------------------
+# PRE PHASE STEPS
+# ---------------------------------------------------------------------
+
 LOAD_MODEL_SPECS_PRE = [
     {
         "phase": "pre",
@@ -222,23 +227,23 @@ LOAD_MODEL_SPECS_PRE = [
         "phase": "pre",
         "fn": validate_json_schema,
         "args": [
-            lambda job, meta, ctx: ctx["model_specs"],
+            "model_specs",
             ROUTER_SCHEMA_PATH,
             "Router model specifications",
         ],
-        "result": "model_specs",
         "when": "model_specs",
+        "result": "model_specs",
     },
     {
         "phase": "pre",
         "fn": validate_router_settings,
-        "args": [
-            lambda job, meta, ctx: ctx["model_specs"],
-        ],
+        "args": ["model_specs"],
         "when": "model_specs",
         "result": "validate_router_settings_result",
     },
 ]
+
+
 
 
 # ---------------------------------------------------------------------
@@ -249,27 +254,19 @@ VALIDATE_CONFIG_EXEC = [
     {
         "phase": "exec",
         "fn": validate_router_configuration,
-        "args": [
-            lambda job, meta, ctx: meta,
-            lambda job, meta, ctx: ctx.get("model_specs"),
-        ],
+        "args": ["meta", "model_specs"],
         "result": "validated",
     },
 ]
-
 
 VIEW_MODEL_SPECS_EXEC = [
     {
         "phase": "exec",
         "fn": view_readme,
-        "args": [
-            lambda job, meta, ctx: ctx.get("model_specs"),
-            MODEL_SPECS_README_PATH,
-        ],
+        "args": ["model_specs", MODEL_SPECS_README_PATH],
         "result": "view_readme_result",
     },
 ]
-
 
 VIEW_ROUTER_DETAILS_EXEC = [
     {
@@ -280,7 +277,6 @@ VIEW_ROUTER_DETAILS_EXEC = [
     },
 ]
 
-
 VIEW_ROUTER_DETAILS_HELP_EXEC = [
     {
         "phase": "exec",
@@ -290,32 +286,23 @@ VIEW_ROUTER_DETAILS_HELP_EXEC = [
     },
 ]
 
-
 VIEW_DECODED_CONFIG_EXEC = [
     {
         "phase": "exec",
         "fn": view_router_config_fields,
-        "args": [
-            DECODED_CONFIG_PATH,
-            lambda job, meta, ctx: ctx.get("model_specs"),
-        ],
+        "args": [DECODED_CONFIG_PATH, "model_specs"],
         "result": "view_router_config_fields_result",
     },
 ]
-
 
 VIEW_EDITED_CONFIG_EXEC = [
     {
         "phase": "exec",
         "fn": view_router_config_fields,
-        "args": [
-            EDITED_CONFIG_PATH,
-            lambda job, meta, ctx: ctx.get("model_specs"),
-        ],
+        "args": [EDITED_CONFIG_PATH, "model_specs"],
         "result": "view_router_config_fields_result",
     },
 ]
-
 
 DECODE_CONFIG_EXEC = [
     {
@@ -323,9 +310,9 @@ DECODE_CONFIG_EXEC = [
         "fn": decode_router_config,
         "args": [
             TEMPLATE_CONFIG_PATH,
-            lambda job, meta, ctx: ctx.get("model_specs"),
-            lambda job, meta, ctx: meta.get(TEMPLATE_ROUTER_PASSWORD_PATH),
-            lambda job, meta, ctx: meta.get(TEMPLATE_DEVICE_KEY_PATH),
+            "model_specs",
+            f"?{TEMPLATE_ROUTER_PASSWORD_PATH}",
+            f"?{TEMPLATE_DEVICE_KEY_PATH}",
         ],
         "result": "decoded_data",
     },
@@ -333,12 +320,12 @@ DECODE_CONFIG_EXEC = [
         "phase": "exec",
         "fn": save_router_config,
         "args": [
-            lambda job, meta, ctx: ctx.get("decoded_data"),
+            "decoded_data",
             DECODED_CONFIG_ARCHIVE_PATH,
-            lambda job, meta, ctx: ctx.get("model_specs"),
+            "model_specs",
         ],
-        "result": "archive_saved",
         "when": "decoded_data",
+        "result": "archive_saved",
     },
     {
         "phase": "exec",
@@ -346,13 +333,12 @@ DECODE_CONFIG_EXEC = [
         "args": [
             DECODED_CONFIG_ARCHIVE_PATH,
             DECODED_CONFIG_PATH,
-            lambda job, meta, ctx: ctx.get("model_specs"),
+            "model_specs",
         ],
-        "result": "decoded_directory",
         "when": "archive_saved",
+        "result": "decoded_directory",
     },
 ]
-
 
 EDIT_CONFIG_EXEC = [
     {
@@ -361,13 +347,12 @@ EDIT_CONFIG_EXEC = [
         "args": [
             DECODED_CONFIG_PATH,
             EDITED_CONFIG_PATH,
-            lambda job, meta, ctx: ctx.get("model_specs"),
+            "model_specs",
             ROUTER_DETAILS_PATH,
         ],
         "result": "edited_directory",
     },
 ]
-
 
 ENCODE_CONFIG_EXEC = [
     {
@@ -377,26 +362,25 @@ ENCODE_CONFIG_EXEC = [
             EDITED_CONFIG_PATH,
             TEMPLATE_CONFIG_PATH,
             ENCODED_CONFIG_PATH,
-            lambda job, meta, ctx: ctx.get("model_specs"),
-            lambda job, meta, ctx: meta.get(TEMPLATE_ROUTER_PASSWORD_PATH),
-            lambda job, meta, ctx: meta.get(TARGET_ROUTER_PASSWORD_PATH),
-            lambda job, meta, ctx: meta.get(TEMPLATE_DEVICE_KEY_PATH),
-            lambda job, meta, ctx: meta.get(TARGET_DEVICE_KEY_PATH),
+            "model_specs",
+            f"?{TEMPLATE_ROUTER_PASSWORD_PATH}",
+            f"?{TARGET_ROUTER_PASSWORD_PATH}",
+            f"?{TEMPLATE_DEVICE_KEY_PATH}",
+            f"?{TARGET_DEVICE_KEY_PATH}",
         ],
         "result": "encoded_config",
     },
 ]
-
-
 
 SHOW_CONFIG_DOC_EXEC = [
     {
         "phase": "exec",
         "fn": display_config_doc,
         "args": [CONFIG_DOC],
-        "result": 'display_config_doc_result',
+        "result": "display_config_doc_result",
     },
 ]
+
 
 
 # ---------------------------------------------------------------------

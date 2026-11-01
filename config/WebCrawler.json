@@ -1,3 +1,4 @@
+
 {
   "Wikipedia-Albert-Einstein": {
     "search_keys": {
@@ -8,9 +9,7 @@
       "max_results": 20
     },
     "crawl_keys": {
-      "photon_enabled": true,
       "photon_depth": 2,
-      "selenium_enabled": true,
       "selenium_depth": 2,
       "selenium_max_pages": 100,
       "download_delay": 2.0
@@ -19,7 +18,6 @@
       "output_dir": "~/Documents/AutomationToolsData/webCrawler/produced/Wikipedia-Albert-Einstein"
     }
   },
-
   "Wikipedia-Stephen-Hawking": {
     "search_keys": {
       "domain": "wikipedia.org",
@@ -29,9 +27,7 @@
       "max_results": 20
     },
     "crawl_keys": {
-      "photon_enabled": true,
       "photon_depth": 2,
-      "selenium_enabled": true,
       "selenium_depth": 2,
       "selenium_max_pages": 100,
       "download_delay": 2.0
@@ -40,7 +36,6 @@
       "output_dir": "~/Documents/AutomationToolsData/webCrawler/produced/Wikipedia-Stephen-Hawking"
     }
   },
-
   "Wikipedia-Physics": {
     "search_keys": {
       "domain": "wikipedia.org",
@@ -52,9 +47,7 @@
       "max_results": 20
     },
     "crawl_keys": {
-      "photon_enabled": true,
       "photon_depth": 2,
-      "selenium_enabled": true,
       "selenium_depth": 2,
       "selenium_max_pages": 100,
       "download_delay": 2.0

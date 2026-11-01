@@ -62,27 +62,51 @@ def parse_args(consts: Any) -> argparse.Namespace:
 # ---------------------------------------------------------------------
 
 def resolve_arg(spec: Any, job: str, meta: Dict[str, Any], ctx: Dict[str, Any]) -> Any:
-    """Resolve a pipeline arg spec into a concrete value"""
+    """Resolve pipeline arguments, including nested metadata and context."""
     if callable(spec):
         return spec(job, meta, ctx)
     if isinstance(spec, str):
-        if spec in ctx:
-            return ctx[spec]
-        key = spec.split(".", 1)[-1]
-        if key in meta:
-            return meta[key]
         if spec == "job":
             return job
+        if spec == "meta":
+            return meta
+        if spec == "ctx":
+            return ctx
+        if spec.startswith("?"):
+            return meta.get(spec[1:])
+        if spec in ctx:
+            return ctx[spec]
+        if spec.startswith("meta.") or spec.startswith("ctx."):
+            value = meta if spec.startswith("meta.") else ctx
+            for key in spec.split(".")[1:]:
+                if not isinstance(value, dict) or key not in value:
+                    return None
+                value = value[key]
+            return value
+        if spec in meta:
+            return meta[spec]
     return spec
 
 
 def check_when(cond: Any, job: str, meta: Dict[str, Any], ctx: Dict[str, Any]) -> bool:
-    """Evaluate a step's `when` condition and return True if the step should run"""
+    """Evaluate pipeline conditions using lists for AND and strings for OR."""
     if cond is None:
         return True
     if callable(cond):
         return bool(cond(job, meta, ctx))
-    return bool(resolve_arg(cond, job, meta, ctx))
+    if isinstance(cond, list):
+        return all(check_when(part, job, meta, ctx) for part in cond)
+    if isinstance(cond, str):
+        if " or " in cond:
+            return any(check_when(part.strip(), job, meta, ctx) for part in cond.split(" or "))
+        valid = cond in ("job", "meta") or cond in ctx or cond in meta or cond.startswith("meta.")
+        result = valid and bool(resolve_arg(cond, job, meta, ctx))
+        if result:
+            print(f"[OK] Condition met: {cond}")
+        else:
+            print(f"[SKIP] Condition not met: {cond}")
+        return result
+    return bool(cond)
 
 
 def run_pipeline_steps(

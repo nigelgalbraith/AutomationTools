@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from typing import Dict, Any
 
-from modules.system_utils import expand_path
-
 from modules.display_utils import (
     display_config_doc,
 )
@@ -228,9 +226,9 @@ SEARCH_WEB_EXEC = [
         "phase": "exec",
         "fn": search_web,
         "args": [
-            lambda job, meta, ctx: meta[SEARCH_KEYS_SECTION][DOMAIN_KEY],
-            lambda job, meta, ctx: meta[SEARCH_KEYS_SECTION][TERMS_KEY],
-            lambda job, meta, ctx: meta[SEARCH_KEYS_SECTION][MAX_RESULTS_KEY],
+            f"meta.{SEARCH_KEYS_SECTION}.{DOMAIN_KEY}",
+            f"meta.{SEARCH_KEYS_SECTION}.{TERMS_KEY}",
+            f"meta.{SEARCH_KEYS_SECTION}.{MAX_RESULTS_KEY}",
         ],
         "result": "search_results",
     },
@@ -241,9 +239,7 @@ DISPLAY_SEARCH_RESULTS_EXEC = [
     {
         "phase": "exec",
         "fn": print_search_results,
-        "args": [
-            lambda job, meta, ctx: ctx.get("search_results", []),
-        ],
+        "args": ["search_results"],
         "result": "search_displayed",
     },
 ]
@@ -252,70 +248,56 @@ DISPLAY_SEARCH_RESULTS_EXEC = [
 CRAWL_PHOTON_EXEC = [
     {
         "phase": "exec",
+        "fn": make_checkpoint,
+        "args": [
+            "photon",
+            f"meta.{SEARCH_KEYS_SECTION}.{DOMAIN_KEY}",
+            "job",
+            f"meta.{OUTPUT_KEYS_SECTION}.{OUTPUT_DIR_KEY}",
+            "ctx",
+        ],
+        "result": "photon_checkpoint",
+    },
+    {
+        "phase": "exec",
         "fn": crawl_with_photon,
         "args": [
-            lambda job, meta, ctx: ctx.get("search_results", []),
-            lambda job, meta, ctx: meta[SEARCH_KEYS_SECTION][TERMS_KEY],
-            lambda job, meta, ctx: PHOTON_PYTHON,
-            lambda job, meta, ctx: PHOTON_SCRIPT,
-            lambda job, meta, ctx: meta[CRAWL_KEYS_SECTION][PHOTON_DEPTH_KEY],
-            lambda job, meta, ctx: make_checkpoint(
-                "photon",
-                meta[SEARCH_KEYS_SECTION][DOMAIN_KEY],
-                job,
-                meta[OUTPUT_KEYS_SECTION][OUTPUT_DIR_KEY],
-                ctx,
-            ),
+            "search_results",
+            f"meta.{SEARCH_KEYS_SECTION}.{TERMS_KEY}",
+            PHOTON_PYTHON,
+            PHOTON_SCRIPT,
+            f"meta.{CRAWL_KEYS_SECTION}.{PHOTON_DEPTH_KEY}",
+            "photon_checkpoint",
         ],
         "result": "photon_crawl",
     },
 ]
 
-
-CRAWL_SELENIUM_FALLBACK_EXEC = [
-    {
-        "phase": "exec",
-        "fn": crawl_with_selenium,
-        "args": [
-            lambda job, meta, ctx: ctx.get("photon_crawl", {}).get("fallback_urls", []),
-            lambda job, meta, ctx: meta[SEARCH_KEYS_SECTION][TERMS_KEY],
-            lambda job, meta, ctx: HEADLESS_MODE,
-            lambda job, meta, ctx: MINIMIZED_MODE,
-            lambda job, meta, ctx: meta[CRAWL_KEYS_SECTION][DOWNLOAD_DELAY_KEY],
-            lambda job, meta, ctx: meta[CRAWL_KEYS_SECTION][SELENIUM_DEPTH_KEY],
-            lambda job, meta, ctx: meta[CRAWL_KEYS_SECTION][SELENIUM_MAX_PAGES_KEY],
-            lambda job, meta, ctx: make_checkpoint(
-                "selenium",
-                meta[SEARCH_KEYS_SECTION][DOMAIN_KEY],
-                job,
-                meta[OUTPUT_KEYS_SECTION][OUTPUT_DIR_KEY],
-                ctx,
-            ),
-        ],
-        "result": "selenium_results",
-    },
-]
-
-
 CRAWL_SELENIUM_ALL_EXEC = [
     {
         "phase": "exec",
+        "fn": make_checkpoint,
+        "args": [
+            "selenium",
+            f"meta.{SEARCH_KEYS_SECTION}.{DOMAIN_KEY}",
+            "job",
+            f"meta.{OUTPUT_KEYS_SECTION}.{OUTPUT_DIR_KEY}",
+            "ctx",
+        ],
+        "result": "selenium_checkpoint",
+    },
+    {
+        "phase": "exec",
         "fn": crawl_with_selenium,
         "args": [
-            lambda job, meta, ctx: ctx.get("search_results", []),
-            lambda job, meta, ctx: meta[SEARCH_KEYS_SECTION][TERMS_KEY],
-            lambda job, meta, ctx: HEADLESS_MODE,
-            lambda job, meta, ctx: MINIMIZED_MODE,
-            lambda job, meta, ctx: meta[CRAWL_KEYS_SECTION][DOWNLOAD_DELAY_KEY],
-            lambda job, meta, ctx: meta[CRAWL_KEYS_SECTION][SELENIUM_DEPTH_KEY],
-            lambda job, meta, ctx: meta[CRAWL_KEYS_SECTION][SELENIUM_MAX_PAGES_KEY],
-            lambda job, meta, ctx: make_checkpoint(
-                "selenium",
-                meta[SEARCH_KEYS_SECTION][DOMAIN_KEY],
-                job,
-                meta[OUTPUT_KEYS_SECTION][OUTPUT_DIR_KEY],
-                ctx,
-            ),
+            "search_results",
+            f"meta.{SEARCH_KEYS_SECTION}.{TERMS_KEY}",
+            HEADLESS_MODE,
+            MINIMIZED_MODE,
+            f"meta.{CRAWL_KEYS_SECTION}.{DOWNLOAD_DELAY_KEY}",
+            f"meta.{CRAWL_KEYS_SECTION}.{SELENIUM_DEPTH_KEY}",
+            f"meta.{CRAWL_KEYS_SECTION}.{SELENIUM_MAX_PAGES_KEY}",
+            "selenium_checkpoint",
         ],
         "result": "selenium_results",
     },
@@ -327,25 +309,23 @@ OUTPUT_RESULTS_EXEC = [
         "phase": "exec",
         "fn": merge_crawl_results,
         "args": [
-            lambda job, meta, ctx: ctx.get("photon_crawl", {}).get("results", []),
-            lambda job, meta, ctx: ctx.get("selenium_results", []),
+            "ctx.photon_crawl.results",
+            "ctx.selenium_results",
         ],
         "result": "final_results",
     },
     {
         "phase": "exec",
         "fn": print_crawl_results,
-        "args": [
-            lambda job, meta, ctx: ctx.get("final_results", []),
-        ],
+        "args": ["final_results"],
         "result": "printed_results",
     },
     {
         "phase": "exec",
         "fn": build_crawl_results,
         "args": [
-            lambda job, meta, ctx: meta[SEARCH_KEYS_SECTION][DOMAIN_KEY],
-            lambda job, meta, ctx: ctx.get("final_results", []),
+            f"meta.{SEARCH_KEYS_SECTION}.{DOMAIN_KEY}",
+            "final_results",
         ],
         "result": "result_data",
     },
@@ -353,9 +333,9 @@ OUTPUT_RESULTS_EXEC = [
         "phase": "exec",
         "fn": save_crawl_results,
         "args": [
-            lambda job, meta, ctx: ctx.get("result_data", {}),
-            lambda job, meta, ctx: meta[OUTPUT_KEYS_SECTION][OUTPUT_DIR_KEY],
-            lambda job, meta, ctx: job,
+            "result_data",
+            f"meta.{OUTPUT_KEYS_SECTION}.{OUTPUT_DIR_KEY}",
+            "job",
         ],
         "result": "saved_result",
     },
@@ -367,11 +347,12 @@ OPEN_RESULTS_EXEC = [
         "phase": "exec",
         "fn": open_html_with_json,
         "args": [
-            lambda job, meta, ctx: WEB_VIEWER,
-            lambda job, meta, ctx: ctx.get("saved_result"),
-            lambda job, meta, ctx: VIEWER_HOST,
-            lambda job, meta, ctx: VIEWER_PORT,
+            WEB_VIEWER,
+            "saved_result",
+            VIEWER_HOST,
+            VIEWER_PORT,
         ],
+        "when": "saved_result",
         "result": "viewer_opened",
     },
 ]
@@ -382,7 +363,7 @@ VIEW_RESULTS_EXEC = [
         "phase": "exec",
         "fn": select_json_file,
         "args": [
-            lambda job, meta, ctx: expand_path(meta[OUTPUT_KEYS_SECTION][OUTPUT_DIR_KEY]),
+            f"meta.{OUTPUT_KEYS_SECTION}.{OUTPUT_DIR_KEY}",
         ],
         "result": "selected_result",
     },
@@ -390,14 +371,16 @@ VIEW_RESULTS_EXEC = [
         "phase": "exec",
         "fn": open_html_with_json,
         "args": [
-            lambda job, meta, ctx: WEB_VIEWER,
-            lambda job, meta, ctx: ctx.get("selected_result"),
-            lambda job, meta, ctx: VIEWER_HOST,
-            lambda job, meta, ctx: VIEWER_PORT,
+            WEB_VIEWER,
+            "selected_result",
+            VIEWER_HOST,
+            VIEWER_PORT,
         ],
+        "when": "selected_result",
         "result": "viewer_opened",
     },
 ]
+
 
 
 SHOW_CONFIG_DOC_EXEC = [
@@ -408,6 +391,7 @@ SHOW_CONFIG_DOC_EXEC = [
         "result": "display_config_doc_result",
     },
 ]
+
 
 
 # ---------------------------------------------------------------------
@@ -444,7 +428,7 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
         "pipeline": [
             *SEARCH_WEB_EXEC,
             *CRAWL_PHOTON_EXEC,
-            *CRAWL_SELENIUM_FALLBACK_EXEC,
+            *CRAWL_SELENIUM_ALL_EXEC,
             *OUTPUT_RESULTS_EXEC,
             *OPEN_RESULTS_EXEC,
         ],

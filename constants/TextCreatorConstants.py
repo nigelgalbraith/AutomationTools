@@ -260,6 +260,7 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
 }
 
 
+
 # ---------------------------------------------------------------------
 # PRE PHASE STEPS
 # ---------------------------------------------------------------------
@@ -269,9 +270,9 @@ DOWNLOAD_HTML_PRE = [
         "phase": "pre",
         "fn": prepare_html_downloads,
         "args": [
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][DL_URLS_KEY],
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][DOWNLOAD_LOC_KEY],
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][SKIP_LIST_FILE_KEY],
+            f"meta.{DOWNLOAD_KEYS_SECTION}.{DL_URLS_KEY}",
+            f"meta.{DOWNLOAD_KEYS_SECTION}.{DOWNLOAD_LOC_KEY}",
+            f"meta.{DOWNLOAD_KEYS_SECTION}.{SKIP_LIST_FILE_KEY}",
         ],
         "result": "download_setup",
     },
@@ -282,49 +283,47 @@ DOWNLOAD_HTML_PRE = [
 # EXEC PHASE STEPS
 # ---------------------------------------------------------------------
 
-
 DOWNLOAD_HTML_EXEC = [
     {
         "phase": "exec",
         "fn": discover_html_links,
         "args": [
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][DL_URLS_KEY],
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][FOLLOW_LINKS_KEY],
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][LINK_SELECTOR_KEY],
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][LINKS_PER_SEARCH_KEY],
-            lambda job, meta, ctx: HEADLESS_MODE,
-            lambda job, meta, ctx: MINIMIZED_MODE,
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][SEARCH_PAGE_DELAY_KEY],
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][FILENAME_FROM_URL_REGEX_KEY],
-            lambda job, meta, ctx: ctx["download_setup"]["skip_ids"],
+            f"meta.{DOWNLOAD_KEYS_SECTION}.{DL_URLS_KEY}",
+            f"meta.{DOWNLOAD_KEYS_SECTION}.{FOLLOW_LINKS_KEY}",
+            f"meta.{DOWNLOAD_KEYS_SECTION}.{LINK_SELECTOR_KEY}",
+            f"meta.{DOWNLOAD_KEYS_SECTION}.{LINKS_PER_SEARCH_KEY}",
+            HEADLESS_MODE,
+            MINIMIZED_MODE,
+            f"meta.{DOWNLOAD_KEYS_SECTION}.{SEARCH_PAGE_DELAY_KEY}",
+            f"meta.{DOWNLOAD_KEYS_SECTION}.{FILENAME_FROM_URL_REGEX_KEY}",
+            "ctx.download_setup.skip_ids",
         ],
+        "when": "download_setup",
         "result": "download_discovery",
     },
     {
         "phase": "exec",
         "fn": download_html_files,
         "args": [
-            lambda job, meta, ctx: ctx["download_discovery"],
-            lambda job, meta, ctx: ctx["download_setup"],
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][FILENAME_FROM_URL_REGEX_KEY],
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][TITLE_SELECTORS_KEY],
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][MIN_JOB_PAGE_DELAY_KEY],
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][MAX_JOB_PAGE_DELAY_KEY],
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][MIN_HTML_SIZE_BYTES_KEY],
-            lambda job, meta, ctx: meta[DOWNLOAD_KEYS_SECTION][SKIP_LIST_FILE_KEY],
+            "download_discovery",
+            "download_setup",
+            f"meta.{DOWNLOAD_KEYS_SECTION}.{FILENAME_FROM_URL_REGEX_KEY}",
+            f"meta.{DOWNLOAD_KEYS_SECTION}.{TITLE_SELECTORS_KEY}",
+            f"meta.{DOWNLOAD_KEYS_SECTION}.{MIN_JOB_PAGE_DELAY_KEY}",
+            f"meta.{DOWNLOAD_KEYS_SECTION}.{MAX_JOB_PAGE_DELAY_KEY}",
+            f"meta.{DOWNLOAD_KEYS_SECTION}.{MIN_HTML_SIZE_BYTES_KEY}",
+            f"meta.{DOWNLOAD_KEYS_SECTION}.{SKIP_LIST_FILE_KEY}",
         ],
+        "when": "download_discovery",
         "result": "download_results",
     },
     {
         "phase": "exec",
         "fn": close_html_driver,
-        "args": [
-            lambda job, meta, ctx: ctx.get("download_discovery"),
-        ],
+        "args": ["download_discovery"],
         "result": "html_driver_cleanup",
     },
 ]
-
 
 
 EXTRACT_FIELDS_HTML_EXEC = [
@@ -332,7 +331,7 @@ EXTRACT_FIELDS_HTML_EXEC = [
         "phase": "exec",
         "fn": list_html_files,
         "args": [
-            lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION][HTML_DIR_KEY],
+            f"meta.{EXTRACT_KEYS_SECTION}.{HTML_DIR_KEY}",
         ],
         "result": "sources",
     },
@@ -340,23 +339,23 @@ EXTRACT_FIELDS_HTML_EXEC = [
         "phase": "exec",
         "fn": extract_fields_from_url,
         "args": [
-            lambda job, meta, ctx: ctx.get("sources", []),
-            lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION].get(EXTRACT_RULES_KEY, {}),
-            lambda job, meta, ctx: SHOW_SOURCE_ON_EXTRACTION,
+            "sources",
+            f"meta.{EXTRACT_KEYS_SECTION}.{EXTRACT_RULES_KEY}",
+            SHOW_SOURCE_ON_EXTRACTION,
         ],
-        "result": "items",
         "when": "sources",
+        "result": "items",
     },
     {
         "phase": "exec",
         "fn": save_items_json_dir,
         "args": [
-            lambda job, meta, ctx: ctx.get("items", []),
-            lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION][ITEMS_OUT_DIR_KEY],
-            lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION].get(BASENAME_KEYS_KEY, []),
+            "items",
+            f"meta.{EXTRACT_KEYS_SECTION}.{ITEMS_OUT_DIR_KEY}",
+            f"meta.{EXTRACT_KEYS_SECTION}.{BASENAME_KEYS_KEY}",
         ],
-        "result": "saved_items_ok",
         "when": "items",
+        "result": "saved_items_ok",
     },
 ]
 
@@ -366,7 +365,7 @@ UPDATE_PROMPTS_EXEC = [
         "phase": "exec",
         "fn": load_items_from_dir,
         "args": [
-            lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION][ITEMS_OUT_DIR_KEY],
+            f"meta.{EXTRACT_KEYS_SECTION}.{ITEMS_OUT_DIR_KEY}",
         ],
         "result": "items",
     },
@@ -374,14 +373,14 @@ UPDATE_PROMPTS_EXEC = [
         "phase": "exec",
         "fn": write_prompts_from_items,
         "args": [
-            lambda job, meta, ctx: meta[PROMPT_KEYS_SECTION][PROMPT_TEMPLATE_PATH_KEY],
-            lambda job, meta, ctx: meta[PROMPT_KEYS_SECTION][PROMPTS_OUT_DIR_KEY],
-            lambda job, meta, ctx: ctx.get("items", []),
-            lambda job, meta, ctx: meta[PROMPT_KEYS_SECTION].get(PROMPT_INJECTION_KEYS_KEY, []),
-            lambda job, meta, ctx: meta[EXTRACT_KEYS_SECTION].get(BASENAME_KEYS_KEY, []),
+            f"meta.{PROMPT_KEYS_SECTION}.{PROMPT_TEMPLATE_PATH_KEY}",
+            f"meta.{PROMPT_KEYS_SECTION}.{PROMPTS_OUT_DIR_KEY}",
+            "items",
+            f"meta.{PROMPT_KEYS_SECTION}.{PROMPT_INJECTION_KEYS_KEY}",
+            f"meta.{EXTRACT_KEYS_SECTION}.{BASENAME_KEYS_KEY}",
         ],
-        "result": "saved_prompts_count",
         "when": "items",
+        "result": "saved_prompts_count",
     },
 ]
 
@@ -390,9 +389,7 @@ START_OLLAMA_EXEC = [
     {
         "phase": "exec",
         "fn": start_ollama_compose,
-        "args": [
-            lambda job, meta, ctx: OLLAMA_COMPOSE_DIR,
-        ],
+        "args": [OLLAMA_COMPOSE_DIR],
         "result": "started_ollama_ok",
     },
 ]
@@ -402,9 +399,7 @@ CHECK_OLLAMA_STATUS_EXEC = [
     {
         "phase": "exec",
         "fn": check_ollama_status,
-        "args": [
-            lambda job, meta, ctx: BASE_URL,
-        ],
+        "args": [BASE_URL],
         "result": "ollama_available",
     },
 ]
@@ -415,14 +410,14 @@ GENERATE_TEXT_EXEC = [
         "phase": "exec",
         "fn": generate_text_from_prompts_dir,
         "args": [
-            lambda job, meta, ctx: meta[PROMPT_KEYS_SECTION][PROMPTS_OUT_DIR_KEY],
-            lambda job, meta, ctx: meta[PROMPT_KEYS_SECTION][TEXT_OUT_DIR_KEY],
-            lambda job, meta, ctx: BASE_URL,
-            lambda job, meta, ctx: MODEL,
-            lambda job, meta, ctx: float(TEMPERATURE),
+            f"meta.{PROMPT_KEYS_SECTION}.{PROMPTS_OUT_DIR_KEY}",
+            f"meta.{PROMPT_KEYS_SECTION}.{TEXT_OUT_DIR_KEY}",
+            BASE_URL,
+            MODEL,
+            TEMPERATURE,
         ],
-        "result": "text_summary",
         "when": "ollama_available",
+        "result": "text_summary",
     },
 ]
 
@@ -431,9 +426,7 @@ STOP_OLLAMA_EXEC = [
     {
         "phase": "exec",
         "fn": stop_ollama_compose,
-        "args": [
-            lambda job, meta, ctx: OLLAMA_COMPOSE_DIR,
-        ],
+        "args": [OLLAMA_COMPOSE_DIR],
         "result": "stopped_ollama_ok",
     },
 ]
@@ -447,6 +440,7 @@ SHOW_CONFIG_DOC_EXEC = [
         "result": "display_config_doc_result",
     },
 ]
+
 
 
 
