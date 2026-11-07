@@ -1,7 +1,9 @@
+
 # constants/RouterConstants.py
 from __future__ import annotations
 
 from typing import Any, Dict
+from functools import partial
 
 from modules.display_utils import display_config_doc
 from modules.json_utils import load_json, validate_json_schema
@@ -14,9 +16,162 @@ from modules.router_utils import (
     extract_router_config,
     view_router_config_fields,
     edit_router_config_fields,
-    encode_router_config,
     validate_router_settings,
+    encode_router_config,
+    extract_configuration_file,
+
 )
+
+from modules.router_config_utils import (
+    xml_field_values,
+    view_key_value_values,
+    edit_key_value_values,
+    update_xml_fields,
+    validate_key_value_settings, 
+    validate_xml_field_settings,
+)
+
+from modules.router_encryption_utils import (
+    decrypt_aes_128_cbc_field, 
+    encrypt_aes_128_cbc_field,
+    crypt_aes_256_cbc, 
+    crypt_aes_256_cbc_fixed_key, 
+    crypt_technicolor_thenc,
+    calculate_payload_checksum, 
+    verify_rsa_md5_signature, 
+    sign_rsa_md5_configuration,
+    validate_legacy_aes_settings, 
+    validate_fixed_key_settings, 
+    validate_device_key_settings,
+    validate_rsa_md5_settings, 
+    validate_rsa_md5_signing_settings, 
+    validate_field_encryption_settings,
+)
+
+from modules.router_format_utils import (
+    rebuild_tar_archive,
+    read_tar_files,
+    split_line_wrapper, 
+    prepare_line_wrapper,
+    parse_technicolor_wrapper, 
+    parse_encrypted_configuration,
+    rebuild_technicolor_wrapper,
+    encode_base64_payload, 
+    decode_base64_payload,
+    unpack_signed_configuration, 
+    pack_signed_configuration,
+    encode_signed_xml_configuration, 
+    decode_xml_configuration,
+    validate_signed_configuration_settings, 
+    validate_tar_configuration,
+    validate_xml_declaration, 
+    extract_tar_archive,
+    validate_base64_settings, 
+    validate_line_wrapper_settings, 
+    validate_technicolor_settings,
+)
+
+ROUTER_FUNCTIONS = {
+    "encode": {
+        "functions": {
+            "tar.gz": rebuild_tar_archive,
+            "rsa-md5": partial(encode_signed_xml_configuration, 
+                               signer=sign_rsa_md5_configuration),
+            "signed-zlib": pack_signed_configuration,
+            "aes-256-cbc": partial(crypt_aes_256_cbc, 
+                                   decrypt=False),
+            "fixed-key": partial(crypt_aes_256_cbc_fixed_key, 
+                                 decrypt=False),
+            "device-key": partial(crypt_technicolor_thenc, 
+                                  decrypt=False),
+            "openssl-legacy": partial(crypt_aes_256_cbc, 
+                                      decrypt=False),
+            "base64": encode_base64_payload,
+            "line-wrapper": prepare_line_wrapper,
+            "technicolor-thenc": rebuild_technicolor_wrapper,
+            "encrypted-configuration": parse_encrypted_configuration,
+            "aes-128-cbc-zero-padded-base64": encrypt_aes_128_cbc_field,
+        },
+        "validate": {
+            "signed-zlib": validate_signed_configuration_settings,
+            "aes-256-cbc": validate_legacy_aes_settings,
+            "openssl-legacy": validate_legacy_aes_settings,
+            "fixed-key": validate_fixed_key_settings,
+            "device-key": validate_device_key_settings,
+            "base64": validate_base64_settings,
+            "line-wrapper": validate_line_wrapper_settings,
+            "technicolor-thenc": validate_technicolor_settings,
+            "aes-128-cbc-zero-padded-base64": validate_field_encryption_settings,
+            "rsa-md5": validate_rsa_md5_signing_settings,
+        },
+    },
+    "decode": {
+        "functions": {
+            "line-wrapper": split_line_wrapper,
+            "technicolor-thenc": parse_technicolor_wrapper,
+            "encrypted-configuration": parse_encrypted_configuration,
+            "base64": decode_base64_payload,
+            "aes-256-cbc": partial(crypt_aes_256_cbc, 
+                                   decrypt=True),
+            "fixed-key": partial(crypt_aes_256_cbc_fixed_key, 
+                                 decrypt=True),
+            "device-key": partial(crypt_technicolor_thenc, 
+                                  decrypt=True),
+            "openssl-legacy": partial(crypt_aes_256_cbc, 
+                                      decrypt=True),
+            "tar.gz": read_tar_files,
+            "signed-zlib": unpack_signed_configuration,
+            "rsa-md5": partial(decode_xml_configuration, 
+                               verifier=verify_rsa_md5_signature),
+            "aes-128-cbc-zero-padded-base64": decrypt_aes_128_cbc_field,
+        },
+        "validate": {
+            "signed-zlib": validate_signed_configuration_settings,
+            "aes-256-cbc": validate_legacy_aes_settings,
+            "openssl-legacy": validate_legacy_aes_settings,
+            "fixed-key": validate_fixed_key_settings,
+            "device-key": validate_device_key_settings,
+            "base64": validate_base64_settings,
+            "line-wrapper": validate_line_wrapper_settings,
+            "technicolor-thenc": validate_technicolor_settings,
+            "aes-128-cbc-zero-padded-base64": validate_field_encryption_settings,
+            "rsa-md5": validate_rsa_md5_settings,
+        },
+    },
+    "extract": {
+        "tar.gz": extract_tar_archive,
+        "signed-zlib": extract_configuration_file,
+    },
+    "check": {
+        "tar.gz": validate_tar_configuration,
+        "signed-zlib": validate_xml_declaration,
+    },
+    "checksum": {
+        "md5": calculate_payload_checksum,
+        "sha256": calculate_payload_checksum,
+        "sha512": calculate_payload_checksum,
+    },
+    "edit": {
+        "functions": {
+            "key-value": edit_key_value_values,
+            "xml": update_xml_fields,
+        },
+        "validate": {
+            "key-value": validate_key_value_settings,
+            "xml": validate_xml_field_settings,
+        },
+    },
+    "view": {
+        "functions": {
+            "key-value": view_key_value_values,
+            "xml": xml_field_values,
+        },
+        "validate": {
+            "key-value": validate_key_value_settings,
+            "xml": validate_xml_field_settings,
+        },
+    },
+}
 
 
 # ---------------------------------------------------------------------
@@ -135,6 +290,7 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
     "View Router Details Help": {
         "verb": "view_details_help",
         "prompt": "View router details help? [y/n]: ",
+        "verb": "view_details_help",
         "execute_state": "VIEW_ROUTER_DETAILS_HELP",
         "post_state": "MENU_SELECTION",
         "skip_prepare_plan": True,
@@ -206,10 +362,6 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
     },
 }
 
-# ---------------------------------------------------------------------
-# PRE PHASE STEPS
-# ---------------------------------------------------------------------
-
 
 
 # ---------------------------------------------------------------------
@@ -237,13 +389,11 @@ LOAD_MODEL_SPECS_PRE = [
     {
         "phase": "pre",
         "fn": validate_router_settings,
-        "args": ["model_specs"],
+        "args": ["model_specs", ROUTER_FUNCTIONS],
         "when": "model_specs",
         "result": "validate_router_settings_result",
     },
 ]
-
-
 
 
 # ---------------------------------------------------------------------
@@ -254,7 +404,7 @@ VALIDATE_CONFIG_EXEC = [
     {
         "phase": "exec",
         "fn": validate_router_configuration,
-        "args": ["meta", "model_specs"],
+        "args": ["meta", "model_specs", ROUTER_FUNCTIONS],
         "result": "validated",
     },
 ]
@@ -290,7 +440,13 @@ VIEW_DECODED_CONFIG_EXEC = [
     {
         "phase": "exec",
         "fn": view_router_config_fields,
-        "args": [DECODED_CONFIG_PATH, "model_specs"],
+        "args": [
+            DECODED_CONFIG_PATH,
+            "ctx.model_specs.router_specs.edit",
+            "ctx.model_specs.config_fields",
+            ROUTER_FUNCTIONS["view"]["functions"],
+            ROUTER_FUNCTIONS["decode"]["functions"],
+        ],
         "result": "view_router_config_fields_result",
     },
 ]
@@ -299,7 +455,13 @@ VIEW_EDITED_CONFIG_EXEC = [
     {
         "phase": "exec",
         "fn": view_router_config_fields,
-        "args": [EDITED_CONFIG_PATH, "model_specs"],
+        "args": [
+            EDITED_CONFIG_PATH,
+            "ctx.model_specs.router_specs.edit",
+            "ctx.model_specs.config_fields",
+            ROUTER_FUNCTIONS["view"]["functions"],
+            ROUTER_FUNCTIONS["decode"]["functions"],
+        ],
         "result": "view_router_config_fields_result",
     },
 ]
@@ -310,9 +472,14 @@ DECODE_CONFIG_EXEC = [
         "fn": decode_router_config,
         "args": [
             TEMPLATE_CONFIG_PATH,
-            "model_specs",
+            "ctx.model_specs.router_specs.codec",
+            "ctx.model_specs.router_specs.hardware",
+            "ctx.model_specs.router_specs.firmware",
             f"?{TEMPLATE_ROUTER_PASSWORD_PATH}",
             f"?{TEMPLATE_DEVICE_KEY_PATH}",
+            ROUTER_FUNCTIONS["decode"]["functions"],
+            ROUTER_FUNCTIONS["decode"]["validate"],
+            ROUTER_FUNCTIONS["checksum"],
         ],
         "result": "decoded_data",
     },
@@ -323,6 +490,8 @@ DECODE_CONFIG_EXEC = [
             "decoded_data",
             DECODED_CONFIG_ARCHIVE_PATH,
             "model_specs",
+            ROUTER_FUNCTIONS["check"],
+            ROUTER_FUNCTIONS["checksum"],
         ],
         "when": "decoded_data",
         "result": "archive_saved",
@@ -334,6 +503,8 @@ DECODE_CONFIG_EXEC = [
             DECODED_CONFIG_ARCHIVE_PATH,
             DECODED_CONFIG_PATH,
             "model_specs",
+            ROUTER_FUNCTIONS["extract"],
+            ROUTER_FUNCTIONS["checksum"],
         ],
         "when": "archive_saved",
         "result": "decoded_directory",
@@ -347,8 +518,13 @@ EDIT_CONFIG_EXEC = [
         "args": [
             DECODED_CONFIG_PATH,
             EDITED_CONFIG_PATH,
-            "model_specs",
+            "ctx.model_specs.router_specs.edit",
+            "ctx.model_specs.config_fields",
             ROUTER_DETAILS_PATH,
+            ROUTER_FUNCTIONS["edit"]["functions"],
+            ROUTER_FUNCTIONS["view"]["functions"],
+            ROUTER_FUNCTIONS["decode"]["functions"],
+            ROUTER_FUNCTIONS["encode"]["functions"],
         ],
         "result": "edited_directory",
     },
@@ -362,11 +538,23 @@ ENCODE_CONFIG_EXEC = [
             EDITED_CONFIG_PATH,
             TEMPLATE_CONFIG_PATH,
             ENCODED_CONFIG_PATH,
-            "model_specs",
+            "ctx.model_specs.router_specs.codec",
+            "ctx.model_specs.router_specs.hardware",
+            "ctx.model_specs.router_specs.firmware",
+            "ctx.model_specs.router_specs.encode",
+            "ctx.model_specs.router_specs.edit",
+            "ctx.model_specs.config_fields",
             f"?{TEMPLATE_ROUTER_PASSWORD_PATH}",
             f"?{TARGET_ROUTER_PASSWORD_PATH}",
             f"?{TEMPLATE_DEVICE_KEY_PATH}",
             f"?{TARGET_DEVICE_KEY_PATH}",
+            ROUTER_FUNCTIONS["encode"]["functions"],
+            ROUTER_FUNCTIONS["encode"]["validate"],
+            ROUTER_FUNCTIONS["decode"]["functions"],
+            ROUTER_FUNCTIONS["decode"]["validate"],
+            ROUTER_FUNCTIONS["checksum"],
+            ROUTER_FUNCTIONS["view"]["functions"],
+            ROUTER_FUNCTIONS["edit"]["functions"],
         ],
         "result": "encoded_config",
     },
@@ -380,7 +568,6 @@ SHOW_CONFIG_DOC_EXEC = [
         "result": "display_config_doc_result",
     },
 ]
-
 
 
 # ---------------------------------------------------------------------

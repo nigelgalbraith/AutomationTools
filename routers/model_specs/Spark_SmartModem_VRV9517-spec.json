@@ -31,7 +31,8 @@
       "header_terminator": null,
       "signature": null,
       "decode_order": null,
-      "encode_order": null
+      "encode_order": null,
+      "decoded_extension": ".tar.gz"
     },
     "encode": null,
     "edit": {

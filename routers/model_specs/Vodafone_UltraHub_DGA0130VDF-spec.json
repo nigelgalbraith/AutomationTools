@@ -31,7 +31,9 @@
       "header_terminator": "\n\n",
       "signature": null,
       "decode_order": null,
-      "encode_order": null
+      "encode_order": null,
+      "decoded_extension": ".bin",
+      "device_key_required": true
     },
     "encode": null,
     "edit": null

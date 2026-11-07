@@ -140,6 +140,7 @@ def key_value_values(lines: list, fields: dict) -> dict:
 
 def view_key_value_values(contents: str, specs: dict, decrypt_handler=None) -> dict:
     """Read configured key-value fields using their display labels."""
+    validate_key_value_settings(specs)
     lines, fields = parse_key_value_fields(contents, specs)
     values = key_value_values(lines, fields)
     return {label: values[key] for label, (key, _) in fields.items()}
@@ -165,6 +166,7 @@ def update_key_value_fields(lines: list, fields: dict, details: dict) -> list:
 
 def edit_key_value_values(contents: str, specs: dict, changes: dict, encrypt_handler=None) -> str:
     """Apply the existing key-value edits through the format editor dispatcher."""
+    validate_key_value_settings(specs)
     lines, fields = parse_key_value_fields(contents, specs)
     return "".join(update_key_value_fields(lines, fields, changes))
 
@@ -236,3 +238,20 @@ def validate_xml_field_changes(original: str, edited: str, specs: dict, changes:
     actual = xml_field_values(edited, specs, decrypt_handler)
     if actual != expected:
         raise ValueError("Edited XML field verification failed")
+
+
+def validate_key_value_settings(specs: dict) -> None:
+    """Validate configured key-value mappings without reading a payload."""
+    if ((specs["router_specs"].get("edit") or {}).get("field_encryption") or {}).get("algorithm"):
+        raise ValueError("Protected key-value fields are not implemented")
+    for field in specs["config_fields"]:
+        key = field["path"]
+        if key is not None and (not key.strip() or any(char in key for char in "=\r\n\x00")):
+            raise ValueError(f"Invalid configuration key: {field['name']}")
+
+
+def validate_xml_field_settings(specs: dict) -> None:
+    """Validate XML selectors without parsing or editing a payload."""
+    for field in specs["config_fields"]:
+        if field["path"] is not None:
+            parse_xml_field_selector(field["path"], field["name"])

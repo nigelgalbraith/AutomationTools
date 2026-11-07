@@ -45,27 +45,28 @@
           "additionalProperties": false,
           "properties": {
             "encoding": {
-              "enum": [
-                "base64",
-                null
+              "description": "Transport encoding method; null for binary data with no transport encoding.",
+              "type": [
+                "string",
+                "null"
               ],
-              "description": "Transport encoding method; null for binary data with no transport encoding."
+              "minLength": 1
             },
             "encryption": {
-              "enum": [
-                "aes-256-cbc",
-                null
+              "description": "Backup encryption algorithm, or null when no encryption applies.",
+              "type": [
+                "string",
+                "null"
               ],
-              "description": "Backup encryption algorithm, or null when no encryption applies."
+              "minLength": 1
             },
             "key_derivation": {
-              "enum": [
-                "openssl-legacy",
-                "fixed-key",
-                "device-key",
-                null
+              "description": "How backup encryption keys are obtained; required for encrypted backups.",
+              "type": [
+                "string",
+                "null"
               ],
-              "description": "How backup encryption keys are obtained; required for encrypted backups."
+              "minLength": 1
             },
             "password_base": {
               "type": [
@@ -113,7 +114,7 @@
                 "object",
                 "null"
               ],
-              "additionalProperties": false,
+              "additionalProperties": true,
               "required": [
                 "key_hex",
                 "iv_hex"
@@ -139,21 +140,20 @@
               "description": "Fixed backup key and IV, or null for other key-derivation methods."
             },
             "wrapper": {
-              "enum": [
-                "line-wrapper",
-                "encrypted-configuration",
-                "technicolor-thenc",
-                null
+              "description": "Backup wrapper format, or null when no wrapper applies.",
+              "type": [
+                "string",
+                "null"
               ],
-              "description": "Backup wrapper format, or null when no wrapper applies."
+              "minLength": 1
             },
             "archive": {
-              "enum": [
-                "tar.gz",
-                "signed-zlib",
-                null
+              "description": "Decoded archive/compression format, or null when no archive processing applies.",
+              "type": [
+                "string",
+                "null"
               ],
-              "description": "Decoded archive/compression format, or null when no archive processing applies."
+              "minLength": 1
             },
             "header_lines": {
               "type": [
@@ -275,7 +275,7 @@
                 "object",
                 "null"
               ],
-              "additionalProperties": false,
+              "additionalProperties": true,
               "required": [
                 "algorithm",
                 "modulus_hex",
@@ -284,10 +284,11 @@
               "properties": {
                 "algorithm": {
                   "description": "Selected signature or protected-field encryption algorithm.",
-                  "enum": [
-                    "rsa-md5",
-                    null
-                  ]
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "minLength": 1
                 },
                 "modulus_hex": {
                   "type": [
@@ -353,6 +354,15 @@
                 ]
               },
               "description": "Explicit encode operation order, or null to use the existing archive/encryption/encoding/wrapper order."
+            },
+            "decoded_extension": {
+              "type": "string",
+              "pattern": "^\\.[A-Za-z0-9.]+$",
+              "description": "Extension for the decoded payload; independent of the selected operations."
+            },
+            "device_key_required": {
+              "type": "boolean",
+              "description": "Require separate template and target device-key files; passwords are not device keys."
             }
           },
           "description": "Shared decode and encode settings. Every supported key is present; unused settings are null.",
@@ -384,15 +394,24 @@
             "header_terminator",
             "signature",
             "decode_order",
-            "encode_order"
-          ]
+            "encode_order",
+            "decoded_extension"
+          ],
+          "patternProperties": {
+            "^[a-z][a-z0-9_]*_settings$": {
+              "type": [
+                "object",
+                "null"
+              ]
+            }
+          }
         },
         "encode": {
           "type": [
             "object",
             "null"
           ],
-          "additionalProperties": false,
+          "additionalProperties": true,
           "properties": {
             "private_exponent_hex": {
               "type": [
@@ -430,19 +449,19 @@
               "description": "Safe relative path of the configuration file inside decoded contents."
             },
             "configuration_format": {
-              "enum": [
-                "key-value",
-                "xml",
-                null
+              "description": "Parser/editor used for the configuration file.",
+              "type": [
+                "string",
+                "null"
               ],
-              "description": "Parser/editor used for the configuration file."
+              "minLength": 1
             },
             "field_encryption": {
               "type": [
                 "object",
                 "null"
               ],
-              "additionalProperties": false,
+              "additionalProperties": true,
               "required": [
                 "algorithm",
                 "key_hex",
@@ -452,10 +471,11 @@
               "properties": {
                 "algorithm": {
                   "description": "Selected signature or protected-field encryption algorithm.",
-                  "enum": [
-                    "aes-128-cbc-zero-padded-base64",
-                    null
-                  ]
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "minLength": 1
                 },
                 "key_hex": {
                   "type": [

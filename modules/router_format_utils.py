@@ -19,7 +19,6 @@ import xml.etree.ElementTree as ET
 import zlib
 
 
-
 # ---------------------------------------------------------------------
 # HELPERS
 # ---------------------------------------------------------------------
@@ -36,7 +35,9 @@ def validate_archive(archive: tarfile.TarFile) -> list:
     if not members:
         raise ValueError("Empty archive")
     for member in members:
-        path = safe_relative(member.name)
+        path = Path(member.name)
+        if not member.name or path.is_absolute() or ".." in path.parts:
+            raise ValueError(f"Unsafe archive path: {member.name}")
         if not (member.isfile() or member.isdir()) or path in seen or (path == Path('.') and not member.isdir()):
             raise ValueError(f"Unsafe or duplicate archive member: {member.name}")
         seen[path] = member
@@ -50,38 +51,48 @@ def validate_archive(archive: tarfile.TarFile) -> list:
 # WORKFLOW
 # ---------------------------------------------------------------------
 
-def safe_relative(name: str) -> Path:
-    """Reject absolute paths and traversal."""
-    path = Path(name)
-    if not name or path.is_absolute() or ".." in path.parts:
-        raise ValueError(f"Unsafe relative path: {name}")
-    return path
 
-
-def validate_directory(directory: Path) -> None:
-    """Reject symlinks and special files, including symlink ancestors."""
-    if any(path.is_symlink() for path in (directory, *directory.parents)):
-        raise ValueError("Unsafe directory symlink")
-    for path in directory.rglob("*"):
-        if path.is_symlink() or not (path.is_file() or path.is_dir()):
-            raise ValueError(f"Unsafe configuration entry: {path}")
-
-
-def encode_base64_payload(data: bytes, backup_format: dict) -> bytes:
+def encode_base64_payload(data: bytes, *, context: dict) -> bytes:
     """Produce Base64 with the configured wrapping and trailing newline."""
-    encoded = base64.b64encode(data)
+    backup_format = context["codec"]
+    validate_base64_settings(context=context)
     width = backup_format["payload_line_length"]
+    encoded = base64.b64encode(data)
     return b"".join(encoded[i:i + width] + b"\n" for i in range(0, len(encoded), width))
 
 
-def decode_base64_payload(data: bytes) -> bytes:
+def decode_base64_payload(data: bytes, *, context: dict) -> bytes:
     """Decode the transport separately from encryption and wrapper handling."""
     return base64.b64decode(data.replace(b"\n", b""), validate=True)
 
 
-def split_line_wrapper(data: bytes, backup_format: dict) -> dict:
-    """Validate wrapper layout and return the stored checksum without authenticating it."""
+def validate_line_wrapper_settings(fmt=None, checksum_functions=None, *, context=None) -> None:
+    """Validate this wrapper's line layout, preserved header and checksum."""
+    if context is not None:
+        fmt, checksum_functions = context["codec"], context["checksum_functions"]
+    required = ("header_lines", "preserve_header", "payload_line_length", "newline", "checksum",
+                "checksum_after_payload_lines", "checksum_prefix_bytes", "trailer_character", "trailer_repeat")
+    for name in required:
+        if fmt.get(name) is None:
+            raise ValueError(f"Required line-wrapper setting missing: {name}")
+    for name in ("header_lines", "checksum_after_payload_lines", "checksum_prefix_bytes", "trailer_repeat"):
+        if not isinstance(fmt[name], int) or fmt[name] < 0:
+            raise ValueError(f"Invalid line-wrapper setting: {name}")
+    if not isinstance(fmt["payload_line_length"], int) or fmt["payload_line_length"] <= 0:
+        raise ValueError("Invalid line-wrapper payload width")
+    if fmt["newline"] != "\n":
+        raise ValueError("Line-wrapper requires LF newlines")
+    if fmt["header_lines"] and not fmt["preserve_header"]:
+        raise ValueError("A nonempty wrapper header must be preserved")
+    if checksum_functions is not None and not callable(checksum_functions.get(fmt["checksum"])):
+        raise ValueError(f"Unsupported wrapper checksum: {fmt['checksum']}")
+
+
+def split_line_wrapper(data: bytes, *, context: dict) -> bytes:
+    """Verify wrapper layout and checksum; retain its header and return encoded bytes."""
+    backup_format = context["codec"]
     fmt = backup_format
+    validate_line_wrapper_settings(fmt, context["checksum_functions"])
     lines = data.splitlines(keepends=True)
     count = fmt["header_lines"]
     position = count + fmt["checksum_after_payload_lines"]
@@ -96,13 +107,23 @@ def split_line_wrapper(data: bytes, backup_format: dict) -> dict:
     if len(base64.b64decode(prefix, validate=True)) != prefix_size:
         raise ValueError("Invalid checksum random prefix")
     encoded = b"".join(lines[count:position] + lines[position + 1:-1])
-    return {"header": b"".join(lines[:count]), "encoded": encoded,
-            "checksum": special[prefix_length:]}
+    wrapper = {"header": b"".join(lines[:count]), "encoded": encoded,
+               "checksum": special[prefix_length:]}
+    method = fmt["checksum"]
+    expected = context["checksum_functions"][method](encoded, method)
+    if wrapper["checksum"] != expected:
+        raise ValueError("Backup encrypted payload checksum mismatch")
+    if encode_base64_payload(decode_base64_payload(encoded, context=context), context=context) != encoded:
+        raise ValueError("Invalid encoded payload line layout")
+    context["header"] = wrapper["header"]
+    return encoded
 
 
-def prepare_line_wrapper(encoded: bytes, header: bytes, backup_format: dict) -> tuple[bytes, bytes]:
-    """Prepare wrapper bytes before and after the checksum, including its random prefix."""
+def prepare_line_wrapper(encoded: bytes, *, context: dict) -> bytes:
+    """Rebuild and verify the wrapper with its checksum and a fresh random prefix."""
+    header, backup_format = context.get("header", b""), context["codec"]
     fmt = backup_format
+    validate_line_wrapper_settings(fmt, context["checksum_functions"])
     lines = encoded.splitlines(keepends=True)
     position = fmt["checksum_after_payload_lines"]
     if len(lines) < position:
@@ -110,13 +131,22 @@ def prepare_line_wrapper(encoded: bytes, header: bytes, backup_format: dict) -> 
     if len(header.splitlines(keepends=True)) != fmt["header_lines"]:
         raise ValueError("Original header does not match configured layout")
     prefix = base64.b64encode(os.urandom(fmt["checksum_prefix_bytes"]))
-    return (header + b"".join(lines[:position]) + prefix,
-            b"\n" + b"".join(lines[position:]) + wrapper_trailer(fmt))
+    before = header + b"".join(lines[:position]) + prefix
+    after = b"\n" + b"".join(lines[position:]) + wrapper_trailer(fmt)
+    method = fmt["checksum"]
+    checksum = context["checksum_functions"][method](encoded, method)
+    result = before + checksum + after
+    if split_line_wrapper(result, context=context) != encoded:
+        raise ValueError("Rebuilt wrapper failed verification")
+    return result
 
 
-def parse_technicolor_wrapper(data: bytes, backup_format: dict, hardware: str, firmware: str) -> dict:
+def parse_technicolor_wrapper(data: bytes, *, context: dict) -> bytes:
     """Split THENC header, IV, ciphertext and signature; do not authenticate."""
+    backup_format = context["codec"]
+    hardware, firmware = context["hardware"], context["firmware"]
     fmt = backup_format
+    validate_technicolor_settings(context=context)
     header, separator, payload = data.partition(fmt["header_terminator"].encode("ascii"))
     lines = header.split(b"\n")
     names = ("PREAMBLE", "BACKUPVERSION", "BOARDMNEMONIC", "PRODUCTNAME",
@@ -140,25 +170,33 @@ def parse_technicolor_wrapper(data: bytes, backup_format: dict, hardware: str, f
     size = len(payload) - iv_length - signature_length
     if size <= 0 or size % 16:
         raise ValueError("Invalid or truncated THENC IV, ciphertext or signature boundaries")
-    return {"header": header + separator, "encoded": payload, "encrypted": payload[iv_length:-signature_length],
+    wrapper = {"header": header + separator, "encoded": payload, "encrypted": payload[iv_length:-signature_length],
             "checksum": b"", "iv": payload[:iv_length], "signature": payload[-signature_length:],
             "cipher_key_id": values["CIPHERKEY"], "signature_key_id": values["SIGNATUREKEY"]}
 
+    context.update(wrapper)
+    return wrapper["encrypted"]
 
-def rebuild_technicolor_wrapper(encoded: bytes, header: bytes, backup_format: dict, hardware: str, firmware: str) -> bytes:
+
+def rebuild_technicolor_wrapper(encoded: bytes, *, context: dict) -> bytes:
     """Never generate an unauthenticated device-key backup."""
     raise ValueError("THENC rebuilding unavailable: device key and signature signing are not established")
 
 
-def parse_encrypted_configuration(data: bytes) -> dict:
+def parse_encrypted_configuration(data: bytes, *, context: dict) -> bytes:
     """Check the block boundaries of a whole-file encrypted configuration."""
     if not data or len(data) % 16:
         raise ValueError("Invalid encrypted configuration block length")
-    return {"header": b"", "encoded": data, "encrypted": data, "checksum": b""}
+    context["header"] = b""
+    return data
 
 
-def decode_xml_configuration(signed: bytes, specs: dict) -> bytes:
+def decode_xml_configuration(signed: bytes, *, context: dict, verifier=None) -> bytes:
     """Remove the signed null terminator and preserve authenticated XML bytes unchanged."""
+    specs = context["codec"]
+    if verifier is None:
+        raise ValueError("Signed XML requires a registered signature verifier")
+    verifier(signed, context=context)
     if not signed.endswith(b"\x00"):
         raise ValueError("Signed configuration is missing its trailing null byte")
     xml = signed[:-1]
@@ -168,17 +206,44 @@ def decode_xml_configuration(signed: bytes, specs: dict) -> bytes:
         ET.fromstring(xml)
     except ET.ParseError as exc:
         print(f"[WARN] Signature verified, but authenticated configuration is not well-formed XML: {exc}. Original bytes are preserved.")
+    context["configuration_payload"] = True
+    if context.get("edit"):
+        context["files"] = {context["edit"]["configuration_file"]: xml}
     return xml
 
 
-def validate_xml_declaration(data: bytes, specs: dict) -> None:
+def encode_signed_xml_configuration(xml: bytes, *, context: dict, signer) -> bytes:
+    """Validate XML, frame its signed bytes, and retain the generated signature."""
+    validate_xml_declaration(xml, context["codec"])
+    if b"\x00" in xml:
+        raise ValueError("XML configuration contains an embedded null byte")
+    return signer(xml + b"\x00", context=context)
+
+
+def validate_xml_declaration(data: bytes, specs=None, *, context=None) -> None:
     """Require the declaration configured for a saved XML configuration."""
+    if context is not None:
+        specs = context["codec"]
     if not data.startswith(specs["preamble"].encode("ascii")):
         raise ValueError("Missing XML declaration")
 
 
-def unpack_signed_configuration(data: bytes, backup_format: dict) -> tuple[bytes, bytes]:
+def validate_signed_configuration_settings(fmt=None, *, context=None) -> None:
+    """Require signature selection and the signed XML payload layout."""
+    if context is not None:
+        fmt = context["codec"]
+    if not (fmt.get("signature") or {}).get("algorithm"):
+        raise ValueError("Signed configuration requires a signature verification algorithm")
+    if not isinstance(fmt.get("signature_length"), int) or fmt["signature_length"] <= 0:
+        raise ValueError("Signed configuration requires a positive signature_length")
+    if not (fmt.get("preamble") or "").startswith("<?xml"):
+        raise ValueError("Signed configuration requires an XML preamble")
+
+
+def unpack_signed_configuration(data: bytes, *, context: dict) -> bytes:
     """Decompress padded configuration bytes and split the unverified signature."""
+    backup_format = context["codec"]
+    validate_signed_configuration_settings(backup_format)
     try:
         decompressor = zlib.decompressobj()
         # Bound authenticated output before allocating an arbitrarily large decompressed stream.
@@ -194,61 +259,47 @@ def unpack_signed_configuration(data: bytes, backup_format: dict) -> tuple[bytes
     if len(decoded) <= length:
         raise ValueError("Missing signed configuration or RSA signature")
     signed, signature = decoded[:-length], decoded[-length:]
-    return signed, signature
+    context["signature"] = signature
+    return signed
 
 
-def pack_signed_configuration(signed: bytes, signature: bytes) -> bytes:
+def pack_signed_configuration(signed: bytes, *, context: dict) -> bytes:
     """Compress signed bytes and their signature with the established AES zero padding."""
+    validate_signed_configuration_settings(context["codec"])
+    signature = context["signature"]
     compressed = zlib.compress(signed + signature, 9)
     return compressed + b"\x00" * (16 - len(compressed) % 16)
 
 
-def read_tar_files(data: bytes) -> dict:
+def read_tar_files(data: bytes, *, context: dict) -> bytes:
     """Read validated TAR members without extracting paths."""
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
-        return {str(Path(member.name)): archive.extractfile(member).read()
-                for member in validate_archive(archive) if member.isfile()}
+        files = {str(Path(member.name)): archive.extractfile(member).read()
+                 for member in validate_archive(archive) if member.isfile()}
+    context["files"] = files
+    return data
 
 
-def replace_router_directory(staged: Path, destination: Path) -> None:
-    """Install a prepared directory, restoring the old one if installation fails."""
-    if any(path.is_symlink() for path in (destination, *destination.parents)):
-        raise ValueError(f"Unsafe destination symlink: {destination}")
-    if not destination.exists():
-        os.replace(staged, destination)
-        return
-    if not destination.is_dir():
-        raise NotADirectoryError(f"Expected output directory: {destination}")
-    backup_dir = Path(tempfile.mkdtemp(dir=destination.parent, prefix=f".{destination.name}.backup."))
-    backup = backup_dir / "original"
-    installed = False
-    try:
-        os.replace(destination, backup)
-        try:
-            os.replace(staged, destination)
-            installed = True
-        except BaseException:
-            os.replace(backup, destination)
-            raise
-    finally:
-        if installed or not backup.exists():
-            shutil.rmtree(backup_dir)
-        else:
-            print(f"Original configuration retained at: {backup}")
+def validate_tar_configuration(data: bytes, *, context=None) -> None:
+    """Check decoded TAR member safety without extracting or rewriting data."""
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as archive:
+        validate_archive(archive)
 
 
-def extract_tar_archive(archive_path: Path, output: Path) -> None:
-    """Extract validated TAR files using staged directory replacement."""
-    with tarfile.open(archive_path, mode="r:gz") as archive:
+def extract_tar_archive(archive_path: Path | bytes, output: Path, *, context=None) -> None:
+    """Extract validated TAR members with a self-contained atomic install."""
+    if any(path.is_symlink() for path in (output, *output.parents)):
+        raise ValueError(f"Unsafe extraction directory symlink: {output}")
+    if output.exists() and not output.is_dir():
+        raise NotADirectoryError(f"Expected extraction directory: {output}")
+    source = {"fileobj": io.BytesIO(archive_path)} if isinstance(archive_path, bytes) else {"name": archive_path}
+    with tarfile.open(mode="r:gz", **source) as archive:
         members = validate_archive(archive)
-        if not members:
-            raise ValueError("Decoded archive is empty")
-        for member in members:
-            relative = Path(member.name)
-            if relative.is_absolute() or ".." in relative.parts or not (member.isfile() or member.isdir()):
-                raise ValueError(f"Unsafe archive member: {member.name}")
         output.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-        staged = Path(tempfile.mkdtemp(dir=output.parent, prefix=f".{output.name}."))
+        work = Path(tempfile.mkdtemp(dir=output.parent, prefix=f".{output.name}."))
+        staged, backup = work / "contents", work / "original"
+        staged.mkdir(mode=0o700)
+        installed = False
         try:
             for member in members:
                 destination = staged / member.name
@@ -262,18 +313,33 @@ def extract_tar_archive(archive_path: Path, output: Path) -> None:
                     with stream, destination.open("xb") as target:
                         shutil.copyfileobj(stream, target)
                     destination.chmod(0o600)
-            replace_router_directory(staged, output)
+            if output.exists():
+                os.replace(output, backup)
+            try:
+                os.replace(staged, output)
+                installed = True
+            except BaseException:
+                if backup.exists():
+                    os.replace(backup, output)
+                raise
         finally:
-            if staged.exists():
-                shutil.rmtree(staged)
+            if installed or not backup.exists():
+                shutil.rmtree(work)
+            else:
+                print(f"Original extraction retained at: {backup}")
 
 
-def rebuild_tar_archive(original_archive: bytes, edited_dir: str) -> tuple[bytes, list[str]]:
+def rebuild_tar_archive(original_archive: bytes, *, context: dict) -> bytes:
     """Rebuild the original tar.gz archive using edited files."""
+    edited_dir = context["edited_dir"]
     directory = Path(edited_dir).expanduser()
     if not directory.is_dir():
         raise NotADirectoryError(f"Edited configuration directory not found: {directory}")
-    validate_directory(directory)
+    if any(path.is_symlink() for path in (directory, *directory.parents)):
+        raise ValueError("Unsafe archive source directory symlink")
+    for path in directory.rglob("*"):
+        if path.is_symlink() or not (path.is_file() or path.is_dir()):
+            raise ValueError(f"Unsafe archive source entry: {path}")
     changes = []
     with tarfile.open(fileobj=io.BytesIO(original_archive), mode="r:gz") as source:
         members = validate_archive(source)
@@ -302,7 +368,9 @@ def rebuild_tar_archive(original_archive: bytes, edited_dir: str) -> tuple[bytes
                 changes.append(member.name)
             contents.append(edited_content)
         if not changes:
-            return original_archive, changes
+            context["expected"] = original_archive
+            context["changes"] = changes
+            return original_archive
         buffer = io.BytesIO()
         archive_format = tarfile.PAX_FORMAT if any(member.pax_headers for member in members) else tarfile.GNU_FORMAT
         with tarfile.open(fileobj=buffer, mode="w:gz", format=archive_format) as target:
@@ -314,4 +382,28 @@ def rebuild_tar_archive(original_archive: bytes, edited_dir: str) -> tuple[bytes
                     target.addfile(entry, io.BytesIO(content))
                 else:
                     target.addfile(entry)
-    return buffer.getvalue(), changes
+    rebuilt = buffer.getvalue()
+    context["expected"] = rebuilt
+    context["changes"] = changes
+    return rebuilt
+
+
+def validate_base64_settings(*, context) -> None:
+    """Validate the transport line width without encoding a payload."""
+    backup_format = context["codec"]
+    width = backup_format.get("payload_line_length")
+    if not isinstance(width, int) or width <= 0:
+        raise ValueError("Base64 payload_line_length must be a positive integer")
+
+
+def validate_technicolor_settings(*, context) -> None:
+    """Validate THENC identifiers and layout without processing a payload."""
+    fmt = context["codec"]
+    hardware, firmware = context["hardware"], context["firmware"]
+    for name in ("header_lines", "iv_length", "signature_length", "preamble", "backup_version", "header_terminator"):
+        if fmt.get(name) is None:
+            raise ValueError(f"Required THENC setting missing: {name}")
+    if fmt["header_lines"] != 9 or fmt["iv_length"] != 16 or fmt["signature_length"] <= 0:
+        raise ValueError("Invalid THENC header, IV or signature layout")
+    if not hardware or not firmware:
+        raise ValueError("THENC requires hardware and firmware identifiers")
