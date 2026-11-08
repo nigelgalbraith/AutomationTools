@@ -7,8 +7,9 @@ from modules.display_utils import (
     display_config_doc,
 )
 from modules.web_extract_utils import (
-    crawl_with_photon,
+    validate_web_search_inputs,
     search_web,
+    crawl_with_photon,
     print_search_results,
     merge_crawl_results,
     print_crawl_results,
@@ -221,18 +222,31 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
 # EXEC PHASE STEPS
 # ---------------------------------------------------------------------
 
+
 SEARCH_WEB_EXEC = [
     {
         "phase": "exec",
-        "fn": search_web,
+        "fn": validate_web_search_inputs,
         "args": [
             f"meta.{SEARCH_KEYS_SECTION}.{DOMAIN_KEY}",
             f"meta.{SEARCH_KEYS_SECTION}.{TERMS_KEY}",
             f"meta.{SEARCH_KEYS_SECTION}.{MAX_RESULTS_KEY}",
         ],
+        "result": "search_host",
+    },
+    {
+        "phase": "exec",
+        "fn": search_web,
+        "args": [
+            "search_host",
+            f"meta.{SEARCH_KEYS_SECTION}.{TERMS_KEY}",
+            f"meta.{SEARCH_KEYS_SECTION}.{MAX_RESULTS_KEY}",
+        ],
+        "when": "search_host",
         "result": "search_results",
     },
 ]
+
 
 
 DISPLAY_SEARCH_RESULTS_EXEC = [

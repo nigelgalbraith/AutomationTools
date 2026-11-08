@@ -376,7 +376,7 @@ def discover_html_links(
         raise
 
 # ---------------------------------------------------------------------
-# BATCH RUNNERS
+# BATCH OPERATIONS
 # ---------------------------------------------------------------------
 
 def download_html_files(

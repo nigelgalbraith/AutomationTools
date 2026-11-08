@@ -17,7 +17,10 @@ from modules.prompt_utils import (
     write_prompts_from_items,
 )
 from modules.ollama_utils import (
-    generate_text_from_prompts_dir,
+    prepare_prompts_directory,
+    discover_prompt_files,
+    generate_text_from_prompt_files,
+    display_generation_summary,
     check_ollama_status,
 )
 from modules.docker_utils import (
@@ -405,21 +408,50 @@ CHECK_OLLAMA_STATUS_EXEC = [
 ]
 
 
+
 GENERATE_TEXT_EXEC = [
     {
         "phase": "exec",
-        "fn": generate_text_from_prompts_dir,
+        "fn": prepare_prompts_directory,
         "args": [
             f"meta.{PROMPT_KEYS_SECTION}.{PROMPTS_OUT_DIR_KEY}",
+        ],
+        "when": "ollama_available",
+        "result": "prompts_directory",
+    },
+    {
+        "phase": "exec",
+        "fn": discover_prompt_files,
+        "args": [
+            "prompts_directory",
+        ],
+        "when": "prompts_directory",
+        "result": "prompt_paths",
+    },
+    {
+        "phase": "exec",
+        "fn": generate_text_from_prompt_files,
+        "args": [
+            "prompt_paths",
             f"meta.{PROMPT_KEYS_SECTION}.{TEXT_OUT_DIR_KEY}",
             BASE_URL,
             MODEL,
             TEMPERATURE,
         ],
-        "when": "ollama_available",
+        "when": "prompts_directory",
         "result": "text_summary",
     },
+    {
+        "phase": "exec",
+        "fn": display_generation_summary,
+        "args": [
+            "text_summary",
+        ],
+        "when": "text_summary",
+        "result": "displayed_text_summary",
+    },
 ]
+
 
 
 STOP_OLLAMA_EXEC = [

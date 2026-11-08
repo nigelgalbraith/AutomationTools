@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 import os
@@ -16,7 +17,7 @@ from modules.json_utils import save_named_json, save_json_file
 
 
 # ---------------------------------------------------------------------
-# EXTRACTION HELPERS
+# HELPERS
 # ---------------------------------------------------------------------
 
 def should_skip_extracted_item(item_data: Dict[str, str], extract_rules: Dict[str, Any]) -> bool:
@@ -45,6 +46,20 @@ def fetch_text(url: str, timeout_s: int = 15, headers: Optional[Dict[str, str]] 
     resp.raise_for_status()
     return resp.text
 
+
+def page_contains_term(
+    html: str,
+    term: str,
+) -> bool:
+    """Return True when page text contains the configured term."""
+    soup = BeautifulSoup(html, "html.parser")
+    text = soup.get_text(" ", strip=True)
+    return term.casefold() in text.casefold()
+
+
+# ---------------------------------------------------------------------
+# HTML EXTRACTION
+# ---------------------------------------------------------------------
 
 def parse_fields_from_html(html: str, rules: Dict[str, Dict[str, Any]]) -> Dict[str, str]:
     """Extract named text fields from HTML using CSS selector or regex rules"""
@@ -118,10 +133,6 @@ def extract_fields_from_url(
     return item
 
 
-# ---------------------------------------------------------------------
-# SEARCH AND CRAWL FUNCTIONS
-# ---------------------------------------------------------------------
-
 def list_html_files(html_dir: str) -> List[str]:
     """Return absolute paths for .html/.htm files in html_dir, sorted"""
     if not html_dir:
@@ -140,15 +151,26 @@ def list_html_files(html_dir: str) -> List[str]:
     return files
 
 
+# ---------------------------------------------------------------------
+# WEB SEARCH
+# ---------------------------------------------------------------------
 
-
-def search_web(domain: str, terms: List[str], max_results: int) -> List[Dict[str, str]]:
-    """Search Bing RSS for relevant URLs within the requested domain."""
+def validate_web_search_inputs(
+    domain: str,
+    terms: List[str],
+    max_results: int,
+) -> str:
+    """Validate search inputs and return the normalized domain."""
     host = (urlparse(domain if "://" in domain else f"https://{domain}").hostname or "").lower().rstrip(".")
     if not host or not terms or any(not isinstance(term, str) or not term.strip() for term in terms):
         raise ValueError("Search requires a domain and nonempty search terms.")
     if isinstance(max_results, bool) or not isinstance(max_results, int) or max_results < 1:
         raise ValueError("max_results must be a positive integer.")
+    return host
+
+
+def search_web(host: str, terms: List[str], max_results: int) -> List[Dict[str, str]]:
+    """Search Bing RSS for relevant URLs within the validated domain."""
     results: List[Dict[str, str]] = []
     for term in dict.fromkeys(term.strip() for term in terms):
         query = f'site:{host} "{term.replace(chr(34), " ")}"'
@@ -189,22 +211,10 @@ def search_web(domain: str, terms: List[str], max_results: int) -> List[Dict[str
     return results
 
 
-def print_search_results(results: List[Dict[str, str]]) -> bool:
-    """Display candidate URLs without invoking either crawler."""
-    for index, result in enumerate(results, start=1):
-        print(f"{index}. {result['term']} -> {result['url']}")
-    print(f"[INFO] Search candidates: {len(results)}")
-    return bool(results)
 
-
-def page_contains_term(
-    html: str,
-    term: str,
-) -> bool:
-    """Return True when page text contains the configured term."""
-    soup = BeautifulSoup(html, "html.parser")
-    text = soup.get_text(" ", strip=True)
-    return term.casefold() in text.casefold()
+# ---------------------------------------------------------------------
+# WEB CRAWLING
+# ---------------------------------------------------------------------
 
 
 def run_photon(
@@ -213,7 +223,7 @@ def run_photon(
     photon_script: str,
     depth: int,
 ) -> List[str]:
-    """Run Photon and return cleaned, unique internal URLs."""
+    """Run Photon and return validated, normalized internal URLs."""
     python_path = Path(expand_path(photon_python))
     script_path = Path(expand_path(photon_script))
     if not python_path.is_file():
@@ -242,16 +252,47 @@ def run_photon(
         internal_file = Path(output_dir) / "internal.txt"
         if not internal_file.is_file():
             raise RuntimeError("Photon produced no internal.txt URL dataset.")
+        seed_host = (urlparse(url).hostname or "").lower()
         urls = []
+        seen = set()
+        skipped = 0
+        corrected = 0
         for line in internal_file.read_text(encoding="utf-8").splitlines():
             candidate = html.unescape(line.strip())
             parsed = urlparse(candidate)
             if parsed.scheme not in ("http", "https") or not parsed.hostname:
+                skipped += 1
+                continue
+            if parsed.hostname.lower() != seed_host:
+                skipped += 1
                 continue
             path = parsed.path.replace("/./", "/")
+            original_path = path
+            if seed_host.endswith(".wikipedia.org") or seed_host == "wikipedia.org":
+                match = re.search(r"//(?:wiki|w)/", path, flags=re.IGNORECASE)
+                if match:
+                    path = path[match.start() + 1:]
+                while path.startswith("/wiki/wiki/"):
+                    path = path[len("/wiki"):]
+                if path.startswith("/wiki/w/"):
+                    path = path[len("/wiki"):]
+                if path == "/w/index.php":
+                    skipped += 1
+                    continue
+            if "//" in path:
+                skipped += 1
+                continue
+            if path != original_path:
+                corrected += 1
             candidate = parsed._replace(path=path, fragment="").geturl()
+            if candidate in seen:
+                continue
+            seen.add(candidate)
             urls.append(candidate)
-        return list(dict.fromkeys(urls))
+        print(f"[INFO] Photon URLs accepted: {len(urls)}")
+        print(f"[INFO] Photon URLs corrected: {corrected}")
+        print(f"[INFO] Photon URLs discarded: {skipped}")
+        return urls
 
 
 def crawl_with_photon(
@@ -284,14 +325,20 @@ def crawl_with_photon(
                 continue
             checked.add(page_url)
             try:
-                html = fetch_text(page_url)
+                page_html = fetch_text(page_url)
+            except requests.HTTPError as e:
+                status = e.response.status_code if e.response is not None else None
+                print(f"[WARN] Photon HTTP {status}: {page_url}")
+                if status not in (404, 410):
+                    fallback[page_url] = {"url": page_url}
+                continue
             except Exception as e:
                 print(f"[WARN] Photon page check failed: {page_url} -> {e!r}")
                 fallback[page_url] = {"url": page_url}
                 continue
             for term in dict.fromkeys(terms):
                 key = (term.casefold(), page_url)
-                if key not in result_seen and page_contains_term(html, term):
+                if key not in result_seen and page_contains_term(page_html, term):
                     result_seen.add(key)
                     results.append({"term": term, "url": page_url, "source": "photon"})
                     print(f"[OK] Found '{term}': {page_url}")
@@ -324,6 +371,18 @@ def merge_crawl_results(
     return merged
 
 
+# ---------------------------------------------------------------------
+# DISPLAY
+# ---------------------------------------------------------------------
+
+def print_search_results(results: List[Dict[str, str]]) -> bool:
+    """Display candidate URLs without invoking either crawler."""
+    for index, result in enumerate(results, start=1):
+        print(f"{index}. {result['term']} -> {result['url']}")
+    print(f"[INFO] Search candidates: {len(results)}")
+    return bool(results)
+
+
 def print_crawl_results(
     results: List[Dict[str, str]],
 ) -> bool:
@@ -340,6 +399,10 @@ def print_crawl_results(
     print(f"Total results: {len(results)}")
     return True
 
+
+# ---------------------------------------------------------------------
+# RESULTS
+# ---------------------------------------------------------------------
 
 def build_crawl_results(
     domain: str,
