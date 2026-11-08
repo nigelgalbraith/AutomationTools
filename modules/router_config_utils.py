@@ -12,8 +12,17 @@ import re
 
 
 # ---------------------------------------------------------------------
-# HELPERS
+# XML FIELD SELECTION
 # ---------------------------------------------------------------------
+
+def validate_xml_field_settings(specs: dict = None, *, context=None) -> None:
+    """Validate XML selectors without parsing or editing a payload."""
+    if context is not None:
+        specs = context["specs"]
+    for field in specs["config_fields"]:
+        if field["path"] is not None:
+            parse_xml_field_selector(field["path"], field["name"])
+
 
 def parse_xml_field_selector(selector: str, label: str) -> tuple[str, dict[str, str], str]:
     """Parse schema-checked selectors and reject ambiguous duplicate filters."""
@@ -107,8 +116,71 @@ def xml_field_selections(contents: str, specs: dict) -> dict:
 
 
 # ---------------------------------------------------------------------
-# WORKFLOW
+# XML VIEWING AND EDITING
 # ---------------------------------------------------------------------
+
+def xml_field_values(contents: str, specs: dict = None, decrypt_handler=None, *, context=None) -> dict:
+    """Read selected XML attributes, decrypting only registered protected fields."""
+    if context is not None:
+        specs = context["specs"]
+        decrypt_handler = context.get("decrypt_handler", decrypt_handler)
+    values = {label: selected[2] for label, selected in xml_field_selections(contents, specs).items()}
+    settings = (specs["router_specs"].get("edit") or {}).get("field_encryption") or {}
+    algorithm = settings.get("algorithm")
+    if algorithm is not None:
+        if decrypt_handler is None:
+            raise ValueError("A selected field decryption handler is required")
+        for label in settings["fields"]:
+            if label not in values:
+                raise ValueError(f"Encrypted configuration field is unavailable: {label}")
+            values[label] = decrypt_handler(values[label])
+    return values
+
+
+def update_xml_fields(contents: str, specs: dict = None, changes: dict = None, encrypt_handler=None, *, context=None) -> str:
+    """Replace only uniquely selected attribute value spans, preserving surrounding text."""
+    if context is not None:
+        specs, changes = context["specs"], context["changes"]
+        encrypt_handler = context.get("encrypt_handler", encrypt_handler)
+    selections = xml_field_selections(contents, specs)
+    spans = sorted((start, end) for start, end, _ in selections.values())
+    if any(left[1] >= right[0] for left, right in zip(spans, spans[1:])):
+        raise ValueError("Overlapping XML field mappings cannot be edited")
+    settings = (specs["router_specs"].get("edit") or {}).get("field_encryption") or {}
+    encrypted_fields = settings.get("fields") or []
+    replacements = []
+    for label, value in changes.items():
+        if label not in selections:
+            raise ValueError(f"Unknown router setting: {label}")
+        if not isinstance(value, str) or any(not (ord(c) in (9, 10, 13) or 32 <= ord(c) <= 0xD7FF or 0xE000 <= ord(c) <= 0xFFFD or 0x10000 <= ord(c) <= 0x10FFFF) for c in value):
+            raise ValueError(f"Invalid XML attribute value for {label}")
+        if label in encrypted_fields:
+            if encrypt_handler is None:
+                raise ValueError("A selected field encryption handler is required")
+            value = encrypt_handler(value)
+        encoded = escape(value, quote=True).replace("\r", "&#13;").replace("\n", "&#10;").replace("\t", "&#9;")
+        start, end, _ = selections[label]
+        replacements.append((start, end, encoded))
+    for start, end, encoded in sorted(replacements, reverse=True):
+        contents = contents[:start] + encoded + contents[end:]
+    return contents
+
+
+# ---------------------------------------------------------------------
+# KEY-VALUE FIELD PARSING
+# ---------------------------------------------------------------------
+
+def validate_key_value_settings(specs: dict = None, *, context=None) -> None:
+    """Validate configured key-value mappings without reading a payload."""
+    if context is not None:
+        specs = context["specs"]
+    if ((specs["router_specs"].get("edit") or {}).get("field_encryption") or {}).get("algorithm"):
+        raise ValueError("Protected key-value fields are not implemented")
+    for field in specs["config_fields"]:
+        key = field["path"]
+        if key is not None and (not key.strip() or any(char in key for char in "=\r\n\x00")):
+            raise ValueError(f"Invalid configuration key: {field['name']}")
+
 
 def parse_key_value_fields(contents: str, specs: dict) -> tuple[list, dict]:
     """Parse key-value lines and require unique configured keys."""
@@ -138,8 +210,14 @@ def key_value_values(lines: list, fields: dict) -> dict:
     return {key: lines[index].split("=", 1)[1].rstrip("\r\n") for key, index in fields.values()}
 
 
-def view_key_value_values(contents: str, specs: dict, decrypt_handler=None) -> dict:
+# ---------------------------------------------------------------------
+# KEY-VALUE VIEWING AND EDITING
+# ---------------------------------------------------------------------
+
+def view_key_value_values(contents: str, specs: dict = None, decrypt_handler=None, *, context=None) -> dict:
     """Read configured key-value fields using their display labels."""
+    if context is not None:
+        specs = context["specs"]
     validate_key_value_settings(specs)
     lines, fields = parse_key_value_fields(contents, specs)
     values = key_value_values(lines, fields)
@@ -164,94 +242,10 @@ def update_key_value_fields(lines: list, fields: dict, details: dict) -> list:
     return lines
 
 
-def edit_key_value_values(contents: str, specs: dict, changes: dict, encrypt_handler=None) -> str:
+def edit_key_value_values(contents: str, specs: dict = None, changes: dict = None, encrypt_handler=None, *, context=None) -> str:
     """Apply the existing key-value edits through the format editor dispatcher."""
+    if context is not None:
+        specs, changes = context["specs"], context["changes"]
     validate_key_value_settings(specs)
     lines, fields = parse_key_value_fields(contents, specs)
     return "".join(update_key_value_fields(lines, fields, changes))
-
-
-def normalize_key_value_fields(contents: str, specs: dict) -> list:
-    """Mask editable values for comparison while retaining all other text."""
-    lines, fields = parse_key_value_fields(contents, specs)
-    for _, index in fields.values():
-        line = lines[index]
-        newline = "\r\n" if line.endswith("\r\n") else "\n" if line.endswith("\n") else ""
-        lines[index] = line.split("=", 1)[0] + "=" + newline
-    return lines
-
-
-def validate_key_value_field_changes(original: str, edited: str, specs: dict, changes: dict) -> None:
-    """Reject any changes outside the requested key-value replacements."""
-    if edited != edit_key_value_values(original, specs, changes):
-        raise ValueError("Edited key-value configuration differs outside the requested configured field replacements")
-    parse_key_value_fields(edited, specs)
-
-
-def xml_field_values(contents: str, specs: dict, decrypt_handler=None) -> dict:
-    """Read selected XML attributes, decrypting only registered protected fields."""
-    values = {label: selected[2] for label, selected in xml_field_selections(contents, specs).items()}
-    settings = (specs["router_specs"].get("edit") or {}).get("field_encryption") or {}
-    algorithm = settings.get("algorithm")
-    if algorithm is not None:
-        if decrypt_handler is None:
-            raise ValueError("A selected field decryption handler is required")
-        for label in settings["fields"]:
-            if label not in values:
-                raise ValueError(f"Encrypted configuration field is unavailable: {label}")
-            values[label] = decrypt_handler(values[label])
-    return values
-
-
-def update_xml_fields(contents: str, specs: dict, changes: dict, encrypt_handler=None) -> str:
-    """Replace only uniquely selected attribute value spans, preserving surrounding text."""
-    selections = xml_field_selections(contents, specs)
-    spans = sorted((start, end) for start, end, _ in selections.values())
-    if any(left[1] >= right[0] for left, right in zip(spans, spans[1:])):
-        raise ValueError("Overlapping XML field mappings cannot be edited")
-    settings = (specs["router_specs"].get("edit") or {}).get("field_encryption") or {}
-    encrypted_fields = settings.get("fields") or []
-    replacements = []
-    for label, value in changes.items():
-        if label not in selections:
-            raise ValueError(f"Unknown router setting: {label}")
-        if not isinstance(value, str) or any(not (ord(c) in (9, 10, 13) or 32 <= ord(c) <= 0xD7FF or 0xE000 <= ord(c) <= 0xFFFD or 0x10000 <= ord(c) <= 0x10FFFF) for c in value):
-            raise ValueError(f"Invalid XML attribute value for {label}")
-        if label in encrypted_fields:
-            if encrypt_handler is None:
-                raise ValueError("A selected field encryption handler is required")
-            value = encrypt_handler(value)
-        encoded = escape(value, quote=True).replace("\r", "&#13;").replace("\n", "&#10;").replace("\t", "&#9;")
-        start, end, _ = selections[label]
-        replacements.append((start, end, encoded))
-    for start, end, encoded in sorted(replacements, reverse=True):
-        contents = contents[:start] + encoded + contents[end:]
-    return contents
-
-
-def validate_xml_field_changes(original: str, edited: str, specs: dict, changes: dict, decrypt_handler=None, encrypt_handler=None) -> None:
-    """Verify selected plaintext replacements and exact preservation of all other text."""
-    if edited != update_xml_fields(original, specs, changes, encrypt_handler):
-        raise ValueError("Edited XML differs outside the requested configured field replacements")
-    expected = xml_field_values(original, specs, decrypt_handler)
-    expected.update(changes)
-    actual = xml_field_values(edited, specs, decrypt_handler)
-    if actual != expected:
-        raise ValueError("Edited XML field verification failed")
-
-
-def validate_key_value_settings(specs: dict) -> None:
-    """Validate configured key-value mappings without reading a payload."""
-    if ((specs["router_specs"].get("edit") or {}).get("field_encryption") or {}).get("algorithm"):
-        raise ValueError("Protected key-value fields are not implemented")
-    for field in specs["config_fields"]:
-        key = field["path"]
-        if key is not None and (not key.strip() or any(char in key for char in "=\r\n\x00")):
-            raise ValueError(f"Invalid configuration key: {field['name']}")
-
-
-def validate_xml_field_settings(specs: dict) -> None:
-    """Validate XML selectors without parsing or editing a payload."""
-    for field in specs["config_fields"]:
-        if field["path"] is not None:
-            parse_xml_field_selector(field["path"], field["name"])

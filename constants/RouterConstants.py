@@ -3,22 +3,51 @@
 from __future__ import annotations
 
 from typing import Any, Dict
-from functools import partial
 
-from modules.display_utils import display_config_doc
+from modules.display_utils import (
+    display_config_doc,
+    print_dict_table,
+    print_router_dictionary,
+)
+
 from modules.json_utils import load_json, validate_json_schema
 from modules.router_utils import (
-    validate_router_configuration,
+    validate_router_inputs,
+    validate_router_field_mappings,
+    validate_router_details,
+    validate_router_output_paths,
+    validate_decoded_configuration,
+    parse_router_wrapper,
+    validate_configuration_changes,
+    load_router_details,
     view_readme,
     view_router_details,
-    decode_router_config,
     save_router_config,
     extract_router_config,
-    view_router_config_fields,
-    edit_router_config_fields,
-    validate_router_settings,
-    encode_router_config,
     extract_configuration_file,
+    resolve_router_operations,
+    extract_router_settings,
+    build_encode_operations,
+    build_decode_operations,
+    build_edit_operations,
+    build_view_operations,
+    run_router_operations,
+    display_router_operations,
+    read_router_input,
+    prepare_codec_context,
+    read_configuration_source,
+    prepare_configuration_context,
+    prepare_router_changes,
+    display_configuration_values,
+    validate_encode_paths,
+    load_encode_credentials,
+    compare_configuration_files,
+    prepare_encode_payload,
+    verify_encoded_backup,
+    save_encoded_backup,
+    save_configuration_directory,
+    report_encoded_backup,
+    report_edited_backup,
 
 )
 
@@ -34,12 +63,15 @@ from modules.router_config_utils import (
 from modules.router_encryption_utils import (
     decrypt_aes_128_cbc_field, 
     encrypt_aes_128_cbc_field,
-    crypt_aes_256_cbc, 
-    crypt_aes_256_cbc_fixed_key, 
-    crypt_technicolor_thenc,
+    encrypt_aes_256_cbc,
+    decrypt_aes_256_cbc,
+    encrypt_aes_256_cbc_fixed_key,
+    decrypt_aes_256_cbc_fixed_key,
+    encrypt_technicolor_thenc,
+    decrypt_technicolor_thenc,
     calculate_payload_checksum, 
-    verify_rsa_md5_signature, 
-    sign_rsa_md5_configuration,
+    decode_rsa_md5_configuration, 
+    encode_rsa_md5_configuration,
     validate_legacy_aes_settings, 
     validate_fixed_key_settings, 
     validate_device_key_settings,
@@ -60,8 +92,6 @@ from modules.router_format_utils import (
     decode_base64_payload,
     unpack_signed_configuration, 
     pack_signed_configuration,
-    encode_signed_xml_configuration, 
-    decode_xml_configuration,
     validate_signed_configuration_settings, 
     validate_tar_configuration,
     validate_xml_declaration, 
@@ -75,12 +105,12 @@ ROUTER_FUNCTIONS = {
     "encode": {
         "functions": {
             "tar.gz": rebuild_tar_archive,
-            "rsa-md5": partial(encode_signed_xml_configuration, signer=sign_rsa_md5_configuration),
+            "rsa-md5": encode_rsa_md5_configuration,
             "signed-zlib": pack_signed_configuration,
-            "aes-256-cbc": partial(crypt_aes_256_cbc, decrypt=False),
-            "fixed-key": partial(crypt_aes_256_cbc_fixed_key, decrypt=False),
-            "device-key": partial(crypt_technicolor_thenc, decrypt=False),
-            "openssl-legacy": partial(crypt_aes_256_cbc, decrypt=False),
+            "aes-256-cbc": encrypt_aes_256_cbc,
+            "fixed-key": encrypt_aes_256_cbc_fixed_key,
+            "device-key": encrypt_technicolor_thenc,
+            "openssl-legacy": encrypt_aes_256_cbc,
             "base64": encode_base64_payload,
             "line-wrapper": prepare_line_wrapper,
             "technicolor-thenc": rebuild_technicolor_wrapper,
@@ -106,13 +136,13 @@ ROUTER_FUNCTIONS = {
             "technicolor-thenc": parse_technicolor_wrapper,
             "encrypted-configuration": parse_encrypted_configuration,
             "base64": decode_base64_payload,
-            "aes-256-cbc": partial(crypt_aes_256_cbc, decrypt=True),
-            "fixed-key": partial(crypt_aes_256_cbc_fixed_key, decrypt=True),
-            "device-key": partial(crypt_technicolor_thenc, decrypt=True),
-            "openssl-legacy": partial(crypt_aes_256_cbc, decrypt=True),
+            "aes-256-cbc": decrypt_aes_256_cbc,
+            "fixed-key": decrypt_aes_256_cbc_fixed_key,
+            "device-key": decrypt_technicolor_thenc,
+            "openssl-legacy": decrypt_aes_256_cbc,
             "tar.gz": read_tar_files,
             "signed-zlib": unpack_signed_configuration,
-            "rsa-md5": partial(decode_xml_configuration, verifier=verify_rsa_md5_signature),
+            "rsa-md5": decode_rsa_md5_configuration,
             "aes-128-cbc-zero-padded-base64": decrypt_aes_128_cbc_field,
         },
         "validate": {
@@ -358,6 +388,8 @@ ACTIONS: Dict[str, Dict[str, Any]] = {
 # PRE PHASE STEPS
 # ---------------------------------------------------------------------
 
+
+
 LOAD_MODEL_SPECS_PRE = [
     {
         "phase": "pre",
@@ -374,28 +406,328 @@ LOAD_MODEL_SPECS_PRE = [
             "Router model specifications",
         ],
         "when": "model_specs",
-        "result": "model_specs",
+        "result": "validated_model_specs",
     },
     {
         "phase": "pre",
-        "fn": validate_router_settings,
-        "args": ["model_specs", ROUTER_FUNCTIONS],
-        "when": "model_specs",
-        "result": "validate_router_settings_result",
+        "fn": extract_router_settings,
+        "args": ["validated_model_specs"],
+        "when": "validated_model_specs",
+        "result": "router_settings",
+    },
+    {
+        "phase": "pre",
+        "fn": resolve_router_operations,
+        "args": [
+            "router_settings",
+            ROUTER_FUNCTIONS["encode"]["functions"],
+            "encode",
+        ],
+        "when": "router_settings",
+        "result": "encode_operations",
+    },
+    {
+        "phase": "pre",
+        "fn": resolve_router_operations,
+        "args": [
+            "router_settings",
+            ROUTER_FUNCTIONS["encode"]["validate"],
+            "encode",
+        ],
+        "when": "router_settings",
+        "result": "encode_validate_operations",
+    },
+    {
+        "phase": "pre",
+        "fn": resolve_router_operations,
+        "args": [
+            "router_settings",
+            ROUTER_FUNCTIONS["decode"]["functions"],
+            "decode",
+        ],
+        "when": "router_settings",
+        "result": "decode_operations",
+    },
+    {
+        "phase": "pre",
+        "fn": resolve_router_operations,
+        "args": [
+            "router_settings",
+            ROUTER_FUNCTIONS["decode"]["validate"],
+            "decode",
+        ],
+        "when": "router_settings",
+        "result": "decode_validate_operations",
+    },
+    {
+        "phase": "pre",
+        "fn": resolve_router_operations,
+        "args": [
+            "router_settings",
+            ROUTER_FUNCTIONS["edit"]["functions"],
+            "edit",
+        ],
+        "when": "router_settings",
+        "result": "edit_operations",
+    },
+    {
+        "phase": "pre",
+        "fn": resolve_router_operations,
+        "args": [
+            "router_settings",
+            ROUTER_FUNCTIONS["edit"]["validate"],
+            "edit",
+        ],
+        "when": "router_settings",
+        "result": "edit_validate_operations",
+    },
+    {
+        "phase": "pre",
+        "fn": resolve_router_operations,
+        "args": [
+            "router_settings",
+            ROUTER_FUNCTIONS["view"]["functions"],
+            "view",
+        ],
+        "when": "router_settings",
+        "result": "view_operations",
+    },
+    {
+        "phase": "pre",
+        "fn": resolve_router_operations,
+        "args": [
+            "router_settings",
+            ROUTER_FUNCTIONS["view"]["validate"],
+            "view",
+        ],
+        "when": "router_settings",
+        "result": "view_validate_operations",
+    },
+    {
+        "phase": "pre",
+        "fn": resolve_router_operations,
+        "args": [
+            "router_settings",
+            ROUTER_FUNCTIONS["extract"],
+            "extract",
+        ],
+        "when": "router_settings",
+        "result": "extract_operations",
+    },
+    {
+        "phase": "pre",
+        "fn": resolve_router_operations,
+        "args": [
+            "router_settings",
+            ROUTER_FUNCTIONS["check"],
+            "check",
+        ],
+        "when": "router_settings",
+        "result": "check_operations",
+    },
+    {
+        "phase": "pre",
+        "fn": resolve_router_operations,
+        "args": [
+            "router_settings",
+            ROUTER_FUNCTIONS["checksum"],
+            "checksum",
+        ],
+        "when": "router_settings",
+        "result": "checksum_operations",
+    },
+    {
+        "phase": "pre",
+        "fn": build_encode_operations,
+        "args": [
+            "router_settings",
+            "encode_operations",
+            "encode_validate_operations",
+        ],
+        "when": "router_settings",
+        "result": "encode_operations_list",
+    },
+    {
+        "phase": "pre",
+        "fn": build_decode_operations,
+        "args": [
+            "router_settings",
+            "decode_operations",
+            "decode_validate_operations",
+        ],
+        "when": "router_settings",
+        "result": "decode_operations_list",
+    },
+    {
+        "phase": "pre",
+        "fn": build_edit_operations,
+        "args": [
+            "router_settings",
+            "edit_operations",
+            "edit_validate_operations",
+        ],
+        "when": "router_settings",
+        "result": "edit_operations_list",
+    },
+    {
+        "phase": "pre",
+        "fn": build_view_operations,
+        "args": [
+            "router_settings",
+            "view_operations",
+            "view_validate_operations",
+        ],
+        "when": "router_settings",
+        "result": "view_operations_list",
     },
 ]
+
+
 
 
 # ---------------------------------------------------------------------
 # EXEC PHASE STEPS
 # ---------------------------------------------------------------------
 
+READ_ROUTER_BACKUP_EXEC = [
+    {
+        "phase": "exec",
+        "fn": read_router_input,
+        "args": [
+            TEMPLATE_CONFIG_PATH,
+        ],
+        "when": "validated_model_specs",
+        "result": "router_backup",
+    },
+]
+
+LOAD_DECODED_CONFIG_EXEC = [
+    {
+        "phase": "exec",
+        "fn": read_configuration_source,
+        "args": [
+            DECODED_CONFIG_PATH,
+            "ctx.model_specs.router_specs.edit",
+        ],
+        "when": "validated_model_specs",
+        "result": "decoded_source",
+    },
+]
+
+LOAD_EDITED_CONFIG_EXEC = [
+    {
+        "phase": "exec",
+        "fn": read_configuration_source,
+        "args": [
+            EDITED_CONFIG_PATH,
+            "ctx.model_specs.router_specs.edit",
+        ],
+        "when": "validated_model_specs",
+        "result": "edited_source",
+    },
+]
+
+LOAD_EXTRACTED_CONFIG_EXEC = [
+    {
+        "phase": "exec",
+        "fn": read_configuration_source,
+        "args": [
+            "ctx.decoded_directory",
+            "ctx.model_specs.router_specs.edit",
+        ],
+        "when": "decoded_directory",
+        "result": "decoded_source",
+    },
+]
+
+LOAD_SAVED_CONFIG_EXEC = [
+    {
+        "phase": "exec",
+        "fn": read_configuration_source,
+        "args": [
+            "ctx.edited_directory",
+            "ctx.model_specs.router_specs.edit",
+        ],
+        "when": "edited_directory",
+        "result": "edited_source",
+    },
+]
+
 VALIDATE_CONFIG_EXEC = [
     {
         "phase": "exec",
-        "fn": validate_router_configuration,
-        "args": ["meta", "model_specs", ROUTER_FUNCTIONS],
-        "result": "validated",
+        "fn": validate_router_inputs,
+        "args": [
+            "meta",
+            "ctx.model_specs",
+        ],
+        "when": "validated_model_specs",
+        "result": "router_inputs_validated",
+    },
+    {
+        "phase": "exec",
+        "fn": validate_router_field_mappings,
+        "args": [
+            "ctx.model_specs",
+        ],
+        "when": "validated_model_specs",
+        "result": "router_fields_validated",
+    },
+    {
+        "phase": "exec",
+        "fn": validate_router_details,
+        "args": [
+            ROUTER_DETAILS_PATH,
+            "ctx.model_specs.config_fields",
+        ],
+        "when": "validated_model_specs",
+        "result": "router_details_validated",
+    },
+    {
+        "phase": "exec",
+        "fn": validate_router_output_paths,
+        "args": [
+            "meta",
+        ],
+        "result": "router_outputs_validated",
+    },
+    {
+        "phase": "exec",
+        "fn": read_router_input,
+        "args": [
+            TEMPLATE_CONFIG_PATH,
+        ],
+        "when": "router_inputs_validated",
+        "result": "validation_input",
+    },
+    {
+        "phase": "exec",
+        "fn": parse_router_wrapper,
+        "args": [
+            "ctx.validation_input.data",
+            "ctx.model_specs.router_specs.codec",
+            "ctx.model_specs.router_specs.hardware",
+            "ctx.model_specs.router_specs.firmware",
+            ROUTER_FUNCTIONS["decode"]["functions"],
+            ROUTER_FUNCTIONS["checksum"],
+        ],
+        "when": [
+            "router_inputs_validated",
+            "router_fields_validated",
+            "router_details_validated",
+            "router_outputs_validated",
+            "validation_input",
+        ],
+        "result": "router_backup",
+    },
+    {
+        "phase": "exec",
+        "fn": print,
+        "args": [
+            "Router configuration validated.",
+        ],
+        "when": "router_backup",
+        "result": "validation_reported",
     },
 ]
 
@@ -429,61 +761,130 @@ VIEW_ROUTER_DETAILS_HELP_EXEC = [
 VIEW_DECODED_CONFIG_EXEC = [
     {
         "phase": "exec",
-        "fn": view_router_config_fields,
+        "fn": prepare_configuration_context,
         "args": [
-            DECODED_CONFIG_PATH,
+            "ctx.decoded_source",
             "ctx.model_specs.router_specs.edit",
             "ctx.model_specs.config_fields",
-            ROUTER_FUNCTIONS["view"]["functions"],
-            ROUTER_FUNCTIONS["decode"]["functions"],
+            "ctx.decode_operations",
+            None,
+            "ctx.view_operations_list",
         ],
-        "result": "view_router_config_fields_result",
+        "when": "decoded_source",
+        "result": "decoded_view_context",
+    },
+    {
+        "phase": "exec",
+        "fn": run_router_operations,
+        "args": [
+            "ctx.decoded_view_context.original",
+            "ctx.view_operations_list",
+            "ctx.decoded_view_context",
+        ],
+        "when": "decoded_view_context",
+        "result": "decoded_view_values",
+    },
+    {
+        "phase": "exec",
+        "fn": display_configuration_values,
+        "args": [
+            "ctx.decoded_view_values",
+            "ctx.decoded_view_context",
+            "ctx.model_specs.config_fields",
+        ],
+        "when": "decoded_view_context",
+        "result": "decoded_view_displayed",
     },
 ]
 
 VIEW_EDITED_CONFIG_EXEC = [
     {
         "phase": "exec",
-        "fn": view_router_config_fields,
+        "fn": prepare_configuration_context,
         "args": [
-            EDITED_CONFIG_PATH,
+            "ctx.edited_source",
             "ctx.model_specs.router_specs.edit",
             "ctx.model_specs.config_fields",
-            ROUTER_FUNCTIONS["view"]["functions"],
-            ROUTER_FUNCTIONS["decode"]["functions"],
+            "ctx.decode_operations",
+            None,
+            "ctx.view_operations_list",
         ],
-        "result": "view_router_config_fields_result",
+        "when": "edited_source",
+        "result": "edited_view_context",
+    },
+    {
+        "phase": "exec",
+        "fn": run_router_operations,
+        "args": [
+            "ctx.edited_view_context.original",
+            "ctx.view_operations_list",
+            "ctx.edited_view_context",
+        ],
+        "when": "edited_view_context",
+        "result": "edited_view_values",
+    },
+    {
+        "phase": "exec",
+        "fn": display_configuration_values,
+        "args": [
+            "ctx.edited_view_values",
+            "ctx.edited_view_context",
+            "ctx.model_specs.config_fields",
+        ],
+        "when": "edited_view_context",
+        "result": "edited_view_displayed",
     },
 ]
 
 DECODE_CONFIG_EXEC = [
     {
         "phase": "exec",
-        "fn": decode_router_config,
+        "fn": prepare_codec_context,
         "args": [
-            TEMPLATE_CONFIG_PATH,
             "ctx.model_specs.router_specs.codec",
             "ctx.model_specs.router_specs.hardware",
             "ctx.model_specs.router_specs.firmware",
             f"?{TEMPLATE_ROUTER_PASSWORD_PATH}",
             f"?{TEMPLATE_DEVICE_KEY_PATH}",
-            ROUTER_FUNCTIONS["decode"]["functions"],
-            ROUTER_FUNCTIONS["decode"]["validate"],
-            ROUTER_FUNCTIONS["checksum"],
+            "ctx.checksum_operations",
+            "ctx.model_specs.router_specs.edit",
         ],
+        "when": "router_backup",
+        "result": "decode_context",
+    },
+    {
+        "phase": "exec",
+        "fn": run_router_operations,
+        "args": [
+            "ctx.router_backup.data",
+            "ctx.decode_operations_list",
+            "ctx.decode_context",
+        ],
+        "when": "decode_context",
         "result": "decoded_data",
+    },
+    {
+        "phase": "exec",
+        "fn": validate_decoded_configuration,
+        "args": [
+            "ctx.decoded_data",
+            "ctx.model_specs",
+            "ctx.check_operations",
+            "ctx.checksum_operations",
+        ],
+        "when": "decode_context",
+        "result": "decoded_format_validated",
     },
     {
         "phase": "exec",
         "fn": save_router_config,
         "args": [
-            "decoded_data",
+            "ctx.decoded_data",
             DECODED_CONFIG_ARCHIVE_PATH,
-            "model_specs",
-            ROUTER_FUNCTIONS["check"],
-            ROUTER_FUNCTIONS["checksum"],
+            "ctx.model_specs",
+            True,
         ],
-        "when": "decoded_data",
+        "when": "decoded_format_validated",
         "result": "archive_saved",
     },
     {
@@ -492,9 +893,10 @@ DECODE_CONFIG_EXEC = [
         "args": [
             DECODED_CONFIG_ARCHIVE_PATH,
             DECODED_CONFIG_PATH,
-            "model_specs",
-            ROUTER_FUNCTIONS["extract"],
-            ROUTER_FUNCTIONS["checksum"],
+            "ctx.model_specs",
+            "ctx.extract_operations",
+            "ctx.checksum_operations",
+            True,
         ],
         "when": "archive_saved",
         "result": "decoded_directory",
@@ -504,18 +906,103 @@ DECODE_CONFIG_EXEC = [
 EDIT_CONFIG_EXEC = [
     {
         "phase": "exec",
-        "fn": edit_router_config_fields,
+        "fn": prepare_configuration_context,
         "args": [
-            DECODED_CONFIG_PATH,
-            EDITED_CONFIG_PATH,
+            "ctx.decoded_source",
             "ctx.model_specs.router_specs.edit",
             "ctx.model_specs.config_fields",
-            ROUTER_DETAILS_PATH,
-            ROUTER_FUNCTIONS["edit"]["functions"],
-            ROUTER_FUNCTIONS["view"]["functions"],
-            ROUTER_FUNCTIONS["decode"]["functions"],
-            ROUTER_FUNCTIONS["encode"]["functions"],
+            "ctx.decode_operations",
+            "ctx.encode_operations",
+            "ctx.view_operations_list",
+            "ctx.edit_operations_list",
+            EDITED_CONFIG_PATH,
         ],
+        "when": "decoded_source",
+        "result": "edit_context",
+    },
+    {
+        "phase": "exec",
+        "fn": run_router_operations,
+        "args": [
+            "ctx.edit_context.original",
+            "ctx.view_operations_list",
+            "ctx.edit_context",
+        ],
+        "when": "edit_context",
+        "result": "edit_values",
+    },
+    {
+        "phase": "exec",
+        "fn": load_router_details,
+        "args": [
+            ROUTER_DETAILS_PATH,
+        ],
+        "result": "edit_details",
+    },
+    {
+        "phase": "exec",
+        "fn": prepare_router_changes,
+        "args": [
+            "ctx.edit_values",
+            "ctx.edit_details",
+            "ctx.edit_context",
+        ],
+        "when": "edit_context",
+        "result": "edit_changes_context",
+    },
+    {
+        "phase": "exec",
+        "fn": run_router_operations,
+        "args": [
+            "ctx.edit_changes_context.original",
+            "ctx.edit_operations_list",
+            "ctx.edit_changes_context",
+        ],
+        "when": "edit_changes_context",
+        "result": "edited_text",
+    },
+    {
+        "phase": "exec",
+        "fn": validate_configuration_changes,
+        "args": [
+            "ctx.edit_changes_context.original",
+            "ctx.edited_text",
+            "ctx.edit_changes_context.specs",
+            "ctx.edit_changes_context.viewer",
+            "ctx.edit_changes_context.editor",
+            "ctx.edit_changes_context.decrypt_handler",
+            "ctx.edit_changes_context.encrypt_handler",
+        ],
+        "when": "edit_changes_context",
+        "result": "edit_verified",
+    },
+    {
+        "phase": "exec",
+        "fn": save_configuration_directory,
+        "args": [
+            "ctx.edit_changes_context.source",
+            "ctx.edit_changes_context.destination",
+            "ctx.edit_changes_context.relative",
+            "ctx.edit_changes_context.original_bytes",
+            "ctx.edited_text",
+            "ctx.model_specs.router_specs.edit",
+            "ctx.model_specs.config_fields",
+            "ctx.edit_changes_context.changes",
+            "ctx.edit_changes_context.decrypt_handler",
+            "ctx.edit_changes_context.encrypt_handler",
+            "ctx.edit_changes_context.viewer",
+            "ctx.edit_changes_context.editor",
+        ],
+        "when": "edit_verified",
+        "result": "edit_saved",
+    },
+    {
+        "phase": "exec",
+        "fn": report_edited_backup,
+        "args": [
+            "ctx.edit_changes_context",
+        ],
+        "when": "edit_saved",
         "result": "edited_directory",
     },
 ]
@@ -523,32 +1010,201 @@ EDIT_CONFIG_EXEC = [
 ENCODE_CONFIG_EXEC = [
     {
         "phase": "exec",
-        "fn": encode_router_config,
+        "fn": validate_encode_paths,
         "args": [
-            EDITED_CONFIG_PATH,
+            "ctx.edited_source.source",
             TEMPLATE_CONFIG_PATH,
             ENCODED_CONFIG_PATH,
+        ],
+        "when": "edited_source",
+        "result": "encode_paths",
+    },
+    {
+        "phase": "exec",
+        "fn": read_router_input,
+        "args": [
+            TEMPLATE_CONFIG_PATH,
+        ],
+        "when": "encode_paths",
+        "result": "encode_original_input",
+    },
+    {
+        "phase": "exec",
+        "fn": prepare_codec_context,
+        "args": [
             "ctx.model_specs.router_specs.codec",
             "ctx.model_specs.router_specs.hardware",
             "ctx.model_specs.router_specs.firmware",
-            "ctx.model_specs.router_specs.encode",
+            f"?{TEMPLATE_ROUTER_PASSWORD_PATH}",
+            f"?{TEMPLATE_DEVICE_KEY_PATH}",
+            "ctx.checksum_operations",
+            "ctx.model_specs.router_specs.edit",
+        ],
+        "when": "encode_original_input",
+        "result": "encode_original_context",
+    },
+    {
+        "phase": "exec",
+        "fn": run_router_operations,
+        "args": [
+            "ctx.encode_original_input.data",
+            "ctx.decode_operations_list",
+            "ctx.encode_original_context",
+        ],
+        "when": "encode_original_context",
+        "result": "encode_original_archive",
+    },
+    {
+        "phase": "exec",
+        "fn": validate_decoded_configuration,
+        "args": [
+            "ctx.encode_original_archive",
+            "ctx.model_specs",
+            "ctx.check_operations",
+            "ctx.checksum_operations",
+        ],
+        "when": "encode_original_context",
+        "result": "encode_original_validated",
+    },
+    {
+        "phase": "exec",
+        "fn": load_encode_credentials,
+        "args": [
+            "ctx.model_specs.router_specs.codec",
+            f"?{TARGET_ROUTER_PASSWORD_PATH}",
+            f"?{TARGET_DEVICE_KEY_PATH}",
+        ],
+        "when": "encode_paths",
+        "result": "encode_credentials",
+    },
+    {
+        "phase": "exec",
+        "fn": compare_configuration_files,
+        "args": [
+            "ctx.encode_paths.directory",
+            "ctx.encode_original_context.files",
+            "ctx.model_specs.router_specs.edit",
+        ],
+        "when": ["encode_paths", "encode_original_validated"],
+        "result": "encode_files",
+    },
+    {
+        "phase": "exec",
+        "fn": prepare_configuration_context,
+        "args": [
+            "ctx.edited_source",
             "ctx.model_specs.router_specs.edit",
             "ctx.model_specs.config_fields",
-            f"?{TEMPLATE_ROUTER_PASSWORD_PATH}",
-            f"?{TARGET_ROUTER_PASSWORD_PATH}",
-            f"?{TEMPLATE_DEVICE_KEY_PATH}",
-            f"?{TARGET_DEVICE_KEY_PATH}",
-            ROUTER_FUNCTIONS["encode"]["functions"],
-            ROUTER_FUNCTIONS["encode"]["validate"],
-            ROUTER_FUNCTIONS["decode"]["functions"],
-            ROUTER_FUNCTIONS["decode"]["validate"],
-            ROUTER_FUNCTIONS["checksum"],
-            ROUTER_FUNCTIONS["view"]["functions"],
-            ROUTER_FUNCTIONS["edit"]["functions"],
+            "ctx.decode_operations",
+            "ctx.encode_operations",
+            "ctx.view_operations_list",
+            "ctx.edit_operations_list",
         ],
+        "when": ["edited_source", "encode_paths"],
+        "result": "encode_configuration_context",
+    },
+    {
+        "phase": "exec",
+        "fn": validate_configuration_changes,
+        "args": [
+            "ctx.encode_files.original",
+            "ctx.encode_files.edited",
+            "ctx.encode_configuration_context.specs",
+            "ctx.encode_configuration_context.viewer",
+            "ctx.encode_configuration_context.editor",
+            "ctx.encode_configuration_context.decrypt_handler",
+            "ctx.encode_configuration_context.encrypt_handler",
+        ],
+        "when": ["encode_files", "encode_configuration_context"],
+        "result": "encode_edits_verified",
+    },
+    {
+        "phase": "exec",
+        "fn": prepare_encode_payload,
+        "args": [
+            "ctx.encode_original_archive",
+            "ctx.encode_original_context",
+            "ctx.encode_files",
+            "ctx.encode_credentials",
+            "ctx.model_specs.router_specs.encode",
+            "ctx.encode_paths.directory",
+        ],
+        "when": [
+            "encode_original_validated",
+            "encode_files",
+            "encode_edits_verified",
+            "encode_credentials",
+        ],
+        "result": "encode_context",
+    },
+    {
+        "phase": "exec",
+        "fn": run_router_operations,
+        "args": [
+            "ctx.encode_context.data",
+            "ctx.encode_operations_list",
+            "ctx.encode_context",
+        ],
+        "when": "encode_context",
+        "result": "encoded_data",
+    },
+    {
+        "phase": "exec",
+        "fn": prepare_codec_context,
+        "args": [
+            "ctx.model_specs.router_specs.codec",
+            "ctx.model_specs.router_specs.hardware",
+            "ctx.model_specs.router_specs.firmware",
+            f"?{TARGET_ROUTER_PASSWORD_PATH}",
+            f"?{TARGET_DEVICE_KEY_PATH}",
+            "ctx.checksum_operations",
+        ],
+        "when": "encoded_data",
+        "result": "encode_verify_context",
+    },
+    {
+        "phase": "exec",
+        "fn": run_router_operations,
+        "args": [
+            "ctx.encoded_data",
+            "ctx.decode_operations_list",
+            "ctx.encode_verify_context",
+        ],
+        "when": ["encoded_data", "encode_verify_context"],
+        "result": "encode_recovered",
+    },
+    {
+        "phase": "exec",
+        "fn": verify_encoded_backup,
+        "args": [
+            "ctx.encode_recovered",
+            "ctx.encode_context.expected",
+        ],
+        "when": ["encoded_data", "encode_verify_context", "encode_context"],
+        "result": "encode_verified",
+    },
+    {
+        "phase": "exec",
+        "fn": save_encoded_backup,
+        "args": [
+            "ctx.encode_paths.output",
+            "ctx.encoded_data",
+        ],
+        "when": ["encode_verified", "encode_edits_verified"],
+        "result": "encode_saved",
+    },
+    {
+        "phase": "exec",
+        "fn": report_encoded_backup,
+        "args": [
+            "ctx.encode_paths.output",
+            "ctx.encode_context",
+        ],
+        "when": "encode_saved",
         "result": "encoded_config",
     },
 ]
+
 
 SHOW_CONFIG_DOC_EXEC = [
     {
@@ -561,67 +1217,155 @@ SHOW_CONFIG_DOC_EXEC = [
 
 
 # ---------------------------------------------------------------------
+# ACTION OPERATION DISPLAYS
+# ---------------------------------------------------------------------
+
+DISPLAY_ENCODE_OPERATIONS_PRE = [
+    {
+        "phase": "pre",
+        "fn": display_router_operations,
+        "args": ["encode_operations_list", "Encode Operations"],
+        "when": "encode_operations_list",
+        "result": "encode_operations_displayed",
+    },
+]
+
+
+DISPLAY_DECODE_OPERATIONS_PRE = [
+    {
+        "phase": "pre",
+        "fn": display_router_operations,
+        "args": ["decode_operations_list", "Decode Operations"],
+        "when": "decode_operations_list",
+        "result": "decode_operations_displayed",
+    },
+]
+
+
+DISPLAY_EDIT_OPERATIONS_PRE = [
+    {
+        "phase": "pre",
+        "fn": display_router_operations,
+        "args": ["edit_operations_list", "Edit Operations"],
+        "when": "edit_operations_list",
+        "result": "edit_operations_displayed",
+    },
+]
+
+
+DISPLAY_VIEW_OPERATIONS_PRE = [
+    {
+        "phase": "pre",
+        "fn": display_router_operations,
+        "args": ["view_operations_list", "View Operations"],
+        "when": "view_operations_list",
+        "result": "view_operations_displayed",
+    },
+]
+
+
+# ---------------------------------------------------------------------
 # PIPELINES
 # ---------------------------------------------------------------------
 
 PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
     "VALIDATE_CONFIG": {
-        "pipeline": [*LOAD_MODEL_SPECS_PRE,
-                     *VALIDATE_CONFIG_EXEC],
+        "pipeline": [
+            *LOAD_MODEL_SPECS_PRE,
+            *DISPLAY_ENCODE_OPERATIONS_PRE,
+            *DISPLAY_DECODE_OPERATIONS_PRE,
+            *DISPLAY_EDIT_OPERATIONS_PRE,
+            *DISPLAY_VIEW_OPERATIONS_PRE,
+            *VALIDATE_CONFIG_EXEC,
+        ],
         "label": "VALIDATION_COMPLETE",
     },
     "VIEW_MODEL_SPECS": {
-        "pipeline": [*LOAD_MODEL_SPECS_PRE,
-                     *VIEW_MODEL_SPECS_EXEC],
+        "pipeline": [
+            *LOAD_MODEL_SPECS_PRE,
+            *VIEW_MODEL_SPECS_EXEC,
+        ],
         "label": "VIEW_MODEL_SPECS_COMPLETE",
     },
     "VIEW_DECODED_CONFIG": {
-        "pipeline": [*LOAD_MODEL_SPECS_PRE,
-                     *VIEW_DECODED_CONFIG_EXEC],
+        "pipeline": [
+            *LOAD_MODEL_SPECS_PRE,
+            *DISPLAY_VIEW_OPERATIONS_PRE,
+            *LOAD_DECODED_CONFIG_EXEC,
+            *VIEW_DECODED_CONFIG_EXEC,
+        ],
         "label": "VIEW_DECODED_COMPLETE",
     },
     "VIEW_EDITED_CONFIG": {
-        "pipeline": [*LOAD_MODEL_SPECS_PRE,
-                     *VIEW_EDITED_CONFIG_EXEC],
+        "pipeline": [
+            *LOAD_MODEL_SPECS_PRE,
+            *DISPLAY_VIEW_OPERATIONS_PRE,
+            *LOAD_EDITED_CONFIG_EXEC,
+            *VIEW_EDITED_CONFIG_EXEC,
+        ],
         "label": "VIEW_EDITED_COMPLETE",
     },
     "VIEW_ROUTER_DETAILS": {
-        "pipeline": [*VIEW_ROUTER_DETAILS_EXEC],
+        "pipeline": [
+            *VIEW_ROUTER_DETAILS_EXEC,
+        ],
         "label": "VIEW_DETAILS_COMPLETE",
     },
     "VIEW_ROUTER_DETAILS_HELP": {
-        "pipeline": [*VIEW_ROUTER_DETAILS_HELP_EXEC],
+        "pipeline": [
+            *VIEW_ROUTER_DETAILS_HELP_EXEC,
+        ],
         "label": "VIEW_ROUTER_DETAILS_HELP_COMPLETE",
     },
     "DECODE_CONFIG": {
-        "pipeline": [*LOAD_MODEL_SPECS_PRE,
-                     *DECODE_CONFIG_EXEC],
+        "pipeline": [
+            *LOAD_MODEL_SPECS_PRE,
+            *DISPLAY_DECODE_OPERATIONS_PRE,
+            *READ_ROUTER_BACKUP_EXEC,
+            *DECODE_CONFIG_EXEC,
+        ],
         "label": "DECODE_COMPLETE",
     },
     "EDIT_CONFIG": {
-        "pipeline": [*LOAD_MODEL_SPECS_PRE,
-                     *EDIT_CONFIG_EXEC],
+        "pipeline": [
+            *LOAD_MODEL_SPECS_PRE,
+            *DISPLAY_EDIT_OPERATIONS_PRE,
+            *LOAD_DECODED_CONFIG_EXEC,
+            *EDIT_CONFIG_EXEC,
+        ],
         "label": "EDIT_COMPLETE",
     },
     "ENCODE_CONFIG": {
-        "pipeline": [*LOAD_MODEL_SPECS_PRE,
-                     *ENCODE_CONFIG_EXEC],
+        "pipeline": [
+            *LOAD_MODEL_SPECS_PRE,
+            *DISPLAY_ENCODE_OPERATIONS_PRE,
+            *LOAD_EDITED_CONFIG_EXEC,
+            *ENCODE_CONFIG_EXEC,
+        ],
         "label": "ENCODE_COMPLETE",
     },
     "RUN_ALL": {
         "pipeline": [
             *LOAD_MODEL_SPECS_PRE,
+            *DISPLAY_DECODE_OPERATIONS_PRE,
+            *DISPLAY_VIEW_OPERATIONS_PRE,
+            *DISPLAY_EDIT_OPERATIONS_PRE,
+            *DISPLAY_ENCODE_OPERATIONS_PRE,
             *VALIDATE_CONFIG_EXEC,
             *DECODE_CONFIG_EXEC,
+            *LOAD_EXTRACTED_CONFIG_EXEC,
             *VIEW_DECODED_CONFIG_EXEC,
             *EDIT_CONFIG_EXEC,
+            *LOAD_SAVED_CONFIG_EXEC,
             *VIEW_EDITED_CONFIG_EXEC,
             *ENCODE_CONFIG_EXEC,
         ],
         "label": "ROUTER_AUTOMATION_COMPLETE",
     },
     "SHOW_CONFIG_DOC": {
-        "pipeline": [*SHOW_CONFIG_DOC_EXEC],
+        "pipeline": [
+            *SHOW_CONFIG_DOC_EXEC,
+        ],
         "label": "DONE",
     },
 }

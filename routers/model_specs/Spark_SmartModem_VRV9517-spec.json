@@ -30,8 +30,18 @@
       "backup_version": null,
       "header_terminator": null,
       "signature": null,
-      "decode_order": null,
-      "encode_order": null,
+      "decode_order": [
+        "wrapper",
+        "encoding",
+        "encryption",
+        "archive"
+      ],
+      "encode_order": [
+        "archive",
+        "encryption",
+        "encoding",
+        "wrapper"
+      ],
       "decoded_extension": ".tar.gz"
     },
     "encode": null,

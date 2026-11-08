@@ -145,6 +145,34 @@ def print_dict_table(items, field_names, label):
     return True
 
 
+def print_router_dictionary(items, label):
+    """Display non-null settings or selected callable operations without changing them."""
+    print(f"\n{label.upper()}:")
+    if not items:
+        print("  (None)")
+        return True
+    def show(mapping, indent=2):
+        for key, value in mapping.items():
+            if value is None:
+                continue
+            if isinstance(value, dict):
+                print(f"{' ' * indent}{key}:")
+                show(value, indent + 2)
+            elif isinstance(value, list):
+                print(f"{' ' * indent}{key}:")
+                for item in value:
+                    if isinstance(item, dict):
+                        print(f"{' ' * (indent + 2)}-")
+                        show(item, indent + 4)
+                    elif item is not None:
+                        print(f"{' ' * (indent + 2)}- {item}")
+            else:
+                name = value.__name__ if callable(value) else value
+                print(f"{' ' * indent}{key}: {name}")
+    show(items)
+    return True
+
+
 def format_status_summary(
     status_dict: Dict[str, Any],
     label: str = "Item",

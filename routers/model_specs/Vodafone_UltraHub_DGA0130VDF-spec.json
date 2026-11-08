@@ -30,8 +30,14 @@
       "backup_version": "1.00",
       "header_terminator": "\n\n",
       "signature": null,
-      "decode_order": null,
-      "encode_order": null,
+      "decode_order": [
+        "wrapper",
+        "encryption"
+      ],
+      "encode_order": [
+        "encryption",
+        "wrapper"
+      ],
       "decoded_extension": ".bin",
       "device_key_required": true
     },

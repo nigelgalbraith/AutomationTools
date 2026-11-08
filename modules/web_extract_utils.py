@@ -207,8 +207,6 @@ def page_contains_term(
     return term.casefold() in text.casefold()
 
 
-
-
 def run_photon(
     url: str,
     photon_python: str,
@@ -254,6 +252,7 @@ def run_photon(
             candidate = parsed._replace(path=path, fragment="").geturl()
             urls.append(candidate)
         return list(dict.fromkeys(urls))
+
 
 def crawl_with_photon(
     candidates: List[Dict[str, str]],

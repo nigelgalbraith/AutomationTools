@@ -37,8 +37,16 @@
         "modulus_hex": "B597A54F66CA6332972D9986AB87F741B9BBA24A130612C01620EAE53DD0F9939E9F53440549ED7B7FC2B739B33A7735E42A1FC90F6A9C17E4A7A57EDF7336245A4F67DFD757820782264D7CBA8DA0676E5661968EF8510BB88FEF7E2320A657CCB5A75E28C1ACE7FC0B3DD15C0051FCA343B42464935A0B31D2C2F904767CE3",
         "exponent": 65537
       },
-      "decode_order": null,
-      "encode_order": null,
+      "decode_order": [
+        "wrapper",
+        "encryption",
+        "archive"
+      ],
+      "encode_order": [
+        "archive",
+        "encryption",
+        "wrapper"
+      ],
       "decoded_extension": ".xml"
     },
     "encode": {

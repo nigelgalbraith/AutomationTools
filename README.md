@@ -749,132 +749,133 @@ Compatibility depends on the Ubuntu Desktop source ISO and installer.
 
 ## Router Configuration
 
-The Router Configuration utility automates decoding, viewing, editing, and re-encoding encrypted router configuration backups.
+The Router Configuration utility automates decoding, viewing, editing, encoding, and verification of supported router configuration backups.
 
-Router processing uses a modular, JSON-driven architecture. The main router utility coordinates operations through centralised dispatchers, while specialised utility modules implement reusable processing functions.
+Each router job uses a model specification, an original configuration backup, and a router details file containing replacement values.
 
-Each router job uses an original router configuration as a template, applies replacement settings from a router details JSON file, and generates an encrypted configuration for the target router.
-
-AutomationTools uses file-driven configuration processing. Router settings and passwords are read from configured files without interactive editing or password prompts.
+AutomationTools processes configured files without interactive editing or credential prompts.
 
 ### Features
 
-- Validate router configuration files and model specifications.
-- View router model specifications and documentation.
-- View router details and available configuration settings.
-- Decode encrypted router configuration backups.
-- Save and extract decoded configuration archives or XML files.
-- View original key-value and XML configuration fields.
-- Decrypt and display protected Wi-Fi passwords.
-- Edit router settings using JSON-defined replacement values.
-- Encrypt modified configuration fields when required.
-- View edited router configuration values.
-- Rebuild and encrypt router configuration backups.
-- Generate and verify supported RSA signatures.
-- Verify generated configurations through local decoding round trips.
-- Automatically replace existing generated outputs.
-- Run the complete decode, edit, and encode workflow.
+- Validate router model specifications and configuration paths.
+- Display selected router processing operations.
+- View router specifications and router details.
+- Decode and extract supported router backups.
+- View key-value and XML configuration settings.
+- Edit supported configuration fields using JSON-defined replacement values.
+- View edited settings.
+- Encode and verify generated router backups.
+- Safely replace generated files and directories.
+- Execute the full router workflow using Run All.
 
 ### Files and Directories
 
 | File | Purpose |
 |---|---|
-| `constants/RouterConstants.py` | Router actions, validation, dependencies, and pipelines |
-| `schemas/RouterSchema.json` | Shared router model specification validation rules |
-| `config/RouterConfig.json` | Router configuration groups and file paths |
-| `config-sample/RouterConfig.json` | Example router configuration |
-| `doc/RouterDoc.json` | Configuration documentation |
-| `modules/router_utils.py` | Main router workflows, validation, orchestration, and centralised handler registrations |
-| `modules/router_encryption_utils.py` | Encryption, decryption, field encryption, checksums, and RSA signatures |
-| `modules/router_format_utils.py` | Backup wrappers, encoding, decoding, compression, and archive processing |
-| `modules/router_config_utils.py` | Configuration field extraction, viewing, editing, and validation |
-| `routers/model_specs/` | Router model specifications and the common specification template |
-| `routers/model_specs/ModelSpecsReadMe.md` | Model specification documentation |
+| `constants/RouterConstants.py` | Router actions, function registry, validation, and pipelines |
+| `modules/router_utils.py` | Operation builders, dispatcher, validation, credential handling, and file operations |
+| `modules/router_encryption_utils.py` | Encryption, decryption, signatures, and checksums |
+| `modules/router_format_utils.py` | Wrappers, encoding, compression, and archive processing |
+| `modules/router_config_utils.py` | Configuration viewing, editing, and validation |
+| `schemas/RouterSchema.json` | Router model specification schema |
+| `config/RouterConfig.json` | Router jobs and configured paths |
+| `config-sample/RouterConfig.json` | Example configuration |
+| `doc/RouterDoc.json` | Router configuration help |
+| `doc/RouterSpecificationTemplate.json` | Router specification template |
+| `routers/model_specs/` | Router model specifications |
+| `routers/model_specs/ModelSpecsReadMe.md` | Router specification documentation |
 | `routers/details/RouterDetailsReadMe.md` | Router details documentation |
 
 ### Dependencies
 
-The Router utility uses:
+The Router utility declares:
 
-- `openssl` — OpenSSL-based router backup encryption and decryption.
-- `python3-cryptography` — AES encryption and decryption through Python's cryptography library.
-- `python3-jsonschema` — shared validation against external JSON Schema files.
+- `openssl`
+- `python3-cryptography`
+- `python3-jsonschema`
 
-Dependencies are declared in `constants/RouterConstants.py`.
-
-The selected router model specification determines which supported processing mechanisms are used.
+The selected model specification determines which registered mechanisms are used.
 
 ### Running the Router Utility
 
-Run AutomationLoader and select **Router Configuration** from the available tools.
+Start AutomationLoader:
 
 ```bash
 python3 AutomationLoader.py
 ```
 
-Alternatively, launch the Router Configuration utility directly:
+Select **Router Configuration** from the available tools.
+
+Alternatively, launch it directly:
 
 ```bash
 python3 AutomationLoader.py --constants constants.RouterConstants
 ```
 
-The loader displays the available router actions and configuration groups.
-
 ### Available Actions
 
 | Action | Description |
 |---|---|
-| Validate Router Configuration | Validate the selected router configuration |
+| Validate Router Configuration | Validate the selected router job and display its operations |
 | View Router Model Specifications | Display router model specifications |
 | View Router Details | Display configured replacement values |
 | View Router Details Help | Display router details documentation |
-| Decode Router Configuration | Decrypt, save, and extract a router backup |
-| View Decoded Router Configuration | Display original configuration values |
-| Edit Router Configuration | Apply replacement settings from JSON |
-| View Edited Router Configuration | Display updated configuration values |
-| Encode Router Configuration | Rebuild, encrypt, and verify the backup |
-| Run All Steps | Execute the complete router workflow |
+| Decode Router Configuration | Decode and extract a router backup |
+| View Decoded Router Configuration | Display original configuration fields |
+| Edit Router Configuration | Apply replacement values |
+| View Edited Router Configuration | Display updated fields |
+| Encode Router Configuration | Encode and verify the edited backup |
+| Run All Steps | Execute the complete configured workflow |
 | Show Config Help | Display configuration documentation |
-| Cancel | Exit the router utility |
+| Cancel | Exit the utility |
+
+The utility can process a selected router group or multiple configured groups, depending on the action.
 
 ### Router Architecture
 
-The router utility separates workflow orchestration from processing implementations.
+Router processing separates pipeline orchestration from individual processing functions.
 
-**`router_utils.py`** manages:
+`constants/RouterConstants.py` defines the declarative pipelines and `ROUTER_FUNCTIONS` registry.
 
-- Router workflow execution.
-- Router input and output validation for automation.
-- Centralised processing dispatcher registrations.
-- Selection of processing mechanisms.
-- Coordination of decoding, viewing, editing, and encoding.
-- Configuration input and output handling.
+The registry contains functions for:
 
-All processing handler registrations are grouped near the top of `router_utils.py`:
+- Encoding and decoding.
+- Encode and decode validation.
+- Configuration extraction.
+- Format checking.
+- Checksums.
+- Configuration editing and validation.
+- Configuration viewing and validation.
+
+`modules/router_utils.py` contains the operation resolver, builders, and dispatcher:
 
 ```python
-ENCRYPTION_HANDLERS
-FIELD_ENCRYPT_HANDLERS
-FIELD_DECRYPT_HANDLERS
-CONFIG_VIEW_HANDLERS
-CONFIG_EDIT_HANDLERS
+resolve_router_operations()
+build_encode_operations()
+build_decode_operations()
+build_edit_operations()
+build_view_operations()
+run_router_operations()
 ```
 
-Processing implementations are separated into specialised modules:
+`resolve_router_operations()` selects registered functions from the model specification.
 
-- `router_encryption_utils.py` — cryptographic algorithms, field encryption, and signature processing.
-- `router_format_utils.py` — backup wrappers, compression, encoding, decoding, and archive reconstruction.
-- `router_config_utils.py` — configuration field parsing, viewing, editing, and validation.
+The builders arrange the applicable validators and processing operations in the required order.
 
-Dispatchers select reusable functions using values from the router model specification rather than router manufacturer or model names.
+`run_router_operations()` executes the ordered transformations and passes returned results between them.
 
-If a new router uses an existing mechanism, the existing processing function is reused.
+The pipelines control the workflow by calling individual functions and passing results through the execution context.
 
-If a new mechanism is required, a generic processing function is implemented in the appropriate utility module and registered in `router_utils.py`.
+Processing implementations are organised by responsibility:
 
-The main router workflow does not require manufacturer-specific processing implementations.
+- `router_encryption_utils.py` — Cryptography, signatures, and checksums.
+- `router_format_utils.py` — Backup formats, wrappers, encoding, compression, and archives.
+- `router_config_utils.py` — Configuration parsing, viewing, editing, and validation.
+- `router_utils.py` — Router preparation, operation building, execution, and safe output handling.
 
-### Router Configuration
+The model specifications select reusable processing mechanisms rather than manufacturer-specific scripts.
+
+### Router Configuration File
 
 Router jobs are defined in:
 
@@ -882,7 +883,7 @@ Router jobs are defined in:
 config/RouterConfig.json
 ```
 
-Each configuration group represents a separate router job.
+Each top-level group represents a configured router job.
 
 Example:
 
@@ -904,443 +905,221 @@ Example:
 }
 ```
 
-Additional router jobs can be created by adding configuration groups with their own model specifications, router details, and file paths.
+Additional router jobs use separate groups with their own paths and replacement values.
 
-Password paths are used only when required by the selected encryption mechanism.
+### Router Configuration Keys
 
-For routers using fixed firmware encryption keys, the encryption parameters are stored in the router model specification rather than separate password files.
-
-#### Configuration Fields
-
-| Field | Description |
+| Key | Description |
 |---|---|
 | `model_specs_path` | Router model specification JSON |
-| `model_specs_readme_path` | Model specification documentation |
+| `model_specs_readme_path` | Router specification documentation |
 | `template_config_path` | Original encrypted router backup |
-| `template_router_password_path` | Template router password file, when required |
-| `target_router_password_path` | Target router password file, when required |
-| `router_details_path` | JSON file containing replacement settings |
+| `template_router_password_path` | Template password file, when required |
+| `target_router_password_path` | Target password file, when required |
+| `template_device_key_path` | Template device-key file, when required |
+| `target_device_key_path` | Target device-key file, when required |
+| `router_details_path` | Replacement settings JSON |
 | `router_details_readme_path` | Router details documentation |
-| `decoded_config_archive_path` | Decoded configuration archive or XML output |
-| `decoded_config_path` | Extracted decoded configuration directory |
+| `decoded_config_archive_path` | Saved decoded payload |
+| `decoded_config_path` | Extracted configuration directory |
 | `edited_config_path` | Edited configuration directory |
-| `encoded_config_path` | Final encrypted router backup |
+| `encoded_config_path` | Final encoded router backup |
 
-Paths support `~` for the user's home directory.
+Paths may use `~` for the user's home directory.
 
-Relative paths are resolved from the AutomationLoader working directory.
+Password and device-key requirements are determined by the model specification.
 
-### Configured Router Models
+### Supported Router Models
 
-The supplied project includes specifications for:
-
-| Router | Model | Configuration Format | Encryption |
+| Router | Model | Backup Format | Configuration Format |
 |---|---|---|---|
-| Spark SmartModem | VRV9517 | Key-value | AES-256-CBC with OpenSSL legacy key derivation |
-| Vodafone Ultra Hub | DGA0130VDF | Technicolor THENC | AES-256-CBC with device-specific key |
-| Vodafone Huawei HG659 | HG659 B020 | XML | AES-256-CBC with fixed firmware key |
+| Spark SmartModem | VRV9517 | Legacy OpenSSL AES-256-CBC, Base64, TAR/GZIP | Key-value |
+| Vodafone Ultra Hub | DGA0130VDF | Technicolor THENC | Not established |
+| Vodafone Huawei HG659 | HG659 | Fixed-key AES-256-CBC, signed zlib | XML |
 
-#### Spark SmartModem
+**Spark SmartModem VRV9517**
 
-Supports:
+Supports backup decoding, archive extraction, key-value viewing and editing, encoding, and local verification.
 
-- Backup decoding and extraction.
-- Key-value configuration viewing.
-- JSON-driven Wi-Fi configuration editing.
-- Backup encryption and encoding.
-- Local decoding and encoding verification.
+**Vodafone Huawei HG659**
 
-#### Vodafone Ultra Hub
+Supports fixed-key AES-256-CBC, RSA/MD5 signing and verification, XML configuration processing, and encryption of supported protected Wi-Fi password fields.
 
-Uses the Technicolor THENC encrypted backup format.
+**Vodafone Ultra Hub DGA0130VDF**
 
-Complete authenticated decryption and encoding require device-specific cryptographic material and signing support.
+The specification describes the THENC backup wrapper and device-key requirements.
 
-These operations remain unavailable until the required device key and cryptographic mechanisms are established.
+THENC parsing and relevant validation are implemented. Complete THENC decryption, encryption, authentication, and signing are not established.
 
-#### Vodafone Huawei HG659
+The configuration editing format is not established.
 
-Supports:
-
-- Fixed-key AES-256-CBC backup encryption and decryption.
-- zlib compression and decompression.
-- RSA/MD5 signature verification and signing.
-- XML configuration extraction.
-- XML configuration viewing and editing.
-- AES-128-CBC encryption and decryption of protected Wi-Fi passwords.
-- Signed backup reconstruction.
-- Local decoding and encoding round-trip verification.
-
-Router compatibility depends on the hardware and firmware revision.
+Compatibility depends on the router hardware and firmware revision.
 
 ### Router Model Specifications
 
-Router model specifications are stored in:
+The specification files are stored in:
 
 ```text
 routers/model_specs/
 ```
 
-Each specification uses the shared JSON schema defined in:
+AutomationTools and TestingTools use the same model specification structure and `schemas/RouterSchema.json`.
 
-```text
-schemas/RouterSchema.json
-```
+Each specification defines:
 
-Specifications contain two top-level sections:
+- Router model, hardware, and firmware.
+- Backup codec settings.
+- Encryption and key derivation.
+- Wrappers, archives, signatures, and checksums.
+- Encode and decode processing order.
+- Encoding-only parameters where required.
+- Configuration format and editing settings.
+- Logical configuration field mappings.
 
-- `router_specs` — Router identity and supported processing mechanisms.
-- `config_fields` — Logical field names mapped to actual configuration keys or selectors.
+The specification's `router_specs` object contains the required `model`, `firmware`, `hardware`, `codec`, `encode`, and `edit` properties.
 
-The `router_specs` section contains model, hardware, and firmware information, together with:
+Unused supported settings are represented by `null` where permitted by the schema.
 
-- `codec` — Shared decoding and encoding settings, including encryption, wrappers, checksums, compression, and archive formats.
-- `encode` — Additional encoding settings, only when required.
-- `edit` — Configuration editing settings, only when supported.
+See `routers/model_specs/ModelSpecsReadMe.md` for the complete explanation.
 
-Unused optional settings and sections are omitted rather than represented by JSON `null`.
+### Router Credentials
 
-The `config_fields` section contains a list of mappings:
+Credential paths are configured in `RouterConfig.json`.
 
-```json
-{
-  "name": "logical_field_name",
-  "path": "actual_key_or_selector"
-}
-```
+The model specification declares whether a password or binary device key is required.
 
-New field mappings can be added without modifying Python processing functions or other router model specifications.
+The supported mechanisms include password-derived encryption, fixed-key encryption, and device-specific key requirements.
 
-Router configuration preparation follows **LOAD → CHECK → PLAN → EXECUTE**.
+Required credentials must be available for the corresponding operation.
 
-`load_router_model_specs()` loads the specification, and the PRE pipeline validates it against the external schema before preparing any required XML selectors. Additional implementation-specific parameter checks are performed in Python.
-
-Processing functions are selected through registered handlers using the mechanisms defined in the specification rather than router manufacturer or model names.
-
-Firmware-wide encryption and signing parameters are stored directly in the model specification. Device-specific credentials, when required, remain separate.
-
-For detailed information, see:
-
-[Model Specifications Documentation](routers/model_specs/ModelSpecsReadMe.md)
-
-### Router Password Handling
-
-Router backup authentication depends on the selected encryption mechanism.
-
-Supported approaches include:
-
-- Password-based key derivation.
-- Device-specific encryption keys.
-- Firmware-wide fixed encryption keys.
-
-For password-based configurations, two password paths may be configured:
-
-- `template_router_password_path` — Password used to decrypt the original router backup.
-- `target_router_password_path` — Password used to encrypt the generated backup.
-
-These passwords may be different.
-
-Each required password file contains the corresponding password.
-
-AutomationTools reads these files automatically. No interactive password entry is required.
-
-Routers using fixed firmware-wide keys, such as the Huawei HG659, obtain their encryption parameters from the router model specification.
-
-Some routers also encrypt individual configuration values.
-
-For example, the Huawei HG659 stores Wi-Fi passwords as protected AES-128-CBC values inside its decoded XML configuration.
-
-The registered field-decryption handler converts these values into readable passwords for viewing.
-
-The registered field-encryption handler encrypts replacement passwords before they are written into the configuration.
-
-Actual passwords, device-specific credentials, and router backups must be kept private.
+Password files and private router backups should not be committed to public repositories.
 
 ### Router Details
 
-Router details define which settings will be changed in the decoded router configuration.
+The router details JSON file contains the replacement configuration values.
 
-Each router job references a JSON file through:
-
-```text
-router_details_path
-```
-
-Example:
+For example:
 
 ```json
 {
-  "wifi_2g_ssid": "RouterOne_2G",
+  "wifi_2g_ssid": "RouterTwo_2G",
   "wifi_2g_password": "example-password-123",
-  "wifi_5g_ssid": "RouterOne_5G",
+  "wifi_5g_ssid": "RouterTwo_5G",
   "wifi_5g_password": "example-password-456"
 }
 ```
 
-The field names must correspond to entries in the model specification's `config_fields`.
+Each key must correspond to a supported logical field in the router specification's `config_fields` array.
 
-The router details file contains the replacement values. The model specification defines where those values are located in the router configuration.
+The actual configuration key or XML selector is defined in the model specification, not in the router details file.
 
-#### Key-Value Configuration Example
+Only mapped and supported fields can be modified.
 
-```json
-"config_fields": {
-  "file": "config/.glbcfg",
-  "wifi_2g_ssid": "ARC_WLAN_24G_SSID_0_ESSID",
-  "wifi_2g_password": "ARC_WLAN_24G_SSID_0_WPA_Passphrase",
-  "wifi_5g_ssid": "ARC_WLAN_5G_SSID_0_ESSID",
-  "wifi_5g_password": "ARC_WLAN_5G_SSID_0_WPA_Passphrase"
-}
-```
+Protected fields are processed using the registered field encryption and decryption functions where applicable.
 
-#### XML Configuration Example
-
-```json
-"config_fields": {
-  "file": "config.xml",
-  "wifi_2g_ssid": "WLANConfigurationInstance|X_OperatingFrequencyBand=2.4GHz|X_Is_Guest_Network=0|SSID",
-  "wifi_2g_password": "WLANConfigurationInstance|X_OperatingFrequencyBand=2.4GHz|X_Is_Guest_Network=0|PreSharedKeyInstance@KeyPassphrase",
-  "wifi_5g_ssid": "WLANConfigurationInstance|X_OperatingFrequencyBand=5GHz|X_Is_Guest_Network=0|SSID",
-  "wifi_5g_password": "WLANConfigurationInstance|X_OperatingFrequencyBand=5GHz|X_Is_Guest_Network=0|PreSharedKeyInstance@KeyPassphrase"
-}
-```
-
-XML selectors identify the intended elements and attributes, including parent-child relationships.
-
-The selectors distinguish primary Wi-Fi networks from guest networks.
-
-Only settings included in the router details JSON are modified.
-
-Settings not specified remain unchanged.
-
-Unknown fields, invalid selectors, or missing configuration values cause an error.
-
-The configuration editor uses the registered processing functions to update the correct fields while preserving unrelated configuration content.
-
-Protected values are encrypted using the mechanism declared in the model specification.
-
-Additional editable fields can be supported by defining their mappings when the field name and processing mechanism are already supported.
-
-If a new field name is required, add it to the common schema, specification template, and every router specification, with `null` for unused values.
-
-For detailed instructions, see:
-
-[Router Details Documentation](routers/details/RouterDetailsReadMe.md)
+See `routers/details/RouterDetailsReadMe.md` for details.
 
 ### Router Workflow
 
-The Router Configuration utility supports individual actions or the complete automated workflow.
-
 #### 1. Validate
 
-Load the selected router model specification.
+The utility loads the router model specification and validates it against `schemas/RouterSchema.json`.
 
-The PRE pipeline checks the model specification against the external schema and prepares XML selectors. The separate `validate_router_configuration()` execution step checks automation input files, credentials, replacement settings, output paths, and the backup wrapper; it does not perform model schema validation.
+It also validates configuration mappings, paths, and applicable router inputs.
+
+Validation displays the selected Encode, Decode, Edit, and View operation lists.
 
 #### 2. Decode
 
-Read the original encrypted router backup.
+The utility:
 
-Select the registered encryption handler using the model specification.
-
-Decrypt and process the backup using its configured format.
-
-Supported decoded formats include:
-
-- TAR/GZIP configuration archives.
-- Single-file XML configurations.
-
-Apply signature and integrity verification where required.
-
-Save the decoded output and extract its configuration files into the configured directory.
+1. Loads the model specification.
+2. Builds the selected decoding operations.
+3. Reads the original router backup and required credentials.
+4. Validates and decodes the backup.
+5. Saves the decoded payload.
+6. Extracts the configuration where the format supports extraction.
 
 #### 3. View Decoded Configuration
 
-Read the original configuration using its registered configuration viewer.
+The utility reads the supported configuration file and displays the mapped fields.
 
-Supported formats include:
-
-- Key-value configurations.
-- XML configurations.
-
-Read the fields defined in `config_fields`.
-
-For protected fields, use the registered field-decryption handler to display their readable values.
+Protected fields may be decrypted for viewing when the required mechanism is supported.
 
 #### 4. Edit
 
-Load replacement settings from the router details JSON.
+The utility loads the router details JSON and compares the requested replacements against the decoded configuration.
 
-Create an edited copy of the decoded configuration.
+Supported fields are updated using the selected configuration editor.
 
-Use the registered configuration editor to locate and update the selected fields.
+Protected replacement values are encrypted where required.
 
-For protected fields, encrypt replacement values using the registered field-encryption mechanism.
-
-Preserve unrelated configuration data.
-
-Unspecified settings remain unchanged.
-
-All replacement values are supplied through files. No interactive editing or password prompts are used.
+The edited configuration is saved to the configured output.
 
 #### 5. View Edited Configuration
 
-Read the modified configuration fields using the registered viewer.
+The utility reads the edited configuration and displays the supported mapped fields.
 
-Display the updated values for verification.
-
-Protected fields are decrypted for display using the configured field-decryption mechanism.
+This allows the configured replacements to be checked before encoding.
 
 #### 6. Encode
 
-Rebuild the edited configuration using the selected router's backup format.
+The utility:
 
-Apply the registered compression, signing, and encryption mechanisms as required.
-
-Supported processing includes TAR/GZIP archive reconstruction and signed single-file configuration reconstruction.
-
-Verify the generated backup by decoding it locally.
-
-Confirm that the recovered configuration matches the intended edited configuration.
-
-Write the encrypted backup to:
-
-```text
-encoded_config_path
-```
+1. Loads and validates the model specification.
+2. Builds the selected encoding operations.
+3. Reads the edited configuration and required credentials.
+4. Reconstructs the required payload format.
+5. Applies encryption, encoding, wrappers, and signing where specified.
+6. Verifies the generated backup where supported.
+7. Saves the final encoded output.
 
 ### Run All Steps
 
-The **Run All Steps** action executes the complete router processing pipeline.
+**Run All Steps** executes the configured router workflow in pipeline order.
 
-```text
-Load Model Specifications
-          |
-          v
-Validate Router Configuration
-          |
-          v
-Decode Router Configuration
-          |
-          v
-Save Decoded Configuration
-          |
-          v
-Extract Decoded Configuration
-          |
-          v
-View Decoded Configuration
-          |
-          v
-Edit Router Configuration
-          |
-          v
-View Edited Configuration
-          |
-          v
-Encode Router Configuration
-          |
-          v
-Complete
-```
+The pipeline coordinates validation, decoding, viewing, editing, encoding, and output handling.
 
-The pipeline uses the following execution state:
+Each step returns its result for use by subsequent steps.
 
-```python
-"RUN_ALL": {
-    "pipeline": [
-        *LOAD_MODEL_SPECS_PRE,
-        *VALIDATE_CONFIG_EXEC,
-        *DECODE_CONFIG_EXEC,
-        *VIEW_DECODED_CONFIG_EXEC,
-        *EDIT_CONFIG_EXEC,
-        *VIEW_EDITED_CONFIG_EXEC,
-        *ENCODE_CONFIG_EXEC,
-    ],
-    "label": "ROUTER_AUTOMATION_COMPLETE",
-    "success_key": "encoded_config",
-}
-```
+Failures are recorded, and the reported pipeline outcome reflects failed steps.
 
-The loader manages execution order, conditions, and pipeline results.
+### Output Handling
 
-Processing functions are selected through the registered dispatchers using the router model specification.
+AutomationTools writes generated files and directories to the configured destinations.
 
-### Automatic Output Replacement
+Existing generated outputs may be replaced automatically.
 
-Generated router outputs are automatically replaced when an existing output is encountered.
+The save operations use staged output handling and rollback where applicable to avoid leaving partially written results.
 
-This includes:
+Original router backups should be preserved separately.
 
-- Decoded configuration archives or XML files.
-- Extracted decoded configuration directories.
-- Edited configuration directories.
-- Final encrypted router backups.
-
-Directory replacement removes stale generated content.
-
-The following input files are preserved:
-
-- Original encrypted router templates.
-- Router model specifications.
-- Router password files, when applicable.
-- Router details JSON files.
-
-Output replacement does not require a separate overwrite prompt.
-
-The loader's normal action confirmation is independent of output replacement.
+A locally verified backup is not guaranteed to be accepted by physical router firmware.
 
 ### Adding Another Router Model
 
-To add another router model:
+1. Start with `doc/RouterSpecificationTemplate.json`.
+2. Set the router model, firmware, hardware, and codec parameters.
+3. Set the encode and decode processing order.
+4. Define supported configuration editing settings.
+5. Map the supported configuration fields.
+6. Validate the specification against `schemas/RouterSchema.json`.
+7. Add a corresponding group to `config/RouterConfig.json`.
+8. Configure the input, output, and credential paths.
+9. Test the required decoding, editing, encoding, and verification operations.
 
-1. Obtain an original configuration backup from the router.
-2. Start with `doc/RouterSpecificationTemplate.json`.
-3. Populate the router identity and required `router_specs.codec` parameters.
-4. Add `router_specs.encode` only if additional encoding parameters are required.
-5. Add `router_specs.edit` only if configuration editing is supported.
-6. Define the required `config_fields` name/path mappings.
-7. Omit unused optional settings and sections.
-8. Create a router details JSON containing the replacement settings, where editing is supported.
-9. Add a new configuration group to `config/RouterConfig.json`.
-10. Configure the required input and output paths.
-11. Configure password or device-key files only when required by the encryption mechanism.
-12. Reuse existing registered processing functions.
-13. If a required mechanism is unsupported, implement a reusable function in the appropriate specialised utility module and register it in `router_utils.py`.
-14. Validate the specification and test decoding, viewing, editing, encoding, and local verification where supported.
+A router using existing registered algorithms generally needs only a new specification and configuration entry.
 
-Router models using existing processing mechanisms can be added through JSON specifications and configuration entries without changing the main router workflow.
-
-All model specifications use the shared JSON schema, but optional sections and parameters depend on the selected router model.
-
-Additional `config_fields` mappings do not require modifications to the schema, template, or other router model specifications.
-
-### Requirements
-
-- Python 3.10+.
-- OpenSSL.
-- Python cryptography library.
-- Compatible router configuration backup.
-- Valid router model specification.
-- Router details JSON file.
-- Template and target password files when required by the selected encryption mechanism.
-- Device-specific encryption key when required by the selected router mechanism.
+A new algorithm or backup format requires a reusable implementation in the appropriate utility module and registration in `ROUTER_FUNCTIONS`.
 
 ### Important Notes
 
-- Keep an unchanged copy of the original router backup.
-- Ensure the model specification matches the router's hardware and firmware.
-- Do not use original input paths as generated output destinations.
-- Keep actual passwords, device-specific credentials, and personal router configurations private.
-- Firmware-wide cryptographic parameters are stored in the model specification.
-- Router viewing actions may display passwords and other credentials in full.
-- Configuration editing uses values from the router details JSON without interactive prompts.
-- Verify replacement settings before restoring a generated backup.
-- Unrelated router settings should remain unchanged during editing.
-- Successful local decoding, signing, and encoding verification does not guarantee that a physical router will accept the generated backup.
-- Test generated configurations carefully before deploying them to additional routers.
-
----
+- Use backups from the correct router hardware and firmware revision.
+- Keep original router backups unchanged.
+- Keep credential files private.
+- Edit only supported mapped fields.
+- Verify generated configurations before using them.
+- Physical-router restore compatibility requires separate testing.
 
 ## Function Utility
 

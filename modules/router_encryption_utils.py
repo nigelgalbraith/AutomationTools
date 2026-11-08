@@ -10,6 +10,9 @@ import hashlib
 import hmac
 import subprocess
 import tempfile
+import xml.etree.ElementTree as ET
+
+from modules.router_format_utils import validate_xml_declaration
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
@@ -22,23 +25,10 @@ OPENSSL_HEADER = b"Salted__"
 
 
 # ---------------------------------------------------------------------
-# WORKFLOW
+# LEGACY AES-256-CBC
 # ---------------------------------------------------------------------
 
-
-
-def interpret_password_credentials(data: bytes) -> str:
-    """Interpret only explicitly selected text-password credentials."""
-    try:
-        password = data.decode("utf-8").strip()
-    except UnicodeError:
-        raise ValueError("Password file must contain UTF-8 text") from None
-    if not password or any(c in password for c in "\r\n\x00"):
-        raise ValueError("Password file is empty or contains invalid control characters")
-    return password
-
-
-def validate_legacy_aes_settings(*, context) -> None:
+def validate_legacy_aes_settings(data=None, *, context) -> None:
     """Validate legacy derivation settings and, when requested, credentials."""
     codec = context["codec"]
     salted, password_required = codec.get("salted"), codec.get("password_required")
@@ -60,15 +50,43 @@ def validate_legacy_aes_settings(*, context) -> None:
             raise ValueError("Passphrase contains unsupported control characters")
 
 
-def crypt_aes_256_cbc(data: bytes, *, context: dict, decrypt: bool = False) -> bytes:
-    """Run the established AES cipher with explicit OpenSSL legacy derivation."""
+def encrypt_aes_256_cbc(data: bytes, *, context: dict) -> bytes:
+    """Encrypt AES with explicit OpenSSL legacy derivation."""
     validate_legacy_aes_settings(context=context)
     codec = context["codec"]
     password = context.get("password", "")
     salted, password_required = codec["salted"], codec["password_required"]
     password_base, password_hash = codec["password_base"], codec["password_hash"]
     key_derivation_digest = codec["key_derivation_digest"]
-    if decrypt and salted and (not data.startswith(OPENSSL_HEADER) or len(data) < 32):
+    if not isinstance(password, str) or (password_required and not password):
+        raise ValueError("Factory Wi-Fi password is required")
+    hashed = password if password_hash == "none" else hashlib.new(password_hash, password.encode("utf-8")).hexdigest()
+    passphrase = password_base + hashed
+    if any(c in passphrase for c in "\r\n\x00"):
+        raise ValueError("Passphrase contains unsupported control characters")
+    options = ["-salt" if salted else "-nosalt", "-md", key_derivation_digest, "-pass", "stdin"]
+    credential = passphrase.encode("utf-8") + b"\n"
+    with tempfile.TemporaryDirectory() as temp_dir:
+        source = Path(temp_dir) / "payload"
+        source.write_bytes(data)
+        command = ["openssl", "enc", "-aes-256-cbc", "-e",
+                   "-in", str(source), *options]
+        result = subprocess.run(command, input=credential,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    if result.returncode:
+        raise ValueError("OpenSSL failed: incorrect factory password, corrupt payload or unavailable cipher/digest")
+    return result.stdout
+
+
+def decrypt_aes_256_cbc(data: bytes, *, context: dict) -> bytes:
+    """Decrypt AES with explicit OpenSSL legacy derivation."""
+    validate_legacy_aes_settings(context=context)
+    codec = context["codec"]
+    password = context.get("password", "")
+    salted, password_required = codec["salted"], codec["password_required"]
+    password_base, password_hash = codec["password_base"], codec["password_hash"]
+    key_derivation_digest = codec["key_derivation_digest"]
+    if salted and (not data.startswith(OPENSSL_HEADER) or len(data) < 32):
         raise ValueError("Missing or corrupt OpenSSL salted header")
     if not isinstance(password, str) or (password_required and not password):
         raise ValueError("Factory Wi-Fi password is required")
@@ -81,7 +99,7 @@ def crypt_aes_256_cbc(data: bytes, *, context: dict, decrypt: bool = False) -> b
     with tempfile.TemporaryDirectory() as temp_dir:
         source = Path(temp_dir) / "payload"
         source.write_bytes(data)
-        command = ["openssl", "enc", "-aes-256-cbc", "-d" if decrypt else "-e",
+        command = ["openssl", "enc", "-aes-256-cbc", "-d",
                    "-in", str(source), *options]
         result = subprocess.run(command, input=credential,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
@@ -90,7 +108,11 @@ def crypt_aes_256_cbc(data: bytes, *, context: dict, decrypt: bool = False) -> b
     return result.stdout
 
 
-def validate_fixed_key_settings(*, context) -> None:
+# ---------------------------------------------------------------------
+# FIXED-KEY AES-256-CBC
+# ---------------------------------------------------------------------
+
+def validate_fixed_key_settings(data=None, *, context) -> None:
     """Validate the fixed AES key and IV without encrypting payloads."""
     settings = context["codec"].get("encryption_settings")
     if not isinstance(settings, dict) or any(settings.get(name) is None for name in ("key_hex", "iv_hex")):
@@ -99,40 +121,61 @@ def validate_fixed_key_settings(*, context) -> None:
         raise ValueError("AES-256-CBC requires a 32-byte key and 16-byte IV")
 
 
-def crypt_aes_256_cbc_fixed_key(data: bytes, *, context: dict, decrypt: bool = False) -> bytes:
-    """Encrypt/decrypt aligned AES blocks using the configured fixed key and IV."""
+def encrypt_aes_256_cbc_fixed_key(data: bytes, *, context: dict) -> bytes:
+    """Encrypt aligned AES blocks using the configured fixed key and IV."""
     validate_fixed_key_settings(context=context)
     settings = context["codec"]["encryption_settings"]
     key, iv = bytes.fromhex(settings["key_hex"]), bytes.fromhex(settings["iv_hex"])
     if not data or len(data) % 16:
         raise ValueError("AES-256-CBC input must contain complete 16-byte blocks")
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-    operation = cipher.decryptor() if decrypt else cipher.encryptor()
+    operation = cipher.encryptor()
     return operation.update(data) + operation.finalize()
 
 
-def validate_device_key_settings(*, context) -> None:
+def decrypt_aes_256_cbc_fixed_key(data: bytes, *, context: dict) -> bytes:
+    """Decrypt aligned AES blocks using the configured fixed key and IV."""
+    validate_fixed_key_settings(context=context)
+    settings = context["codec"]["encryption_settings"]
+    key, iv = bytes.fromhex(settings["key_hex"]), bytes.fromhex(settings["iv_hex"])
+    if not data or len(data) % 16:
+        raise ValueError("AES-256-CBC input must contain complete 16-byte blocks")
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+    operation = cipher.decryptor()
+    return operation.update(data) + operation.finalize()
+
+
+# ---------------------------------------------------------------------
+# TECHNICOLOR ENCRYPTION
+# ---------------------------------------------------------------------
+
+def validate_device_key_settings(data=None, *, context) -> None:
     """Require device credentials during input validation."""
     if context.get("check_inputs") and not context.get("device_key"):
         raise ValueError("THENC device key unavailable or empty")
 
 
-def crypt_technicolor_thenc(data: bytes, *, context: dict, decrypt: bool = False) -> bytes:
-    """Reject THENC operations until key derivation and authentication exist."""
+def encrypt_technicolor_thenc(data: bytes, *, context: dict) -> bytes:
+    """Reject THENC encryption until key handling and signing exist."""
     device_key = context.get("device_key")
     if not device_key:
         raise ValueError("THENC device key unavailable or empty; an export password is not a device key")
-    if not decrypt:
-        raise ValueError("THENC device key handling and signature signing are not established; encryption unavailable")
+    raise ValueError("THENC device key handling and signature signing are not established; encryption unavailable")
+
+
+def decrypt_technicolor_thenc(data: bytes, *, context: dict) -> bytes:
+    """Reject THENC decryption until key derivation and verification exist."""
+    device_key = context.get("device_key")
+    if not device_key:
+        raise ValueError("THENC device key unavailable or empty; an export password is not a device key")
     if device_key is None:
         raise ValueError("THENC device key unavailable: credential loading is not established; an export password is not a device key")
     raise ValueError("THENC device key derivation and signature verification are not established; decryption unavailable")
 
 
-def calculate_payload_checksum(data: bytes, algorithm: str) -> bytes:
-    """Calculate the lowercase ASCII hexadecimal checksum used by backup wrappers."""
-    return hashlib.new(algorithm, data).hexdigest().encode("ascii")
-
+# ---------------------------------------------------------------------
+# RSA-MD5 SIGNATURES
+# ---------------------------------------------------------------------
 
 def _rsa_md5_parameters(backup_format: dict, parameters: dict) -> tuple[int, int]:
     """Validate the RSA public key and signature block size before using them."""
@@ -148,12 +191,12 @@ def _rsa_md5_parameters(backup_format: dict, parameters: dict) -> tuple[int, int
     return length, modulus
 
 
-def validate_rsa_md5_settings(*, context) -> None:
+def validate_rsa_md5_settings(data=None, *, context) -> None:
     """Validate the public RSA parameters without verifying a payload."""
     _rsa_md5_parameters(context["codec"], context["codec"]["signature"])
 
 
-def validate_rsa_md5_signing_settings(*, context) -> None:
+def validate_rsa_md5_signing_settings(data=None, *, context) -> None:
     """Validate public parameters and require a private key for encoding inputs."""
     codec = context["codec"]
     parameters = {**codec["signature"], **(context.get("signing") or {})}
@@ -185,8 +228,12 @@ def verify_rsa_md5_signature(signed: bytes, *, context: dict) -> bytes:
     return signed
 
 
-def sign_rsa_md5_configuration(signed: bytes, *, context: dict) -> bytes:
+def encode_rsa_md5_configuration(xml: bytes, *, context: dict) -> bytes:
     """Sign a PKCS#1 v1.5 MD5 block and retain the verified signature metadata."""
+    validate_xml_declaration(xml, context["codec"])
+    if b"\x00" in xml:
+        raise ValueError("XML configuration contains an embedded null byte")
+    signed = xml + b"\x00"
     backup_format = context["codec"]
     parameters = {**backup_format["signature"], **(context.get("signing") or {})}
     validate_rsa_md5_signing_settings(context=dict(context, check_inputs=True))
@@ -204,12 +251,62 @@ def sign_rsa_md5_configuration(signed: bytes, *, context: dict) -> bytes:
     return signed
 
 
+def decode_rsa_md5_configuration(signed: bytes, *, context: dict) -> bytes:
+    """Remove the signed null terminator and preserve authenticated XML bytes unchanged."""
+    specs = context["codec"]
+    verify_rsa_md5_signature(signed, context=context)
+    if not signed.endswith(b"\x00"):
+        raise ValueError("Signed configuration is missing its trailing null byte")
+    xml = signed[:-1]
+    if not xml.startswith(specs["preamble"].encode("ascii")) or b"\x00" in xml:
+        raise ValueError("Invalid XML configuration declaration or embedded null byte")
+    try:
+        ET.fromstring(xml)
+    except ET.ParseError as exc:
+        print(f"[WARN] Signature verified, but authenticated configuration is not well-formed XML: {exc}. Original bytes are preserved.")
+    context["configuration_payload"] = True
+    if context.get("edit"):
+        context["files"] = {context["edit"]["configuration_file"]: xml}
+    return xml
+
+
+# ---------------------------------------------------------------------
+# AES-128-CBC FIELD ENCRYPTION
+# ---------------------------------------------------------------------
+
+def validate_field_encryption_settings(*, key_hex: str, iv_hex: str) -> None:
+    """Validate field AES key material without encrypting or decrypting values."""
+    if not isinstance(key_hex, str) or not isinstance(iv_hex, str):
+        raise ValueError("Field encryption requires key_hex and iv_hex")
+    key = bytes.fromhex(key_hex)
+    iv = bytes.fromhex(iv_hex)
+    if len(key) != 16 or len(iv) != 16:
+        raise ValueError("AES-128-CBC fields require a 16-byte key and IV")
+
+
+def encrypt_aes_128_cbc_field(value: str, *, key_hex: str, iv_hex: str) -> str:
+    """Encrypt UTF-8 with zero padding and Base64, checking the field round trip."""
+    if not isinstance(value, str) or "\x00" in value:
+        raise ValueError("Field plaintext must be a string without null characters")
+    validate_field_encryption_settings(key_hex=key_hex, iv_hex=iv_hex)
+    key, iv = bytes.fromhex(key_hex), bytes.fromhex(iv_hex)
+    try:
+        data = value.encode("utf-8")
+    except UnicodeEncodeError:
+        raise ValueError("Field plaintext is not valid UTF-8") from None
+    # Zero padding adds only the bytes needed, with one block for an empty value.
+    data += b"\x00" * ((-len(data) % 16) if data else 16)
+    operation = Cipher(algorithms.AES(key), modes.CBC(iv)).encryptor()
+    encoded = base64.b64encode(operation.update(data) + operation.finalize()).decode("ascii")
+    if not hmac.compare_digest(decrypt_aes_128_cbc_field(encoded, key_hex=key_hex, iv_hex=iv_hex).encode("utf-8"), value.encode("utf-8")):
+        raise ValueError("Encrypted field failed decryption verification")
+    return encoded
+
+
 def decrypt_aes_128_cbc_field(value: str, *, key_hex: str, iv_hex: str) -> str:
     """Decrypt a Base64-encoded, zero-padded AES-128-CBC field without logging its value."""
     validate_field_encryption_settings(key_hex=key_hex, iv_hex=iv_hex)
     key, iv = bytes.fromhex(key_hex), bytes.fromhex(iv_hex)
-
-
     if not isinstance(value, str):
         raise ValueError("Field ciphertext must be a Base64 string")
     try:
@@ -228,32 +325,10 @@ def decrypt_aes_128_cbc_field(value: str, *, key_hex: str, iv_hex: str) -> str:
         raise ValueError("Decrypted field is not valid UTF-8") from None
 
 
-def encrypt_aes_128_cbc_field(value: str, *, key_hex: str, iv_hex: str) -> str:
-    """Encrypt UTF-8 with zero padding and Base64, checking the field round trip."""
-    if not isinstance(value, str) or "\x00" in value:
-        raise ValueError("Field plaintext must be a string without null characters")
-    validate_field_encryption_settings(key_hex=key_hex, iv_hex=iv_hex)
-    key, iv = bytes.fromhex(key_hex), bytes.fromhex(iv_hex)
+# ---------------------------------------------------------------------
+# CHECKSUMS
+# ---------------------------------------------------------------------
 
-
-    try:
-        data = value.encode("utf-8")
-    except UnicodeEncodeError:
-        raise ValueError("Field plaintext is not valid UTF-8") from None
-    # Zero padding adds only the bytes needed, with one block for an empty value.
-    data += b"\x00" * ((-len(data) % 16) if data else 16)
-    operation = Cipher(algorithms.AES(key), modes.CBC(iv)).encryptor()
-    encoded = base64.b64encode(operation.update(data) + operation.finalize()).decode("ascii")
-    if not hmac.compare_digest(decrypt_aes_128_cbc_field(encoded, key_hex=key_hex, iv_hex=iv_hex).encode("utf-8"), value.encode("utf-8")):
-        raise ValueError("Encrypted field failed decryption verification")
-    return encoded
-
-
-def validate_field_encryption_settings(*, key_hex: str, iv_hex: str) -> None:
-    """Validate field AES key material without encrypting or decrypting values."""
-    if not isinstance(key_hex, str) or not isinstance(iv_hex, str):
-        raise ValueError("Field encryption requires key_hex and iv_hex")
-    key = bytes.fromhex(key_hex)
-    iv = bytes.fromhex(iv_hex)
-    if len(key) != 16 or len(iv) != 16:
-        raise ValueError("AES-128-CBC fields require a 16-byte key and IV")
+def calculate_payload_checksum(data: bytes, algorithm: str) -> bytes:
+    """Calculate the lowercase ASCII hexadecimal checksum used by backup wrappers."""
+    return hashlib.new(algorithm, data).hexdigest().encode("ascii")
