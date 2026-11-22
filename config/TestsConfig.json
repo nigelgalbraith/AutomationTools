@@ -1,0 +1,62 @@
+
+{
+  "constants/FunctionConstants.py": {
+    "Tests": [
+      {"pipeline": "ANALYZE_FUNCTIONS"},
+      {"pipeline": "SHOW_FUNCTIONS"},
+      {"pipeline": "SHOW_CONFIG_DOC"}
+    ]
+  },
+  "constants/RouterConstants.py": {
+    "Tests": [
+      {"pipeline": "VALIDATE_CONFIG"},
+      {"pipeline": "VIEW_MODEL_SPECS"},
+      {"pipeline": "VIEW_DECODED_CONFIG"},
+      {"pipeline": "VIEW_EDITED_CONFIG"},
+      {"pipeline": "VIEW_ROUTER_DETAILS"},
+      {"pipeline": "VIEW_ROUTER_DETAILS_HELP"},
+      {"pipeline": "DECODE_CONFIG"},
+      {"pipeline": "EDIT_CONFIG"},
+      {"pipeline": "ENCODE_CONFIG"},
+      {"pipeline": "RUN_ALL"},
+      {"pipeline": "SHOW_CONFIG_DOC"}
+    ]
+  },
+  "constants/TextCreatorConstants.py": {
+    "Tests": [
+      {"pipeline": "DOWNLOAD_HTML_PAGES"},
+      {"pipeline": "EXTRACT_FIELDS_HTML"},
+      {"pipeline": "UPDATE_PROMPTS"},
+      {"pipeline": "START_OLLAMA"},
+      {"pipeline": "CHECK_OLLAMA_STATUS"},
+      {"pipeline": "STOP_OLLAMA"},
+      {"pipeline": "GENERATE_TEXT"},
+      {"pipeline": "RUN_ALL"},
+      {"pipeline": "SHOW_CONFIG_DOC"}
+    ]
+  },
+  "constants/UbuntuISOEditorConstants.py": {
+    "Tests": [
+      {"pipeline": "VALIDATE_YAML"},
+      {"pipeline": "VALIDATE_ISO"},
+      {"pipeline": "CREATE_UBUNTU_ISO"},
+      {"pipeline": "SHOW_CONFIG_DOC"}
+    ]
+  },
+  "constants/WebCrawlerConstants.py": {
+    "Tests": [
+      {"pipeline": "SEARCH_WEB"},
+      {"pipeline": "CRAWL_PHOTON"},
+      {"pipeline": "CRAWL_SELENIUM"},
+      {"pipeline": "RUN_ALL"},
+      {"pipeline": "VIEW_RESULTS"},
+      {"pipeline": "SHOW_CONFIG_DOC"}
+    ]
+  },
+  "constants/TestConstants.py": {
+    "Tests": [
+      {"pipeline": "RUN_TESTS"},
+      {"pipeline": "SHOW_CONFIG_DOC"}
+    ]
+  }
+}
