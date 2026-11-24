@@ -1,0 +1,142 @@
+{
+  "FilesOne": {
+    "file_keys": {
+      "source_directory": "~/Documents/AutomationToolsData/fileConsolidation/SourceOne",
+      "destination_directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne",
+      "archive_extensions": [
+        ".zip",
+        ".tar",
+        ".tar.gz",
+        ".tgz",
+        ".tar.bz2",
+        ".tar.xz"
+      ]
+    },
+    "organization_keys": {
+      "documents": {
+        "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Documents",
+        "extensions": [".pdf", ".doc", ".docx", ".odt", ".txt", ".rtf"]
+      },
+      "spreadsheets": {
+        "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Spreadsheets",
+        "extensions": [".xls", ".xlsx", ".ods", ".csv", ".xlsm"]
+      },
+      "images": {
+        "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Images",
+        "extensions": [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".webp", ".svg", ".heic"]
+      },
+      "video": {
+        "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Video",
+        "extensions": [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".mpeg", ".mpg", ".webm"]
+      },
+      "music": {
+        "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Music",
+        "extensions": [".mp3", ".wav", ".flac", ".ogg", ".aac", ".m4a", ".wma"]
+      },
+      "html": {
+        "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/HTML",
+        "extensions": [".html", ".htm"]
+      },
+      "unknown": {
+        "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Unknown",
+        "extensions": []
+      }
+    },
+    "year_keys": {
+      "directories": [
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Documents",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Spreadsheets",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Images",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Video",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Music",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/HTML",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Unknown"
+      ]
+    },
+    "month_keys": {
+      "directories": [
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Documents",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Spreadsheets",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Images",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Video",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Music",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/HTML",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Unknown"
+      ],
+      "year_patterns": [
+        "19[0-9][0-9]",
+        "20[0-9][0-9]"
+      ]
+    }
+  },
+  "FilesTwo": {
+    "file_keys": {
+      "source_directory": "~/Documents/AutomationToolsData/fileConsolidation/SourceTwo",
+      "destination_directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo",
+      "archive_extensions": [
+        ".zip",
+        ".tar",
+        ".tar.gz",
+        ".tgz",
+        ".tar.bz2",
+        ".tar.xz"
+      ]
+    },
+    "organization_keys": {
+      "documents": {
+        "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Documents",
+        "extensions": [".pdf", ".doc", ".docx", ".odt", ".txt", ".rtf"]
+      },
+      "spreadsheets": {
+        "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Spreadsheets",
+        "extensions": [".xls", ".xlsx", ".ods", ".csv", ".xlsm"]
+      },
+      "images": {
+        "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Images",
+        "extensions": [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff", ".webp", ".svg", ".heic"]
+      },
+      "video": {
+        "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Video",
+        "extensions": [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".mpeg", ".mpg", ".webm"]
+      },
+      "music": {
+        "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Music",
+        "extensions": [".mp3", ".wav", ".flac", ".ogg", ".aac", ".m4a", ".wma"]
+      },
+      "html": {
+        "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/HTML",
+        "extensions": [".html", ".htm"]
+      },
+      "unknown": {
+        "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Unknown",
+        "extensions": []
+      }
+    },
+    "year_keys": {
+      "directories": [
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Documents",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Spreadsheets",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Images",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Video",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Music",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/HTML",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Unknown"
+      ]
+    },
+    "month_keys": {
+      "directories": [
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Documents",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Spreadsheets",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Images",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Video",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Music",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/HTML",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Unknown"
+      ],
+      "year_patterns": [
+        "19[0-9][0-9]",
+        "20[0-9][0-9]"
+      ]
+    }
+  }
+}

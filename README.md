@@ -37,6 +37,7 @@ The loader manages common execution tasks while tool-specific functionality rema
 - **Ubuntu ISO Editor** — Creates customized Ubuntu Desktop installation ISOs using Autoinstall YAML configurations.
 - **Function Utility** — Provides function inspection and usage information.
 - **Router Configuration** — Decodes, extracts, edits and re-encodes router backups using JSON model specifications and configurable paths.
+- **File Consolidation** — Extracts archives, consolidates files, removes binary duplicates and organizes files by extension, year and month.
 
 The framework supports additional tools through its constants-module registration system.
 
@@ -156,6 +157,7 @@ Examples include:
 - `ollama_utils.py`
 - `package_utils.py`
 - `router_utils.py`
+- `file_consolidation_utils.py`
 - `state_machine_utils.py`
 - `system_utils.py`
 - `web_download_utils.py`
@@ -242,27 +244,24 @@ AutomationTools/
 │   ├── TextCreatorConstants.py
 │   ├── WebCrawlerConstants.py
 │   ├── UbuntuISOEditorConstants.py
-│   └── RouterConstants.py
+│   ├── RouterConstants.py
+│   └── FileConsolidationConstants.py
 │
 ├── config/
 │   ├── FunctionsConfig.json
 │   ├── TextCreator.json
 │   ├── WebCrawler.json
 │   ├── UbuntuISOEditor.json
-│   └── RouterConfig.json
-│
-├── config-sample/
-│   ├── TextCreator.json
-│   ├── WebCrawler.json
-│   ├── UbuntuISOEditor.json
-│   └── RouterConfig.json
+│   ├── RouterConfig.json
+│   └── FileConsolidation.json
 │
 ├── doc/
 │   ├── FunctionDoc.json
 │   ├── TextCreatorDoc.json
 │   ├── WebCrawlerDoc.json
 │   ├── UbuntuISOEditorDoc.json
-│   └── RouterDoc.json
+│   ├── RouterDoc.json
+│   └── FileConsolidationDoc.json
 │
 ├── modules/
 │   ├── browser_utils.py
@@ -274,6 +273,7 @@ AutomationTools/
 │   ├── ollama_utils.py
 │   ├── package_utils.py
 │   ├── router_utils.py
+│   ├── file_consolidation_utils.py
 │   ├── state_machine_utils.py
 │   ├── system_utils.py
 │   ├── web_download_utils.py
@@ -312,6 +312,7 @@ The framework can be extended with additional tools, configurations, documentati
 ### Requirements
 
 - Python 3.10+
+- Python 3.11+ for File Consolidation
 - Linux environment
 - Tool-specific Python and system dependencies
 - Docker for functionality that uses containerized services
@@ -334,11 +335,14 @@ Clone or download the project and open its root directory.
 
 Configure the required JSON files and tool-specific resources before execution.
 
-Sample configurations are provided in:
+Example configurations are provided in:
 
 ```text
-config-sample/
+config/
 ```
+
+Update the supplied configuration files to suit your environment
+before executing the corresponding tool.
 
 ---
 
@@ -388,6 +392,12 @@ Router Configuration:
 
 ```bash
 python3 AutomationLoader.py --constants constants.RouterConstants
+```
+
+File Consolidation:
+
+```bash
+python3 AutomationLoader.py --constants constants.FileConsolidationConstants
 ```
 
 ### Plan-Only Mode
@@ -779,7 +789,6 @@ AutomationTools processes configured files without interactive editing or creden
 | `modules/router_config_utils.py` | Configuration viewing, editing, and validation |
 | `schemas/RouterSchema.json` | Router model specification schema |
 | `config/RouterConfig.json` | Router jobs and configured paths |
-| `config-sample/RouterConfig.json` | Example configuration |
 | `doc/RouterDoc.json` | Router configuration help |
 | `doc/RouterSpecificationTemplate.json` | Router specification template |
 | `routers/model_specs/` | Router model specifications |
@@ -1120,6 +1129,215 @@ A new algorithm or backup format requires a reusable implementation in the appro
 - Edit only supported mapped fields.
 - Verify generated configurations before using them.
 - Physical-router restore compatibility requires separate testing.
+
+---
+
+## File Consolidation
+
+The File Consolidation utility automates the extraction, consolidation,
+duplicate removal and organization of files from configured source directories.
+
+### Features
+
+- Recursively search source directories for archives
+- Extract ZIP and TAR archives
+- Process nested archives
+- Consolidate files into a flat destination directory
+- Prevent filename overwrites using numeric suffixes
+- Detect and remove files with identical binary contents
+- Organize files by configurable file extensions
+- Organize remaining files into an Unknown directory
+- Organize files by modification year
+- Organize files by modification month
+- Support multiple independent configuration groups
+- Execute individual processing stages
+- Run the complete workflow
+
+### Configuration
+
+```text
+config/FileConsolidation.json
+```
+
+Constants:
+
+```text
+constants/FileConsolidationConstants.py
+```
+
+Documentation:
+
+```text
+doc/FileConsolidationDoc.json
+```
+
+Utility module:
+
+```text
+modules/file_consolidation_utils.py
+```
+
+### Configuration Sections
+
+| Section | Description |
+|---|---|
+| `file_keys` | Source directory, destination directory and archive extensions |
+| `organization_keys` | File category directories and associated file extensions |
+| `year_keys` | Directories to organize by modification year |
+| `month_keys` | Directories and year patterns to organize by modification month |
+
+Each configuration group defines its own source, destination and
+organization settings.
+
+Additional configuration groups can be added without modifying the
+constants or utility module.
+
+### Available Actions
+
+- Consolidate Files
+- Remove Duplicate Files
+- Organize Files
+- Organize Files by Year
+- Organize Files by Month
+- Run All
+- Show config help
+- Cancel
+
+### Archive Extraction
+
+The utility recursively searches the source directory for configured
+archive extensions.
+
+Supported archive formats include:
+
+- ZIP
+- TAR
+- TAR.GZ
+- TGZ
+- TAR.BZ2
+- TAR.XZ
+
+Archives are extracted within the source directory. Nested archives
+are also processed.
+
+Original archives are retained.
+
+### File Consolidation
+
+Ordinary files are recursively collected from the source directory
+and moved into a flat destination directory.
+
+Recognized archives are excluded from the file move.
+
+Filename collisions are resolved by appending numeric suffixes,
+preventing existing destination files from being overwritten.
+
+### Duplicate File Removal
+
+Duplicate files are identified using SHA-256 fingerprints and
+byte-for-byte comparison.
+
+Duplicate detection is based on binary file contents rather than
+filenames, extensions, file sizes or modification dates.
+
+Identical files with different filenames are treated as duplicates.
+
+One copy is retained and redundant copies are removed.
+
+### File Organization
+
+Files are organized using configurable file extension lists.
+
+Default categories include:
+
+- Documents
+- Spreadsheets
+- Images
+- Video
+- Music
+- HTML
+- Unknown
+
+The Unknown category is processed last and collects files remaining
+in the consolidation directory.
+
+Category directories and file extensions are defined in the JSON
+configuration.
+
+### Year and Month Organization
+
+Files can be organized into year and month subdirectories using
+their filesystem modification timestamps.
+
+Year directories use the YYYY format.
+
+Month directories use the MM-Month format, such as 01-January
+and 12-December.
+
+Year directory patterns are configurable. The default patterns
+support years from 1900 to 2099.
+
+Example directory structure:
+
+```text
+Consolidated/
+├── Documents/
+│   ├── 2024/
+│   │   ├── 01-January/
+│   │   └── 12-December/
+│   └── 2025/
+│       ├── 03-March/
+│       └── 06-June/
+├── Spreadsheets/
+├── Images/
+├── Video/
+├── Music/
+├── HTML/
+└── Unknown/
+```
+
+### Workflow
+
+1. Validate the configured source and destination directories.
+2. Find and extract configured archives.
+3. Collect ordinary files from the source directory.
+4. Move files into the consolidation directory.
+5. Remove duplicate files.
+6. Organize files by file extension.
+7. Organize files by modification year.
+8. Organize files by modification month.
+
+Individual actions can be executed independently.
+
+Run All executes the complete workflow in pipeline order.
+
+### Running the File Consolidation Utility
+
+Start AutomationLoader:
+
+```bash
+python3 AutomationLoader.py
+```
+
+Alternatively, launch the utility directly:
+
+```bash
+python3 AutomationLoader.py --constants constants.FileConsolidationConstants
+```
+
+### Important Notes
+
+- Ordinary files are moved rather than copied.
+- Original archives are retained.
+- Repeated consolidation may extract retained archives again.
+- Duplicate removal permanently deletes redundant files.
+- Duplicate detection identifies exact binary duplicates, not similar files.
+- Year and month organization use modification dates rather than creation dates.
+- ZIP extraction may not preserve original modification timestamps.
+- Execution failures are recorded by the loader.
+- Important files should be backed up before processing.
+
+---
 
 ## Function Utility
 

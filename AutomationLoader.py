@@ -58,6 +58,7 @@ AVAILABLE_CONSTANTS = {
     "Web Crawler utility": ("constants.WebCrawlerConstants", 1000),
     "Ubuntu ISO Editor utility": ("constants.UbuntuISOEditorConstants", 1000),
     "Router Editor Utility": ("constants.RouterConstants", 1000),
+    "File Consolidation utility": ("constants.FileConsolidationConstants", 1000),
     "Functions utility": ("constants.FunctionConstants", 1000),
     "Test Constants utility": ("constants.TestConstants", 1000),
 }
