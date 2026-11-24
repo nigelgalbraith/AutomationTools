@@ -11,7 +11,7 @@ from modules.file_consolidation_utils import (
     find_files,
     move_files,
     remove_duplicate_files,
-    find_files_by_extension,
+    organize_files,
     organize_files_by_year,
     organize_files_by_month,
 )
@@ -35,15 +35,6 @@ SOURCE_DIRECTORY_KEY = "source_directory"
 DESTINATION_DIRECTORY_KEY = "destination_directory"
 ARCHIVE_EXTENSIONS_KEY = "archive_extensions"
 ORGANIZATION_KEYS_SECTION = "organization_keys"
-DOCUMENTS_KEY = "documents"
-SPREADSHEETS_KEY = "spreadsheets"
-IMAGES_KEY = "images"
-VIDEO_KEY = "video"
-MUSIC_KEY = "music"
-HTML_KEY = "html"
-UNKNOWN_KEY = "unknown"
-DIRECTORY_KEY = "directory"
-EXTENSIONS_KEY = "extensions"
 YEAR_KEYS_SECTION = "year_keys"
 DIRECTORIES_KEY = "directories"
 MONTH_KEYS_SECTION = "month_keys"
@@ -62,7 +53,6 @@ VALIDATION_CONFIG: Dict[str, Any] = {
     },
 }
 
-
 # ---------------------------------------------------------------------
 # SECONDARY VALIDATION
 # ---------------------------------------------------------------------
@@ -73,17 +63,6 @@ SECONDARY_VALIDATION: Dict[str, Any] = {
             SOURCE_DIRECTORY_KEY: str,
             DESTINATION_DIRECTORY_KEY: str,
             ARCHIVE_EXTENSIONS_KEY: list,
-        },
-    },
-    ORGANIZATION_KEYS_SECTION: {
-        "required_job_fields": {
-            DOCUMENTS_KEY: dict,
-            SPREADSHEETS_KEY: dict,
-            IMAGES_KEY: dict,
-            VIDEO_KEY: dict,
-            MUSIC_KEY: dict,
-            HTML_KEY: dict,
-            UNKNOWN_KEY: dict,
         },
     },
     YEAR_KEYS_SECTION: {
@@ -300,152 +279,15 @@ REMOVE_DUPLICATE_FILES_EXEC = [
 # ---------------------------------------------------------------------
 
 ORGANIZE_FILES_EXEC = [
-    # Documents
     {
         "phase": "exec",
-        "fn": find_files_by_extension,
+        "fn": organize_files,
         "args": [
             f"meta.{FILE_KEYS_SECTION}.{DESTINATION_DIRECTORY_KEY}",
-            f"meta.{ORGANIZATION_KEYS_SECTION}.{DOCUMENTS_KEY}.{EXTENSIONS_KEY}",
+            f"meta.{ORGANIZATION_KEYS_SECTION}",
         ],
         "when": "paths_valid",
-        "result": "document_files",
-    },
-    {
-        "phase": "exec",
-        "fn": move_files,
-        "args": [
-            "document_files",
-            f"meta.{ORGANIZATION_KEYS_SECTION}.{DOCUMENTS_KEY}.{DIRECTORY_KEY}",
-        ],
-        "when": "document_files",
-        "result": "moved_documents",
-    },
-    # Spreadsheets
-    {
-        "phase": "exec",
-        "fn": find_files_by_extension,
-        "args": [
-            f"meta.{FILE_KEYS_SECTION}.{DESTINATION_DIRECTORY_KEY}",
-            f"meta.{ORGANIZATION_KEYS_SECTION}.{SPREADSHEETS_KEY}.{EXTENSIONS_KEY}",
-        ],
-        "when": "paths_valid",
-        "result": "spreadsheet_files",
-    },
-    {
-        "phase": "exec",
-        "fn": move_files,
-        "args": [
-            "spreadsheet_files",
-            f"meta.{ORGANIZATION_KEYS_SECTION}.{SPREADSHEETS_KEY}.{DIRECTORY_KEY}",
-        ],
-        "when": "spreadsheet_files",
-        "result": "moved_spreadsheets",
-    },
-    # Images
-    {
-        "phase": "exec",
-        "fn": find_files_by_extension,
-        "args": [
-            f"meta.{FILE_KEYS_SECTION}.{DESTINATION_DIRECTORY_KEY}",
-            f"meta.{ORGANIZATION_KEYS_SECTION}.{IMAGES_KEY}.{EXTENSIONS_KEY}",
-        ],
-        "when": "paths_valid",
-        "result": "image_files",
-    },
-    {
-        "phase": "exec",
-        "fn": move_files,
-        "args": [
-            "image_files",
-            f"meta.{ORGANIZATION_KEYS_SECTION}.{IMAGES_KEY}.{DIRECTORY_KEY}",
-        ],
-        "when": "image_files",
-        "result": "moved_images",
-    },
-    # Video
-    {
-        "phase": "exec",
-        "fn": find_files_by_extension,
-        "args": [
-            f"meta.{FILE_KEYS_SECTION}.{DESTINATION_DIRECTORY_KEY}",
-            f"meta.{ORGANIZATION_KEYS_SECTION}.{VIDEO_KEY}.{EXTENSIONS_KEY}",
-        ],
-        "when": "paths_valid",
-        "result": "video_files",
-    },
-    {
-        "phase": "exec",
-        "fn": move_files,
-        "args": [
-            "video_files",
-            f"meta.{ORGANIZATION_KEYS_SECTION}.{VIDEO_KEY}.{DIRECTORY_KEY}",
-        ],
-        "when": "video_files",
-        "result": "moved_video",
-    },
-    # Music
-    {
-        "phase": "exec",
-        "fn": find_files_by_extension,
-        "args": [
-            f"meta.{FILE_KEYS_SECTION}.{DESTINATION_DIRECTORY_KEY}",
-            f"meta.{ORGANIZATION_KEYS_SECTION}.{MUSIC_KEY}.{EXTENSIONS_KEY}",
-        ],
-        "when": "paths_valid",
-        "result": "music_files",
-    },
-    {
-        "phase": "exec",
-        "fn": move_files,
-        "args": [
-            "music_files",
-            f"meta.{ORGANIZATION_KEYS_SECTION}.{MUSIC_KEY}.{DIRECTORY_KEY}",
-        ],
-        "when": "music_files",
-        "result": "moved_music",
-    },
-    # HTML
-    {
-        "phase": "exec",
-        "fn": find_files_by_extension,
-        "args": [
-            f"meta.{FILE_KEYS_SECTION}.{DESTINATION_DIRECTORY_KEY}",
-            f"meta.{ORGANIZATION_KEYS_SECTION}.{HTML_KEY}.{EXTENSIONS_KEY}",
-        ],
-        "when": "paths_valid",
-        "result": "html_files",
-    },
-    {
-        "phase": "exec",
-        "fn": move_files,
-        "args": [
-            "html_files",
-            f"meta.{ORGANIZATION_KEYS_SECTION}.{HTML_KEY}.{DIRECTORY_KEY}",
-        ],
-        "when": "html_files",
-        "result": "moved_html",
-    },
-    # Unknown
-    {
-        "phase": "exec",
-        "fn": find_files_by_extension,
-        "args": [
-            f"meta.{FILE_KEYS_SECTION}.{DESTINATION_DIRECTORY_KEY}",
-            f"meta.{ORGANIZATION_KEYS_SECTION}.{UNKNOWN_KEY}.{EXTENSIONS_KEY}",
-        ],
-        "when": "paths_valid",
-        "result": "unknown_files",
-    },
-    {
-        "phase": "exec",
-        "fn": move_files,
-        "args": [
-            "unknown_files",
-            f"meta.{ORGANIZATION_KEYS_SECTION}.{UNKNOWN_KEY}.{DIRECTORY_KEY}",
-        ],
-        "when": "unknown_files",
-        "result": "moved_unknown",
+        "result": "organized_files",
     },
 ]
 

@@ -143,11 +143,14 @@ def move_files(
 def remove_duplicate_files(
     destination_directory: str,
 ) -> List[Path]:
-    """Remove files with identical binary contents."""
+    """Remove duplicate files, prioritizing previously organized files."""
     destination = Path(expand_path(destination_directory))
     hashes = {}
     removed = []
-    for path in sorted(destination.iterdir()):
+    paths = sorted(destination.rglob("*"))
+    organized = [path for path in paths if path.parent != destination]
+    unorganized = [path for path in paths if path.parent == destination]
+    for path in organized + unorganized:
         if not path.is_file() or path.is_symlink():
             continue
         with path.open("rb") as handle:
@@ -179,6 +182,27 @@ def find_files_by_extension(
             if not extensions or path.name.lower().endswith(extensions):
                 files.append(path)
     return files
+
+# ---------------------------------------------------------------------
+# ORGANIZE FILES
+# ---------------------------------------------------------------------
+
+def organize_files(
+    source_directory: str,
+    organization_keys: dict,
+) -> List[Path]:
+    """Organize files into configured category directories."""
+    moved = []
+    for category, settings in organization_keys.items():
+        files = find_files_by_extension(
+            source_directory,
+            settings["extensions"],
+        )
+        if files:
+            print(f"[OK] Organizing {category.capitalize()}: {len(files)} files")
+            moved.extend(move_files(files, settings["directory"]))
+    print(f"[OK] Total files organized: {len(moved)}")
+    return moved
 
 # ---------------------------------------------------------------------
 # ORGANIZE FILES BY YEAR

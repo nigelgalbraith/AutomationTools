@@ -37,6 +37,10 @@
         "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/HTML",
         "extensions": [".html", ".htm"]
       },
+      "python": {
+        "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Python",
+        "extensions": [".py", ".pyw"]
+      },
       "unknown": {
         "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Unknown",
         "extensions": []
@@ -50,6 +54,7 @@
         "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Video",
         "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Music",
         "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/HTML",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Python",
         "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Unknown"
       ]
     },
@@ -61,6 +66,7 @@
         "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Video",
         "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Music",
         "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/HTML",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Python",
         "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedOne/Unknown"
       ],
       "year_patterns": [
@@ -107,6 +113,10 @@
         "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/HTML",
         "extensions": [".html", ".htm"]
       },
+      "python": {
+        "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Python",
+        "extensions": [".py", ".pyw"]
+      },
       "unknown": {
         "directory": "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Unknown",
         "extensions": []
@@ -120,6 +130,7 @@
         "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Video",
         "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Music",
         "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/HTML",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Python",
         "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Unknown"
       ]
     },
@@ -131,6 +142,7 @@
         "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Video",
         "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Music",
         "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/HTML",
+        "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Python",
         "~/Documents/AutomationToolsData/fileConsolidation/ConsolidatedTwo/Unknown"
       ],
       "year_patterns": [
