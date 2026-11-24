@@ -1,4 +1,28 @@
 {
+  "FIXED_FIELDS": [
+    "<GROUP>.file_keys",
+    "<GROUP>.file_keys.source_directory",
+    "<GROUP>.file_keys.destination_directory",
+    "<GROUP>.file_keys.archive_extensions",
+    "<GROUP>.organization_keys",
+    "<GROUP>.year_keys",
+    "<GROUP>.year_keys.directories",
+    "<GROUP>.month_keys",
+    "<GROUP>.month_keys.directories",
+    "<GROUP>.month_keys.year_patterns"
+  ],
+  "EDITABLE_FIELDS": [
+    "<GROUP>",
+    "<GROUP>.file_keys.source_directory",
+    "<GROUP>.file_keys.destination_directory",
+    "<GROUP>.file_keys.archive_extensions.<VALUES>",
+    "<GROUP>.organization_keys.<CATEGORY>",
+    "<GROUP>.organization_keys.<CATEGORY>.directory",
+    "<GROUP>.organization_keys.<CATEGORY>.extensions.<VALUES>",
+    "<GROUP>.year_keys.directories.<VALUES>",
+    "<GROUP>.month_keys.directories.<VALUES>",
+    "<GROUP>.month_keys.year_patterns.<VALUES>"
+  ],
   "EXAMPLE": {
     "Files": {
       "file_keys": {
@@ -48,21 +72,13 @@
           "~/Downloads/Consolidated/Documents",
           "~/Downloads/Consolidated/Spreadsheets",
           "~/Downloads/Consolidated/Images",
-          "~/Downloads/Consolidated/Video",
-          "~/Downloads/Consolidated/Music",
-          "~/Downloads/Consolidated/HTML",
-          "~/Downloads/Consolidated/Unknown"
+          "~/Downloads/Consolidated/Video"
         ]
       },
       "month_keys": {
         "directories": [
-          "~/Downloads/Consolidated/Documents",
-          "~/Downloads/Consolidated/Spreadsheets",
           "~/Downloads/Consolidated/Images",
-          "~/Downloads/Consolidated/Video",
-          "~/Downloads/Consolidated/Music",
-          "~/Downloads/Consolidated/HTML",
-          "~/Downloads/Consolidated/Unknown"
+          "~/Downloads/Consolidated/Video"
         ],
         "year_patterns": [
           "19[0-9][0-9]",
@@ -72,39 +88,19 @@
     }
   },
   "DESCRIPTION": {
-    "<GROUP>": "A named file consolidation job. Multiple groups can be configured and processed independently.",
-    "<GROUP>.file_keys": "Configuration for archive extraction and file consolidation.",
-    "<GROUP>.file_keys.source_directory": "Existing source directory containing files, folders and archives. Ordinary files are moved, not copied.",
-    "<GROUP>.file_keys.destination_directory": "Separate destination directory where files are consolidated. Created if necessary. Filename collisions are resolved by appending a numeric suffix.",
-    "<GROUP>.file_keys.archive_extensions": "List of archive extensions to search for. Supports ZIP and TAR variants. RAR and 7z are not supported. An empty list disables archive extraction.",
-    "<GROUP>.organization_keys": "Configuration for organizing consolidated files into directories based on their file extensions.",
-    "<GROUP>.organization_keys.documents": "Configuration for document files.",
-    "<GROUP>.organization_keys.spreadsheets": "Configuration for spreadsheet files.",
-    "<GROUP>.organization_keys.images": "Configuration for image files.",
-    "<GROUP>.organization_keys.video": "Configuration for video files.",
-    "<GROUP>.organization_keys.music": "Configuration for music and audio files.",
-    "<GROUP>.organization_keys.html": "Configuration for HTML files.",
-    "<GROUP>.organization_keys.unknown": "Configuration for files that remain after the other file categories have been processed.",
-    "<GROUP>.organization_keys.<CATEGORY>.directory": "Destination directory for the specified file category. Created if necessary.",
-    "<GROUP>.organization_keys.<CATEGORY>.extensions": "List of file extensions belonging to the specified category. Extension matching is case-insensitive.",
-    "<GROUP>.organization_keys.unknown.extensions": "An empty list collects all remaining files. The unknown category is processed last.",
-    "<GROUP>.year_keys": "Configuration for organizing files into year directories.",
-    "<GROUP>.year_keys.directories": "List of directories to organize by file modification year. Only files directly within each specified directory are processed.",
-    "<GROUP>.month_keys": "Configuration for organizing files into month directories within existing year directories.",
-    "<GROUP>.month_keys.directories": "List of directories containing year subdirectories to organize by month.",
-    "<GROUP>.month_keys.year_patterns": "Glob patterns used to identify year directories. The default patterns match years from 1900 to 2099.",
-    "Consolidate Files": "Recursively find and extract archives, then move ordinary files into a flat destination directory. Original archives and empty source directories are retained.",
-    "Remove Duplicate Files": "Recursively search the destination directory for files with identical binary contents. Uses SHA-256 fingerprints and binary comparison to identify duplicates. Redundant copies are permanently deleted regardless of their filenames.",
-    "Organize Files": "Move files from the top level of the consolidation directory into their configured file category directories. Remaining files are moved into the Unknown directory.",
-    "Organize Files by Year": "Move files into year subdirectories using their last modification date. Year directories are created automatically.",
-    "Organize Files by Month": "Move files within existing year directories into month subdirectories using their last modification date. Month directories use the format MM-Month, such as 01-January and 12-December.",
-    "Run All": "Execute archive extraction, file consolidation, duplicate removal, organization by file extension, organization by year and organization by month in sequence.",
-    "Archives": "Archives are extracted within the source directory. Nested archives are also processed. Original archives are retained and recognized archives are excluded from the final file move.",
-    "Filename Collisions": "Files with matching destination filenames receive numeric suffixes such as _1 and _2 to prevent overwriting existing files.",
-    "Duplicate Detection": "Duplicate detection compares actual file contents rather than filenames, file extensions or modification dates. Files with different binary contents are retained.",
-    "File Dates": "Year and month organization use filesystem modification timestamps rather than creation timestamps. ZIP extraction may not preserve original modification timestamps.",
-    "Repeated Execution": "Retained archives may be extracted again when consolidation is repeated. Remove Duplicate Files can be used to remove identical copies.",
-    "Warning": "File consolidation and organization move files from their existing locations. Duplicate removal permanently deletes redundant files. Ensure important files are backed up before execution.",
-    "Usage": "python3 AutomationLoader.py --constants constants.FileConsolidationConstants"
+    "<GROUP>": "Each top-level JSON key is a named file consolidation job.",
+    "<GROUP>.file_keys": "Required. Configuration for archive extraction and file consolidation.",
+    "<GROUP>.file_keys.source_directory": "Required. Existing source directory containing files, folders and archives.",
+    "<GROUP>.file_keys.destination_directory": "Required. Destination directory where files are consolidated.",
+    "<GROUP>.file_keys.archive_extensions": "Required. List of archive extensions. An empty list disables archive extraction.",
+    "<GROUP>.organization_keys": "Required. Dictionary of file organization categories. An empty dictionary disables file type organization.",
+    "<GROUP>.organization_keys.<CATEGORY>": "Optional. Named file organization category.",
+    "<GROUP>.organization_keys.<CATEGORY>.directory": "Destination directory for the category.",
+    "<GROUP>.organization_keys.<CATEGORY>.extensions": "List of matching file extensions. An empty list collects all remaining files. Catch-all categories should be placed last.",
+    "<GROUP>.year_keys": "Required. Configuration for year organization.",
+    "<GROUP>.year_keys.directories": "Required. List of directories to organize by modification year. An empty list disables year organization.",
+    "<GROUP>.month_keys": "Required. Configuration for month organization.",
+    "<GROUP>.month_keys.directories": "Required. List of directories containing year subdirectories. An empty list disables month organization.",
+    "<GROUP>.month_keys.year_patterns": "Required. Glob patterns identifying year directories. An empty list matches no year directories."
   }
 }
