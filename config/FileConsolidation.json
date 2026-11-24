@@ -9,7 +9,9 @@
         ".tar.gz",
         ".tgz",
         ".tar.bz2",
-        ".tar.xz"
+        ".tar.xz",
+        ".7z",
+        ".rar"
       ]
     },
     "organization_keys": {
@@ -85,7 +87,9 @@
         ".tar.gz",
         ".tgz",
         ".tar.bz2",
-        ".tar.xz"
+        ".tar.xz",
+        ".7z",
+        ".rar"
       ]
     },
     "organization_keys": {

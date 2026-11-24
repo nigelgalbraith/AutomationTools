@@ -12,6 +12,7 @@ import zipfile
 import tarfile
 import hashlib
 import filecmp
+import subprocess
 from pathlib import Path
 from typing import List
 from datetime import datetime
@@ -71,18 +72,52 @@ def extract_archives(
     extensions = tuple(ext.lower() for ext in archive_extensions)
     pending = list(archives)
     extracted = []
+    seen = set()
+    seven_zip = (
+        shutil.which("7z")
+        or shutil.which("7zz")
+        or shutil.which("7za")
+    )
     while pending:
-        archive = pending.pop(0)
+        archive = pending.pop(0).resolve()
+        if archive in seen:
+            continue
+        seen.add(archive)
         directory = archive.parent / f"{archive.name}_extracted"
-        directory.mkdir(exist_ok=True)
-        if zipfile.is_zipfile(archive):
-            with zipfile.ZipFile(archive) as handle:
-                handle.extractall(directory)
-        elif tarfile.is_tarfile(archive):
-            with tarfile.open(archive, "r:*") as handle:
-                handle.extractall(directory, filter="data")
-        else:
-            raise ValueError(f"Unsupported archive: {archive}")
+        if directory.exists():
+            raise FileExistsError(
+                f"Extraction directory already exists: {directory}"
+            )
+        directory.mkdir()
+        try:
+            if zipfile.is_zipfile(archive):
+                with zipfile.ZipFile(archive) as handle:
+                    handle.extractall(directory)
+            elif tarfile.is_tarfile(archive):
+                with tarfile.open(archive, "r:*") as handle:
+                    handle.extractall(directory, filter="data")
+            elif archive.suffix.lower() in (".rar", ".7z"):
+                if not seven_zip:
+                    raise RuntimeError(
+                        "7-Zip is required to extract RAR and 7z archives."
+                    )
+                subprocess.run(
+                    [
+                        seven_zip,
+                        "x",
+                        str(archive),
+                        f"-o{directory}",
+                        "-y",
+                        "-p",
+                    ],
+                    check=True,
+                    stdin=subprocess.DEVNULL,
+                )
+            else:
+                raise ValueError(f"Unsupported archive: {archive}")
+        except Exception:
+            shutil.rmtree(directory)
+            raise
         extracted.append(directory)
         for path in directory.rglob("*"):
             if path.is_file() and not path.is_symlink():
@@ -111,6 +146,9 @@ def find_files(
     print(f"[OK] Files found: {len(files)} in {source_directory}")
     return files
 
+# ---------------------------------------------------------------------
+# FILE COLLECTION BY EXTENSION
+# ---------------------------------------------------------------------
 
 def find_extracted_files(
     extracted_directories: List[Path],
@@ -122,8 +160,27 @@ def find_extracted_files(
         files.extend(
             find_files(str(directory), archive_extensions)
         )
-    return list(dict.fromkeys(files))
+    files = list(dict.fromkeys(files))
+    print(f"[OK] Total unique extracted files found: {len(files)}")
+    return files
 
+# ---------------------------------------------------------------------
+# FILE COLLECTION BY EXTENSION
+# ---------------------------------------------------------------------
+
+def find_files_by_extension(
+    source_directory: str,
+    file_extensions: List[str],
+) -> List[Path]:
+    """Find files matching extensions or all files if the list is empty."""
+    source = Path(expand_path(source_directory))
+    extensions = tuple(ext.lower() for ext in file_extensions)
+    files = []
+    for path in source.iterdir():
+        if path.is_file() and not path.is_symlink():
+            if not extensions or path.name.lower().endswith(extensions):
+                files.append(path)
+    return files
 
 # ---------------------------------------------------------------------
 # EXTRACTION CLEANUP
@@ -218,43 +275,6 @@ def remove_duplicate_files(
             hashes[file_hash] = path
     print(f"[OK] Total duplicate files removed: {len(removed)}")
     return removed
-
-
-# ---------------------------------------------------------------------
-# FILE COLLECTION BY EXTENSION
-# ---------------------------------------------------------------------
-
-def find_extracted_files(
-    extracted_directories: List[Path],
-    archive_extensions: List[str],
-) -> List[Path]:
-    """Find files within extracted archive directories."""
-    files = []
-    for directory in extracted_directories:
-        files.extend(
-            find_files(str(directory), archive_extensions)
-        )
-    files = list(dict.fromkeys(files))
-    print(f"[OK] Total unique extracted files found: {len(files)}")
-    return files
-
-# ---------------------------------------------------------------------
-# FILE COLLECTION BY EXTENSION
-# ---------------------------------------------------------------------
-
-def find_files_by_extension(
-    source_directory: str,
-    file_extensions: List[str],
-) -> List[Path]:
-    """Find files matching extensions or all files if the list is empty."""
-    source = Path(expand_path(source_directory))
-    extensions = tuple(ext.lower() for ext in file_extensions)
-    files = []
-    for path in source.iterdir():
-        if path.is_file() and not path.is_symlink():
-            if not extensions or path.name.lower().endswith(extensions):
-                files.append(path)
-    return files
     
 # ---------------------------------------------------------------------
 # ORGANIZE FILES
