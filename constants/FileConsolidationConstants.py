@@ -9,7 +9,10 @@ from modules.file_consolidation_utils import (
     find_archives,
     extract_archives,
     find_files,
+    find_extracted_files,
+    copy_files,
     move_files,
+    cleanup_extracted_directories,
     remove_duplicate_files,
     organize_files,
     organize_files_by_year,
@@ -113,10 +116,19 @@ DEPENDENCIES = []
 ACTIONS: Dict[str, Dict[str, Any]] = {
     "_meta": {"title": "File Consolidation"},
 
-    "Consolidate Files": {
-        "verb": "consolidate_files",
-        "prompt": "Extract archives and move the planned files? [y/n]: ",
-        "execute_state": "CONSOLIDATE_FILES",
+    "Extract Archives": {
+        "verb": "extract_archives",
+        "prompt": "Extract archives and move extracted files to the destination directory? [y/n]: ",
+        "execute_state": "EXTRACT_ARCHIVES",
+        "post_state": "MENU_SELECTION",
+        "skip_prepare_plan": False,
+        "skip_confirm": False,
+    },
+
+    "Copy Source Files": {
+        "verb": "copy_source_files",
+        "prompt": "Copy source files to the destination directory? [y/n]: ",
+        "execute_state": "COPY_SOURCE_FILES",
         "post_state": "MENU_SELECTION",
         "skip_prepare_plan": False,
         "skip_confirm": False,
@@ -231,11 +243,55 @@ EXTRACT_ARCHIVES_EXEC = [
 ]
 
 
+
 # ---------------------------------------------------------------------
-# FILE CONSOLIDATION STEPS
+# MOVE EXTRACTED FILES STEPS
 # ---------------------------------------------------------------------
 
-CONSOLIDATE_FILES_EXEC = [
+MOVE_EXTRACTED_FILES_EXEC = [
+    {
+        "phase": "exec",
+        "fn": find_extracted_files,
+        "args": [
+            "extracted_directories",
+            f"meta.{FILE_KEYS_SECTION}.{ARCHIVE_EXTENSIONS_KEY}",
+        ],
+        "when": "paths_valid",
+        "result": "extracted_files",
+    },
+    {
+        "phase": "exec",
+        "fn": move_files,
+        "args": [
+            "extracted_files",
+            f"meta.{FILE_KEYS_SECTION}.{DESTINATION_DIRECTORY_KEY}",
+        ],
+        "when": "paths_valid",
+        "result": "moved_files",
+    },
+]
+
+# ---------------------------------------------------------------------
+# CLEANUP EXTRACTED DIRECTORIES STEPS
+# ---------------------------------------------------------------------
+
+CLEANUP_EXTRACTED_DIRECTORIES_EXEC = [
+    {
+        "phase": "exec",
+        "fn": cleanup_extracted_directories,
+        "args": [
+            "extracted_directories",
+        ],
+        "when": "paths_valid",
+        "result": "removed_directories",
+    },
+]
+
+# ---------------------------------------------------------------------
+# COPY SOURCE FILES STEPS
+# ---------------------------------------------------------------------
+
+COPY_SOURCE_FILES_EXEC = [
     {
         "phase": "exec",
         "fn": find_files,
@@ -248,13 +304,13 @@ CONSOLIDATE_FILES_EXEC = [
     },
     {
         "phase": "exec",
-        "fn": move_files,
+        "fn": copy_files,
         "args": [
             "files",
             f"meta.{FILE_KEYS_SECTION}.{DESTINATION_DIRECTORY_KEY}",
         ],
         "when": "paths_valid",
-        "result": "moved_files",
+        "result": "copied_files",
     },
 ]
 
@@ -343,13 +399,21 @@ SHOW_CONFIG_DOC_EXEC = [
 # ---------------------------------------------------------------------
 
 PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
-    "CONSOLIDATE_FILES": {
+    "EXTRACT_ARCHIVES": {
         "pipeline": [
             *VALIDATE_PATHS_PRE,
             *EXTRACT_ARCHIVES_EXEC,
-            *CONSOLIDATE_FILES_EXEC,
+            *MOVE_EXTRACTED_FILES_EXEC,
+            *CLEANUP_EXTRACTED_DIRECTORIES_EXEC,
         ],
-        "label": "CONSOLIDATE_FILES_COMPLETE",
+        "label": "EXTRACT_ARCHIVES_COMPLETE",
+    },
+    "COPY_SOURCE_FILES": {
+        "pipeline": [
+            *VALIDATE_PATHS_PRE,
+            *COPY_SOURCE_FILES_EXEC,
+        ],
+        "label": "COPY_SOURCE_FILES_COMPLETE",
     },
     "REMOVE_DUPLICATE_FILES": {
         "pipeline": [
@@ -383,7 +447,9 @@ PIPELINE_STATES: Dict[str, Dict[str, Any]] = {
         "pipeline": [
             *VALIDATE_PATHS_PRE,
             *EXTRACT_ARCHIVES_EXEC,
-            *CONSOLIDATE_FILES_EXEC,
+            *MOVE_EXTRACTED_FILES_EXEC,
+            *CLEANUP_EXTRACTED_DIRECTORIES_EXEC,
+            *COPY_SOURCE_FILES_EXEC,
             *REMOVE_DUPLICATE_FILES_EXEC,
             *ORGANIZE_FILES_EXEC,
             *ORGANIZE_FILES_BY_YEAR_EXEC,

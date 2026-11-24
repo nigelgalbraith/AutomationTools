@@ -108,13 +108,68 @@ def find_files(
         if path.is_file() and not path.is_symlink():
             if not path.name.lower().endswith(extensions):
                 files.append(path)
-    print(f"[OK] Files found: {len(files)}")
+    print(f"[OK] Files found: {len(files)} in {source_directory}")
     return files
 
+
+def find_extracted_files(
+    extracted_directories: List[Path],
+    archive_extensions: List[str],
+) -> List[Path]:
+    """Find files within extracted archive directories."""
+    files = []
+    for directory in extracted_directories:
+        files.extend(
+            find_files(str(directory), archive_extensions)
+        )
+    return list(dict.fromkeys(files))
+
+
+# ---------------------------------------------------------------------
+# EXTRACTION CLEANUP
+# ---------------------------------------------------------------------
+
+def cleanup_extracted_directories(
+    extracted_directories: List[Path],
+) -> List[Path]:
+    """Recursively remove generated extraction directories."""
+    removed = []
+
+    for directory in sorted(
+        set(extracted_directories),
+        key=lambda path: len(path.parts),
+        reverse=True,
+    ):
+        if directory.is_dir() and not directory.is_symlink():
+            shutil.rmtree(directory)
+            removed.append(directory)
+
+    print(f"[OK] Total extraction directories removed: {len(removed)}")
+    return removed
 
 # ---------------------------------------------------------------------
 # FILE CONSOLIDATION
 # ---------------------------------------------------------------------
+
+def copy_files(
+    files: List[Path],
+    destination_directory: str,
+) -> List[Path]:
+    """Copy files into a flat destination directory."""
+    destination = Path(expand_path(destination_directory))
+    destination.mkdir(parents=True, exist_ok=True)
+    copied = []
+    for source in files:
+        target = destination / source.name
+        index = 1
+        while target.exists() or target.is_symlink():
+            target = destination / f"{source.stem}_{index}{source.suffix}"
+            index += 1
+        shutil.copy2(source, target)
+        copied.append(target)
+    print(f"[OK] Total files copied: {len(copied)}")
+    return copied
+
 
 def move_files(
     files: List[Path],
@@ -169,6 +224,24 @@ def remove_duplicate_files(
 # FILE COLLECTION BY EXTENSION
 # ---------------------------------------------------------------------
 
+def find_extracted_files(
+    extracted_directories: List[Path],
+    archive_extensions: List[str],
+) -> List[Path]:
+    """Find files within extracted archive directories."""
+    files = []
+    for directory in extracted_directories:
+        files.extend(
+            find_files(str(directory), archive_extensions)
+        )
+    files = list(dict.fromkeys(files))
+    print(f"[OK] Total unique extracted files found: {len(files)}")
+    return files
+
+# ---------------------------------------------------------------------
+# FILE COLLECTION BY EXTENSION
+# ---------------------------------------------------------------------
+
 def find_files_by_extension(
     source_directory: str,
     file_extensions: List[str],
@@ -182,7 +255,7 @@ def find_files_by_extension(
             if not extensions or path.name.lower().endswith(extensions):
                 files.append(path)
     return files
-
+    
 # ---------------------------------------------------------------------
 # ORGANIZE FILES
 # ---------------------------------------------------------------------
