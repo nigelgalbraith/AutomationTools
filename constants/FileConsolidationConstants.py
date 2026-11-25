@@ -219,6 +219,7 @@ VALIDATE_PATHS_PRE = [
 # ARCHIVE STEPS
 # ---------------------------------------------------------------------
 
+
 EXTRACT_ARCHIVES_EXEC = [
     {
         "phase": "exec",
@@ -237,11 +238,10 @@ EXTRACT_ARCHIVES_EXEC = [
             "archives",
             f"meta.{FILE_KEYS_SECTION}.{ARCHIVE_EXTENSIONS_KEY}",
         ],
-        "when": "paths_valid",
+        "when": ["paths_valid", "archives"],
         "result": "extracted_directories",
     },
 ]
-
 
 
 # ---------------------------------------------------------------------
@@ -256,7 +256,7 @@ MOVE_EXTRACTED_FILES_EXEC = [
             "extracted_directories",
             f"meta.{FILE_KEYS_SECTION}.{ARCHIVE_EXTENSIONS_KEY}",
         ],
-        "when": "paths_valid",
+        "when": ["paths_valid", "extracted_directories"],
         "result": "extracted_files",
     },
     {
@@ -266,14 +266,16 @@ MOVE_EXTRACTED_FILES_EXEC = [
             "extracted_files",
             f"meta.{FILE_KEYS_SECTION}.{DESTINATION_DIRECTORY_KEY}",
         ],
-        "when": "paths_valid",
+        "when": ["paths_valid", "extracted_files"],
         "result": "moved_files",
     },
 ]
 
+
 # ---------------------------------------------------------------------
 # CLEANUP EXTRACTED DIRECTORIES STEPS
 # ---------------------------------------------------------------------
+
 
 CLEANUP_EXTRACTED_DIRECTORIES_EXEC = [
     {
@@ -282,7 +284,11 @@ CLEANUP_EXTRACTED_DIRECTORIES_EXEC = [
         "args": [
             "extracted_directories",
         ],
-        "when": "paths_valid",
+        "when": [
+            "paths_valid",
+            "extracted_directories",
+            "moved_files",
+        ],
         "result": "removed_directories",
     },
 ]
